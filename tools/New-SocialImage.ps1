@@ -26,7 +26,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
-$assembly = Join-Path $PSScriptRoot "..\src\RateTray\bin\$Configuration\net9.0-windows\RateTray.dll"
+$assembly = Join-Path $PSScriptRoot "..\src\RateTray\bin\$Configuration\net9.0-windows\Gaugely.dll"
 if (-not (Test-Path $assembly)) { throw "Build first: dotnet build -c $Configuration" }
 [void][System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes((Resolve-Path $assembly)))
 
@@ -57,12 +57,12 @@ $family = 'Segoe UI'
 $mono = New-Object System.Drawing.Font('Consolas', 26, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
 $dim = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 139, 146, 158))
 $fmt = New-Object System.Drawing.StringFormat
-$g.DrawString('R A T E T R A Y', $mono, $dim, [single]$left, [single]72, $fmt)
+$g.DrawString('G A U G E L Y', $mono, $dim, [single]$left, [single]72, $fmt)
 
 # Headline, wrapped by hand so the line breaks land where they read best.
 $titleFont = New-Object System.Drawing.Font($family, 62, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
 $text = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 236, 238, 242))
-$lines = @('Live usage limits for', 'Claude Code and Codex,', 'in the Windows tray.')
+$lines = @('Live AI usage limits', 'and API spending,', 'in the Windows tray.')
 $y = 140
 foreach ($line in $lines) {
     $g.DrawString($line, $titleFont, $text, [single]$left, [single]$y, $fmt)
@@ -105,7 +105,7 @@ foreach ($s in $samples) {
 
 # Domain, bottom right of the strip, so the card names where it came from.
 $domainFont = New-Object System.Drawing.Font('Consolas', 24, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-$domain = 'ratetray.nowrap.net'
+$domain = 'github.com/kimmansur/gaugely'
 $domainSize = $g.MeasureString($domain, $domainFont)
 $g.DrawString($domain, $domainFont, $dim, [single]($stripRight - $domainSize.Width - 40), [single]($stripTop + ($stripHeight - $domainSize.Height) / 2), $fmt)
 

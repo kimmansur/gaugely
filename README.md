@@ -30,8 +30,9 @@ work come from there. Credit and thanks go to the original project.
   | DeepSeek | — | Balance |
 
 - **A settings window for everything.** Sidebar with Services, Tray, Floating widget,
-  Appearance, Alerts, Updates and Advanced; light and dark. Every option in `settings.json` can be
-  changed there, and `settings.json` still works: edits to the file apply while the app runs, and
+  Appearance, Alerts, Updates and Advanced; light and dark. Everything you would normally change is
+  there — only the fixed Claude endpoint paths and client id stay file-only — and `settings.json`
+  still works: edits to the file apply while the app runs, and
   an invalid file is ignored until it is valid again.
 - **API keys pasted in the window go only to the Windows Credential Manager**, never to
   `settings.json`. A **Test** button reads the service on the spot.
@@ -61,6 +62,9 @@ work come from there. Credit and thanks go to the original project.
    ```powershell
    Get-FileHash Gaugely.exe -Algorithm SHA256
    ```
+
+   The hash must be the one on the `Gaugely.exe` line of `SHA256SUMS.txt`. If it differs, do not
+   run the file.
 
 4. Put it in a folder of its own — not your Downloads — and start it. Tick
    **Start with Windows** in the tray menu if you want it at logon.

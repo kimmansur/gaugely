@@ -1138,23 +1138,23 @@ public sealed class TrayApp : ApplicationContext
     /// gravações seguidas). Precisa de um ícone na bandeja para ancorar o balão; no modo só-faixa
     /// não há nenhum, e um ícone do app aparece só pelo tempo do aviso.
     /// </summary>
-    private void ShowNotice(string text, ref DateTime lastShown)
+    private void ShowNotice(string text, ref DateTime lastShown, string title = "Gaugely", ToolTipIcon icon = ToolTipIcon.Warning)
     {
         if (DateTime.UtcNow - lastShown < TimeSpan.FromSeconds(30)) return;
         lastShown = DateTime.UtcNow;
 
         if (_icons.Values.FirstOrDefault(i => i.Visible) is { } anchor)
         {
-            anchor.BalloonTipTitle = "Gaugely";
+            anchor.BalloonTipTitle = title;
             anchor.BalloonTipText = text;
-            anchor.BalloonTipIcon = ToolTipIcon.Warning;
+            anchor.BalloonTipIcon = icon;
             anchor.ShowBalloonTip(10_000);
             return;
         }
 
         if (_neutralIcon is { Visible: true } neutral)
         {
-            neutral.ShowBalloonTip(10_000, "Gaugely", text, ToolTipIcon.Warning);
+            neutral.ShowBalloonTip(10_000, title, text, icon);
             return;
         }
 
@@ -1166,7 +1166,7 @@ public sealed class TrayApp : ApplicationContext
             temporary.Visible = false;
             temporary.Dispose();
         };
-        temporary.ShowBalloonTip(10_000, "Gaugely", text, ToolTipIcon.Warning);
+        temporary.ShowBalloonTip(10_000, title, text, icon);
         timer.Start();
     }
 
@@ -1252,13 +1252,10 @@ public sealed class TrayApp : ApplicationContext
     {
         if (!result.IsNewer) return;
 
-        var anchor = _icons.Values.FirstOrDefault(i => i.Visible);
-        if (anchor is null) return;
-
-        anchor.BalloonTipTitle = Loc.T("about.title");
-        anchor.BalloonTipText = Loc.T("about.updateNotice", result.Latest.ToString(3));
-        anchor.BalloonTipIcon = ToolTipIcon.Info;
-        anchor.ShowBalloonTip(10_000);
+        // Mesmo canal dos outros avisos: sem ícone de serviço na bandeja (modo só-faixa), um ícone
+        // temporário do app ancora o balão, em vez de a notificação prometida sumir.
+        var never = DateTime.MinValue;
+        ShowNotice(Loc.T("about.updateNotice", result.Latest.ToString(3)), ref never, Loc.T("about.title"), ToolTipIcon.Info);
     }
 
     private void SetLatestUpdate(UpdateCheck.Result result)

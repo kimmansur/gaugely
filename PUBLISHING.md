@@ -43,8 +43,9 @@ before tagging.
 ## What is deliberately not in the repository
 
 - `settings.json` and `cache.json` — user state, under `%APPDATA%\Gaugely\`.
-- Anthropic or OpenAI logos — trademarks. The service marks are generic shapes drawn in
-  `ServiceBadge.cs`, and `README` says so explicitly under *Trademarks*.
+- Nothing that implies endorsement. The service logos under `src/RateTray/Logos/` come from
+  lobe-icons (MIT) and are used only to identify each service; the trademark notice is in
+  `THIRD-PARTY-NOTICES.md`.
 - Real usage numbers. Test fixtures use the real payload *shape* with invented values.
 
 ## Worth knowing about the screenshots
@@ -61,3 +62,9 @@ pwsh tools/New-Screenshots.ps1
 
 They come out 840 px wide because the script runs on a 150 % display; the window is 560 logical
 pixels.
+
+## Social preview
+
+`docs/social.png` is not in the repository at the moment: the old card still said RateTray.
+`tools/New-SocialImage.ps1` draws the Gaugely card; it needs PowerShell 7.5 or later (.NET 9) and a
+Release build. Upload the result once under Settings → General → Social preview.

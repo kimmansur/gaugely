@@ -11,11 +11,12 @@ out.
 
 | Path | Why | Written? |
 |---|---|---|
-| `%USERPROFILE%\.claude\.credentials.json` | OAuth access token for the Claude usage request | Only with `claude.autoRefreshToken` enabled — see below |
+| `%USERPROFILE%\.claude\.credentials.json` (or the file set in `claude.credentialsPath`) | OAuth access token for the Claude usage request | Only with `claude.autoRefreshToken` enabled — see below |
 | `%USERPROFILE%\.codex\auth.json` | `exp` claim of the access token, to report sign-in validity | Never |
-| `%APPDATA%\Gaugely\settings.json` | This app's own configuration | Yes |
+| `%APPDATA%\Gaugely\settings.json` | This app's own configuration | Yes, through `settings.json.tmp`; an unreadable file is kept as `settings.json.bad` |
 | `%APPDATA%\Gaugely\cache.json` | Last readings, so a restart shows numbers at once | Yes |
 | `%APPDATA%\RateTray\settings.json` | Copied once into the folder above on first start, if present | Never |
+| `%LOCALAPPDATA%\Gaugely\agy-cwd\`, `agy-usage.log` | Working folder and single log file for the `agy` call, so it does not leave a new log per poll | Yes |
 
 The copied file goes through the same `Normalize()` as any other settings file, so FORK-1 and
 FORK-2 apply to it. Opt-ins that were on before — `autoRefreshToken`, for instance — stay on.
@@ -43,7 +44,9 @@ A **Start with Windows** entry from RateTray is moved over only when it launches
 fully qualified path — quoted, or without spaces, since Windows itself reads an unquoted
 `C:\Program Files\…` as `C:\Program` plus arguments — and never replaces an existing Gaugely entry.
 
-**Network** — every destination is a constant in the code, not a setting:
+**Network** — every host is fixed in the code. The only network settings are the paths of the two
+Claude URLs (`claude.usageUrl`, `claude.tokenUrl`), and FORK-1 sends any other host back to the
+official one:
 
 | Destination | When | What is sent |
 |---|---|---|
@@ -94,9 +97,9 @@ every loaded configuration passes through:
 
 ## Updates
 
-The update check is off by default. When enabled in About, it asks the GitHub API for this
-repository's latest release once a day. A newer release produces a notification; nothing is
-downloaded until you press **Download and install**.
+The update check is off by default. When enabled in Settings → Updates or in About, it asks the
+GitHub API for this repository's latest release once a day. A newer release produces a
+notification; nothing is downloaded until you press **Download and install**.
 
 The installer then:
 
@@ -113,7 +116,14 @@ The installer then:
 **Limit, stated plainly:** the checksum is published in the same release as the binary. It proves
 the file was not altered on the way, not who published it. Someone in control of this GitHub
 account could publish a matching pair. That is why installing needs a click, and why a release is
-only built by the tag-triggered workflow, with every third-party action pinned to a commit.
+only built by the release workflow — started by pushing a tag, or by hand for an existing tag —
+which checks out that tag, verifies it, runs every test first, and pins every third-party action
+to a commit.
+
+The download URL is checked before the request: it has to be one of this repository's release
+assets. GitHub answers that URL with a redirect to its own file storage, and the download follows
+it — that is how release assets are served. What the installer relies on is therefore not the
+final host but the file itself: its SHA256 and the version written inside it.
 
 ## Reporting a vulnerability
 

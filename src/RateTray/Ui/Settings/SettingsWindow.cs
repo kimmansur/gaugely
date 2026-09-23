@@ -128,6 +128,14 @@ public sealed partial class SettingsWindow : Form
         _navList.BackColor = _theme.Sidebar;
         _navList.Margin = Padding.Empty;
         _navList.Padding = new Padding(0, 6, 0, 0);
+        _navList.AutoScroll = true;                // letra grande numa tela baixa: os 7 itens não cabem
+        _navList.HandleCreated += (_, _) => SettingsTheme.ThemeScrollBars(_navList, _theme.Dark);
+        // Os itens acompanham a largura útil: quando a barra vertical aparece, eles encolhem em vez
+        // de criar uma barra horizontal.
+        _navList.ClientSizeChanged += (_, _) =>
+        {
+            foreach (Control item in _navList.Controls) item.Width = Math.Max(1, _navList.ClientSize.Width - item.Margin.Horizontal);
+        };
         _sidebar.Controls.Add(_navList);
 
         var footer = new Label
@@ -322,7 +330,7 @@ public sealed partial class SettingsWindow : Form
     {
         // Sem largura mínima: numa tela estreita ou com escala alta, um mínimo fixo virava rolagem
         // horizontal e cortava os cartões. O conteúdo quebra linha e os cartões viram uma coluna.
-        var width = Math.Max(Shapes.Scale(this, 200), page.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
+        var width = Math.Max(1, page.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
         stack.MaximumSize = new Size(width, 0);
         foreach (Control child in stack.Controls)
         {
@@ -449,7 +457,7 @@ public sealed partial class SettingsWindow : Form
                     // Caixa + botão: numa linha só, na metade da linha; quem cede espaço é a caixa.
                     var others = flow.Controls.Cast<Control>().Where(c => c != box).Sum(c => c.Width + c.Margin.Horizontal);
                     flow.WrapContents = false;
-                    box.Width = Math.Max(Shapes.Scale(this, 60), Math.Min(boxPreferred, allowed - others - box.Margin.Horizontal));
+                    box.Width = Math.Max(Shapes.Scale(this, 24), Math.Min(boxPreferred, allowed - others - box.Margin.Horizontal));
                     break;
                 case FlowLayoutPanel flow:
                     // Painel que quebra linha dentro de coluna de largura automática colapsa para um

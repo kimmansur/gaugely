@@ -50,6 +50,12 @@ public sealed partial class SettingsWindow
             c => c.DeepSeek.Enabled, (c, v) => c.DeepSeek.Enabled = v),
     ];
 
+    /// <summary>
+    /// Se há chave no cofre. A renderização de prova troca por "nunca": as imagens publicadas não
+    /// podem contar quais chaves existem na máquina de quem as gerou.
+    /// </summary>
+    internal static Func<string, bool> HasKey { get; set; } = CredentialVault.Has;
+
     private Control ServicesPage()
     {
         var (page, stack) = NewPage(Loc.T("settings.nav.services"), Loc.T("settings.services.subtitle"));
@@ -288,7 +294,7 @@ public sealed partial class SettingsWindow
 
         void ShowState()
         {
-            var has = CredentialVault.Has(vaultService);
+            var has = HasKey(vaultService);
             state.Text = (has ? "\u25CF " : "\u25CB ") + Loc.T(has ? "settings.keys.configured" : "settings.keys.notConfigured");
             state.ForeColor = has ? _theme.Good : _theme.Muted;
             remove.Enabled = has;
@@ -372,7 +378,7 @@ public sealed partial class SettingsWindow
 
         if (result is null)
         {
-            var needsKey = info.VaultService is { } v && !CredentialVault.Has(v);
+            var needsKey = info.VaultService is { } v && !HasKey(v);
             status.ForeColor = _theme.Muted;
             status.Text = Loc.T(needsKey ? "settings.status.noKey"
                 : info.GetEnabled(_draft) ? "settings.status.waiting" : "settings.status.off");

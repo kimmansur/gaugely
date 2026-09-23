@@ -283,7 +283,7 @@
   "error.antigravity.noLimits": "agy n'a signalé aucune limite",
   "error.kimi.noKey": "Pas de clé Kimi — ajoutez-en une dans Paramètres → Services",
   "error.kimi.rejected": "Kimi a refusé la clé",
-  "error.kimi.forbidden": "Kimi : cette clé n'a ni autorisation ni quota",
+  "error.kimi.forbidden": "Kimi : cette clé n'a pas l'autorisation ou le quota nécessaire",
   "error.kimi.rateLimited": "Limite de requêtes Kimi atteinte — nouvel essai après une pause",
   "error.kimi.timeout": "L'API d'utilisation de Kimi n'a pas répondu en {0} s",
   "error.kimi.http": "HTTP {0} renvoyé par l'API d'utilisation de Kimi",

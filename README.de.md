@@ -30,8 +30,9 @@ ausmacht, stammen von dort. Dank und Anerkennung gehen an das ursprüngliche Pro
   | DeepSeek | — | Guthaben |
 
 - **Ein Einstellungsfenster für alles.** Seitenleiste mit Dienste, Infobereich, Schwebendes
-  Widget, Darstellung, Warnungen, Updates und Erweitert; hell und dunkel. Jede Option aus
-  `settings.json` lässt sich dort ändern, und `settings.json` funktioniert weiterhin: Änderungen an
+  Widget, Darstellung, Warnungen, Updates und Erweitert; hell und dunkel. Alles, was man
+  üblicherweise ändert, ist dort — nur die festen Claude-Endpunktpfade und die Client-ID bleiben in
+  der Datei — und `settings.json` funktioniert weiterhin: Änderungen an
   der Datei gelten, während die App läuft, und eine ungültige Datei wird ignoriert, bis sie wieder
   gültig ist.
 - **Im Fenster eingefügte API-Schlüssel landen nur in der Windows-Anmeldeinformationsverwaltung**,
@@ -64,6 +65,9 @@ ausmacht, stammen von dort. Dank und Anerkennung gehen an das ursprüngliche Pro
    ```powershell
    Get-FileHash Gaugely.exe -Algorithm SHA256
    ```
+
+   Der Hash muss dem in der Zeile `Gaugely.exe` der `SHA256SUMS.txt` entsprechen. Weicht er ab,
+   starte die Datei nicht.
 
 4. Lege sie in einen eigenen Ordner — nicht in „Downloads“ — und starte sie. Setze im Menü des
    Infobereichs den Haken bei **Mit Windows starten**, wenn sie bei der Anmeldung starten soll.

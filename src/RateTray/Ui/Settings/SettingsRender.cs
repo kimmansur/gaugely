@@ -7,7 +7,8 @@ namespace RateTray.Ui.Settings;
 /// <summary>
 /// Fork: prova visual da janela de ajustes. Para cada idioma, abre a janela fora da tela com dados
 /// de exemplo e grava, por página, a janela no tamanho padrão e o conteúdo inteiro da página.
-/// Nenhuma leitura real é feita e nada é salvo; só o "Chave salva" reflete o cofre da máquina.
+/// Nenhuma leitura real é feita, nada é salvo e o cofre não é consultado: toda chave aparece
+/// como ausente.
 /// </summary>
 internal static class SettingsRender
 {
@@ -27,6 +28,7 @@ internal static class SettingsRender
 
         Directory.CreateDirectory(directory);
         var written = 0;
+        SettingsWindow.HasKey = _ => false;          // nada do cofre desta máquina entra na imagem
         foreach (var language in Loc.Available)
         {
             if (onlyLanguage is not null && onlyLanguage != "all" && !language.Equals(onlyLanguage, StringComparison.OrdinalIgnoreCase))
