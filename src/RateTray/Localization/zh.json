@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "一个小把手，用鼠标拖动即可移动悬浮窗。",
   "settings.widget.items": "悬浮窗项目",
   "settings.widget.itemsHint": "与托盘图标分开选择。",
+  "settings.widget.dial": "仪表样式",
+  "settings.widget.dialHint": "悬浮窗中每项服务的仪表形状。",
+  "settings.widget.dial.gauge": "G 形仪表",
+  "settings.widget.dial.semicircle": "半圆",
+  "settings.widget.dial.segmented": "分段",
 
   "settings.appearance.subtitle": "语言、颜色和图标外观。",
   "settings.language": "语言",

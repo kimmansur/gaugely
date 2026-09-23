@@ -30,19 +30,30 @@ internal static class Program
 
         // Fork: `--render-ui <pasta> [idioma] [tema]` desenha cada página dos ajustes em PNG, com dados
         // de exemplo — prova visual de layout e tradução sem abrir janela para ninguém.
+        // Fork: `--render-icon <arquivo.ico>` gera o ícone do app a partir de GaugelyMark — é o que
+        // tools/New-AppIcon.ps1 chama. O .ico no repositório é resultado, não fonte.
+        var icon = Array.FindIndex(args, a => a.Equals("--render-icon", StringComparison.OrdinalIgnoreCase));
+        if (icon >= 0)
+        {
+            if (icon + 1 >= args.Length) { Console.Error.WriteLine("usage: Gaugely.exe --render-icon <file.ico>"); return 2; }
+            File.WriteAllBytes(args[icon + 1], Ui.GaugelyMark.CreateIco(Ui.GaugelyMark.IconSizes));
+            return 0;
+        }
+
         var render = Array.FindIndex(args, a => a.Equals("--render-ui", StringComparison.OrdinalIgnoreCase));
         if (render >= 0)
         {
             if (render + 1 >= args.Length || args[render + 1].StartsWith("--", StringComparison.Ordinal))
             {
-                Console.Error.WriteLine("usage: Gaugely.exe --render-ui <folder> [language|all] [dark|light|auto]");
+                Console.Error.WriteLine("usage: Gaugely.exe --render-ui <folder> [language|all] [dark|light|auto] [gauge|semicircle|segmented]");
                 return 2;
             }
 
             ApplicationConfiguration.Initialize();
             return Ui.Settings.SettingsRender.Run(args[render + 1],
                 render + 2 < args.Length ? args[render + 2] : null,
-                render + 3 < args.Length ? args[render + 3] : "dark");
+                render + 3 < args.Length ? args[render + 3] : "dark",
+                render + 4 < args.Length ? args[render + 4] : null);
         }
 
         // A second instance would add duplicate tray icons for the same limits.

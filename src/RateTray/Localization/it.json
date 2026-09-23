@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "Una piccola maniglia per spostare il widget con il mouse.",
   "settings.widget.items": "Elementi del widget",
   "settings.widget.itemsHint": "Si scelgono separatamente dalle icone dell'area di notifica.",
+  "settings.widget.dial": "Quadrante",
+  "settings.widget.dialHint": "La forma dell'indicatore di ogni servizio nel widget.",
+  "settings.widget.dial.gauge": "Indicatore G",
+  "settings.widget.dial.semicircle": "Semicerchio",
+  "settings.widget.dial.segmented": "A segmenti",
 
   "settings.appearance.subtitle": "Lingua, colori e aspetto delle icone.",
   "settings.language": "Lingua",

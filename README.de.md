@@ -42,8 +42,9 @@ ausmacht, stammen von dort. Dank und Anerkennung gehen an das ursprüngliche Pro
   und Koreanisch.
 - **Ein Symbol pro Dienst.** Der Infobereich zeigt das Limit, das zuerst ausläuft; die Karte beim
   Überfahren zeigt die Limits dieses Dienstes.
-- **Schwebende Leiste.** Ein Ring pro Dienst, immer im Vordergrund, waagerecht oder senkrecht,
-  in der Größe veränderbar, mit einem *Notch*-Modus, der sie bündig an einen Bildschirmrand setzt.
+- **Schwebende Leiste.** Eine Anzeige pro Dienst — G-Anzeige, Halbkreis oder segmentierter Ring,
+  nach Wahl — immer im Vordergrund, waagerecht oder senkrecht, in der Größe veränderbar, mit einem
+  *Notch*-Modus, der sie bündig an einen Bildschirmrand setzt.
 - **Härtung** — siehe [SECURITY.md](SECURITY.md):
   - **FORK-1** — die Claude-Endpunkte für Nutzung und Token lassen sich über `settings.json` nicht
     auf einen anderen Host umlenken; ein fremder Host fällt auf den offiziellen zurück.

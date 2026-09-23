@@ -12,7 +12,7 @@ namespace RateTray.Ui.Settings;
 /// </summary>
 internal static class SettingsRender
 {
-    public static int Run(string directory, string? onlyLanguage, string theme)
+    public static int Run(string directory, string? onlyLanguage, string theme, string? dial = null)
     {
         if (onlyLanguage is not null && onlyLanguage != "all" && !Loc.Available.Contains(onlyLanguage, StringComparer.OrdinalIgnoreCase))
         {
@@ -36,6 +36,7 @@ internal static class SettingsRender
 
             Loc.Use(language);
             var config = new AppConfig { Theme = theme, Language = language };
+            if (dial is not null) config.Widget.Dial = Dial.Name(Dial.Parse(dial));
             var results = Sample();
             config.Icons = results.SelectMany(r => r.Readings).Where(r => !r.IsInformational).Select(r => r.Id).ToList();
 

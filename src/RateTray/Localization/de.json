@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "Ein kleiner Griff, um das Widget mit der Maus zu verschieben.",
   "settings.widget.items": "Widget-Elemente",
   "settings.widget.itemsHint": "Unabhängig von den Infobereich-Symbolen wählbar.",
+  "settings.widget.dial": "Anzeige",
+  "settings.widget.dialHint": "Die Form, in der jeder Dienst in der Leiste angezeigt wird.",
+  "settings.widget.dial.gauge": "G-Anzeige",
+  "settings.widget.dial.semicircle": "Halbkreis",
+  "settings.widget.dial.segmented": "Segmentiert",
 
   "settings.appearance.subtitle": "Sprache, Farben und Aussehen der Symbole.",
   "settings.language": "Sprache",

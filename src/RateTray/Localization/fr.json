@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "Une petite poignée pour déplacer le widget à la souris.",
   "settings.widget.items": "Éléments du widget",
   "settings.widget.itemsHint": "Choisis indépendamment des icônes de la zone de notification.",
+  "settings.widget.dial": "Cadran",
+  "settings.widget.dialHint": "La forme de la jauge de chaque service dans le widget.",
+  "settings.widget.dial.gauge": "Jauge G",
+  "settings.widget.dial.semicircle": "Demi-cercle",
+  "settings.widget.dial.segmented": "Segmenté",
 
   "settings.appearance.subtitle": "Langue, couleurs et aspect des icônes.",
   "settings.language": "Langue",

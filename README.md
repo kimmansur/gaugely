@@ -40,8 +40,9 @@ work come from there. Credit and thanks go to the original project.
   Arabic (right to left), Chinese (Simplified), Japanese and Korean.
 - **One icon per service.** The tray shows the limit that will run out first; the hover card
   shows that service's limits.
-- **Floating strip.** A ring per service, always on top, horizontal or vertical, resizable, with a
-  *notch* mode that docks it flush against a screen edge.
+- **Floating strip.** A gauge per service — a G-shaped dial, a semicircle or a segmented ring, as you
+  choose — always on top, horizontal or vertical, resizable, with a *notch* mode that docks it
+  flush against a screen edge.
 - **Hardening** — see [SECURITY.md](SECURITY.md):
   - **FORK-1** — the Claude usage and token endpoints cannot be pointed at another host from
     `settings.json`; a foreign host falls back to the official one.

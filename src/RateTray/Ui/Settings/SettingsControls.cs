@@ -539,7 +539,7 @@ internal sealed class ChoiceBox : Control
     }
 }
 
-/// <summary>A marca da barra lateral: o anel e o nome, desenhados lado a lado.</summary>
+/// <summary>A marca da barra lateral: o G medidor e o nome, lado a lado.</summary>
 internal sealed class BrandMark : Control
 {
     private readonly SettingsTheme _theme;
@@ -559,14 +559,10 @@ internal sealed class BrandMark : Control
         g.Clear(_theme.Sidebar);
 
         var rtl = RightToLeft == RightToLeft.Yes;
-        var size = Shapes.Scale(this, 24);
+        var size = Shapes.Scale(this, 28);
         var pad = Shapes.Scale(this, 14);
-        var stroke = size * 0.18f;
         var x = rtl ? Width - pad - size : pad;
-        var ring = new RectangleF(x + stroke / 2, (Height - size) / 2f + stroke / 2, size - stroke, size - stroke);
-        using (var back = new Pen(_theme.Border, stroke)) g.DrawEllipse(back, ring);
-        using (var arc = new Pen(_theme.Accent, stroke) { StartCap = LineCap.Round, EndCap = LineCap.Round })
-            g.DrawArc(arc, ring, -90, 245);
+        GaugelyMark.Draw(g, new RectangleF(x, (Height - size) / 2f, size, size), GaugelyMark.Blue);
 
         var gap = Shapes.Scale(this, 10);
         var textRect = rtl

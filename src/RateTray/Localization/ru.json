@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "Небольшой маркер, за который виджет можно перетащить мышью.",
   "settings.widget.items": "Элементы виджета",
   "settings.widget.itemsHint": "Выбираются отдельно от значков в области уведомлений.",
+  "settings.widget.dial": "Шкала",
+  "settings.widget.dialHint": "Форма индикатора каждого сервиса на виджете.",
+  "settings.widget.dial.gauge": "Шкала G",
+  "settings.widget.dial.semicircle": "Полукруг",
+  "settings.widget.dial.segmented": "Сегменты",
 
   "settings.appearance.subtitle": "Язык, цвета и вид значков.",
   "settings.language": "Язык",

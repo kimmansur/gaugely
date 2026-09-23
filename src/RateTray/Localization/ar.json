@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "مقبض صغير لتحريك الأداة بالماوس.",
   "settings.widget.items": "عناصر الأداة",
   "settings.widget.itemsHint": "تُختار بشكل منفصل عن أيقونات علبة النظام.",
+  "settings.widget.dial": "المؤشر",
+  "settings.widget.dialHint": "شكل مؤشر كل خدمة في الأداة.",
+  "settings.widget.dial.gauge": "مؤشر G",
+  "settings.widget.dial.semicircle": "نصف دائرة",
+  "settings.widget.dial.segmented": "مقسّم",
 
   "settings.appearance.subtitle": "اللغة والألوان وشكل الأيقونات.",
   "settings.language": "اللغة",

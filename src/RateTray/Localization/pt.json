@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "Uma pegada pequena para mover a faixa com o mouse.",
   "settings.widget.items": "Itens da faixa",
   "settings.widget.itemsHint": "Escolhidos à parte dos ícones da bandeja.",
+  "settings.widget.dial": "Mostrador",
+  "settings.widget.dialHint": "A forma do medidor de cada serviço na faixa.",
+  "settings.widget.dial.gauge": "Medidor G",
+  "settings.widget.dial.semicircle": "Semicírculo",
+  "settings.widget.dial.segmented": "Segmentado",
 
   "settings.appearance.subtitle": "Idioma, cores e o visual dos ícones.",
   "settings.language": "Idioma",

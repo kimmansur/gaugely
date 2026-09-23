@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "A small grip for moving the widget with the mouse.",
   "settings.widget.items": "Widget items",
   "settings.widget.itemsHint": "Chosen separately from the tray icons.",
+  "settings.widget.dial": "Dial",
+  "settings.widget.dialHint": "The shape each service's gauge takes in the strip.",
+  "settings.widget.dial.gauge": "G gauge",
+  "settings.widget.dial.semicircle": "Semicircle",
+  "settings.widget.dial.segmented": "Segmented",
 
   "settings.appearance.subtitle": "Language, colors and the look of the icons.",
   "settings.language": "Language",

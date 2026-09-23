@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "마우스로 위젯을 옮길 때 잡는 작은 손잡이입니다.",
   "settings.widget.items": "위젯 항목",
   "settings.widget.itemsHint": "트레이 아이콘과 별도로 선택합니다.",
+  "settings.widget.dial": "계기판",
+  "settings.widget.dialHint": "위젯에서 각 서비스 계기판의 모양입니다.",
+  "settings.widget.dial.gauge": "G 계기판",
+  "settings.widget.dial.semicircle": "반원",
+  "settings.widget.dial.segmented": "세그먼트",
 
   "settings.appearance.subtitle": "언어, 색, 아이콘 모양입니다.",
   "settings.language": "언어",

@@ -419,6 +419,9 @@ public sealed class WidgetOptions
     /// <summary>Mostrar a alça de arrasto na face externa da faixa.</summary>
     public bool MostrarAlca { get; set; } = true;
 
+    /// <summary>Fork: forma do mostrador — gauge (arco em G), semicircle ou segmented.</summary>
+    public string Dial { get; set; } = "gauge";
+
     /// <summary>
     /// Se true, o campo <see cref="Orientation"/> antigo era "horizontal". Usado uma vez na migração
     /// para derivar <see cref="Borda"/> e então zerado. Nunca exportado no JSON novo.
@@ -458,6 +461,7 @@ public sealed class WidgetOptions
             Scale = Math.Clamp(Scale, ScaleMin, ScaleMax);
 
         Monitor = Sane.Optional(Monitor);
+        Dial = Ui.Dial.Name(Ui.Dial.Parse(Dial));
 
         // Normaliza enum Modo
         if (!Enum.IsDefined(Modo)) Modo = ModoDefault;

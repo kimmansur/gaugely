@@ -152,7 +152,7 @@ public sealed class WidgetForm : Form
         // Fork: Item 7 - pula relayout se a assinatura (orientação, escala, canto, monitor, dpi e número de grupos) não mudou
         // Área útil e tema também entram: resolução, barra de tarefas ou tema claro/escuro mudam
         // posição e cor sem mexer em nenhuma configuração da faixa.
-        var sig = $"{_config.Widget.OrientacaoEfetiva}|{_config.Widget.Scale}|{_config.Widget.Corner}|{_config.Widget.Monitor}|{dpi}|{_groups.Count}|{area}|{Dark}|{_config.Widget.Modo}|{_config.Widget.Borda}|{_config.Widget.FracaoBorda:F4}|{_config.Widget.MostrarAlca}";
+        var sig = $"{_config.Widget.OrientacaoEfetiva}|{_config.Widget.Scale}|{_config.Widget.Corner}|{_config.Widget.Monitor}|{dpi}|{_groups.Count}|{area}|{Dark}|{_config.Widget.Modo}|{_config.Widget.Borda}|{_config.Widget.FracaoBorda:F4}|{_config.Widget.MostrarAlca}|{_config.Widget.Dial}";
         if (sig == _layoutSignature) return;
         _layoutSignature = sig;
 
@@ -460,31 +460,15 @@ public sealed class WidgetForm : Form
             ? servico
             : _palette.ForReading(grupo.Group, trava.Percent, 0, 1, Dark);
 
-        // Anel: trilho completo e, por cima, o arco do percentual a partir do topo.
+        // Fork: o mostrador na forma escolhida (arco em G, meia-lua ou segmentos). Erro sem nenhuma
+        // leitura guardada: trilho em cinza e sem progresso, para não parecer "0 %".
         var d = Px(RingSize);
         var anel = new Rectangle(linha.Left + (linha.Width - d) / 2, linha.Top + Px(6), d, d);
-        var espessura = Px(RingStroke);
-        var arco = Rectangle.Inflate(anel, -espessura / 2, -espessura / 2);
+        var estilo = Dial.Parse(_config.Widget.Dial);
+        var trilho = resumo is null ? Harmony.Legible(_palette.Unknown, Dark) : Palette.Track(cor, Dark);
+        Dial.Draw(g, anel, estilo, Px(RingStroke), cor, trilho, resumo is null ? null : trava?.Percent);
 
-        using (var trilho = new Pen(Palette.Track(cor, Dark), espessura))
-            g.DrawEllipse(trilho, arco);
-
-        if (trava is not null && trava.Percent > 0)
-        {
-            using var progresso = new Pen(cor, espessura) { StartCap = LineCap.Round, EndCap = LineCap.Round };
-            var varredura = (float)Math.Max(4, 360 * Math.Clamp(trava.Percent, 0, 100) / 100.0);
-            g.DrawArc(progresso, arco, -90, varredura);
-        }
-
-        // Erro sem nenhuma leitura guardada: anel em cinza, para não parecer "0 %".
-        if (resumo is null)
-        {
-            using var cinza = new Pen(Harmony.Legible(_palette.Unknown, Dark), espessura);
-            g.DrawEllipse(cinza, arco);
-        }
-
-        var b = Px(BadgeSize);
-        ServiceBadge.Draw(g, new RectangleF(anel.Left + (d - b) / 2f, anel.Top + (d - b) / 2f, b, b), grupo.Group, servico, Dark);
+        ServiceBadge.Draw(g, Dial.BadgeBox(anel, estilo, Px(BadgeSize)), grupo.Group, servico, Dark);
 
         var texto = resumo switch
         {

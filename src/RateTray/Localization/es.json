@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "Un pequeño asidero para arrastrar el widget a otro lugar.",
   "settings.widget.items": "Elementos del widget",
   "settings.widget.itemsHint": "Se eligen aparte de los iconos de la bandeja.",
+  "settings.widget.dial": "Indicador",
+  "settings.widget.dialHint": "La forma del indicador de cada servicio en el widget.",
+  "settings.widget.dial.gauge": "Indicador G",
+  "settings.widget.dial.semicircle": "Semicírculo",
+  "settings.widget.dial.segmented": "Segmentado",
 
   "settings.appearance.subtitle": "Idioma, colores y aspecto de los iconos.",
   "settings.language": "Idioma",

@@ -172,10 +172,63 @@ public sealed partial class SettingsWindow
         Row(basics, Loc.T("settings.widget.monitor"), Choice(monitors, w.Monitor ?? "", v => w.Monitor = v.Length == 0 ? null : v, 240));
         Row(basics, Loc.T("settings.widget.handle"), Toggle(null, w.MostrarAlca, v => w.MostrarAlca = v), Loc.T("settings.widget.handleHint"));
 
+        // Fork: forma do mostrador, com prévia desenhada pelo mesmo código da faixa.
+        var dials = Section(stack, Loc.T("settings.widget.dial"), Loc.T("settings.widget.dialHint"));
+        var dial = Choice(
+            [
+                ("gauge", Loc.T("settings.widget.dial.gauge")),
+                ("semicircle", Loc.T("settings.widget.dial.semicircle")),
+                ("segmented", Loc.T("settings.widget.dial.segmented")),
+            ],
+            w.Dial, v => w.Dial = v);
+        Row(dials, Loc.T("settings.widget.dial"), dial);
+        var preview = new Panel { Height = Shapes.Scale(this, 80), Margin = new Padding(0, 6, 0, 4) };
+        preview.Paint += (_, e) => PaintDialPreview(e.Graphics, preview, dial.SelectedIndex switch
+        {
+            1 => DialStyle.Semicircle,
+            2 => DialStyle.Segmented,
+            _ => DialStyle.Gauge,
+        });
+        dial.SelectedIndexChanged += (_, _) => preview.Invalidate();
+        Wide(dials, preview);
+
         ReadingChecklist(stack, Loc.T("settings.widget.items"), Loc.T("settings.widget.itemsHint"),
             _draft.WidgetIcons ?? _draft.Icons, () => _draft.WidgetIcons ?? _draft.Icons, ids => _draft.WidgetIcons = ids);
 
         return page;
+    }
+
+    /// <summary>Três serviços de exemplo, como na faixa: abaixo do alerta, no alerta e quase vazio.</summary>
+    private void PaintDialPreview(Graphics g, Panel panel, DialStyle style)
+    {
+        var palette = new Palette(_draft);
+        var dark = _theme.Dark;
+        using (var back = new SolidBrush(dark ? Color.FromArgb(24, 25, 28) : Color.FromArgb(238, 238, 238)))
+        using (var path = Shapes.Rounded(new RectangleF(0, 0, panel.Width - 1, panel.Height - 1), Shapes.Scale(this, 8)))
+        {
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.Clear(panel.Parent?.BackColor ?? _theme.Surface);
+            g.FillPath(back, path);
+        }
+
+        (string Group, double? Percent)[] samples = [("Claude", 32), ("Codex", 76), ("Kimi", 5), ("OpenRouter", null)];
+        var d = Shapes.Scale(this, 42);
+        var cell = Shapes.Scale(this, 64);
+        var total = samples.Length * cell;
+        var x = SettingsTheme.RightToLeft ? panel.Width - Shapes.Scale(this, 12) - total : Shapes.Scale(this, 12);
+        using var font = SettingsTheme.UiFont(8.5f, FontStyle.Bold);
+        foreach (var (group, percent) in samples)
+        {
+            var service = Harmony.Legible(palette.Service(group), dark);
+            var color = percent is { } p ? palette.ForReading(group, p, 0, 1, dark) : service;
+            var square = new Rectangle(x + (cell - d) / 2, Shapes.Scale(this, 8), d, d);
+            Dial.Draw(g, square, style, Shapes.Scale(this, 4), color, Palette.Track(color, dark), percent);
+            ServiceBadge.Draw(g, Dial.BadgeBox(square, style, Shapes.Scale(this, 22)), group, service, dark);
+            var text = percent is { } q ? $"{q:0}%" : "$12";
+            TextRenderer.DrawText(g, text, font, new Rectangle(x, square.Bottom + Shapes.Scale(this, 4), cell, Shapes.Scale(this, 18)), color,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+            x += cell;
+        }
     }
 
     // ------------------------------------------------------------------ aparência

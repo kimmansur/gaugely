@@ -7,6 +7,18 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-23
+
+### Added
+- Gaugely's own mark: a G that is also a gauge. The app icon, the settings window and the tray's
+  neutral icon all come from one drawing in code (`Ui/GaugelyMark.cs`); `Gaugely.exe
+  --render-icon <file.ico>` writes the icon, and `tools/New-AppIcon.ps1` calls it.
+- Three dial shapes for the floating strip — G gauge (default), semicircle and segmented — under
+  Settings → Floating widget, with a live preview. Stored as `widget.dial`.
+
+### Changed
+- The app icon no longer shows RateTray's two level bars.
+
 ## [0.6.1] - 2026-09-23
 
 ### Fixed

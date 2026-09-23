@@ -89,6 +89,11 @@
   "settings.widget.handleHint": "マウスでウィジェットを動かすための小さなつまみです。",
   "settings.widget.items": "ウィジェットの項目",
   "settings.widget.itemsHint": "トレイアイコンとは別に選択します。",
+  "settings.widget.dial": "メーター",
+  "settings.widget.dialHint": "ウィジェットに表示する各サービスのメーターの形です。",
+  "settings.widget.dial.gauge": "G メーター",
+  "settings.widget.dial.semicircle": "半円",
+  "settings.widget.dial.segmented": "セグメント",
 
   "settings.appearance.subtitle": "言語、色、アイコンの見た目。",
   "settings.language": "言語",
