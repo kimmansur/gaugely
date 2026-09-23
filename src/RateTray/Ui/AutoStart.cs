@@ -84,15 +84,20 @@ public static class AutoStart
 
     /// <summary>
     /// Entrada Run que aponta para o executável do app anterior: o programa iniciado — entre aspas,
-    /// ou até o primeiro ".exe" seguido de espaço ou do fim — tem de ser um caminho absoluto cujo
-    /// arquivo é <c>RateTray.exe</c>. "cmd.exe /c …\\RateTray.exe" ou "…\\RateTray.exe.bat" não servem.
+    /// ou até o primeiro ".exe" seguido de espaço ou do fim — tem de ser um caminho totalmente
+    /// qualificado cujo arquivo é <c>RateTray.exe</c>. Sem aspas, o caminho não pode ter espaço: o
+    /// próprio Windows lê "C:\\Program Files\\…" sem aspas como "C:\\Program" mais argumentos, então
+    /// isso não prova qual programa rodava. "cmd.exe /c …", "\\Apps\\…" e "….exe.bat" também não servem.
     /// </summary>
     internal static bool IsLegacyEntry(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return false;
 
-        var path = LaunchedProgram(value.Trim());
-        return Path.IsPathRooted(path) &&
+        var text = value.Trim();
+        var path = LaunchedProgram(text);
+        if (!text.StartsWith('"') && path.Contains(' ')) return false;
+
+        return Path.IsPathFullyQualified(path) &&
                string.Equals(Path.GetFileName(path), "RateTray.exe", StringComparison.OrdinalIgnoreCase);
     }
 

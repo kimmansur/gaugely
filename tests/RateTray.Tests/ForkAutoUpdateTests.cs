@@ -277,7 +277,10 @@ public class ForkAutoUpdateTests
     [Theory]
     [InlineData("\"C:\\ProgramData\\App\\RateTray.exe\"", true)]
     [InlineData("C:\\ProgramData\\App\\RateTray.exe", true)]
-    [InlineData("C:\\Program Files\\App\\RateTray.exe", true)]
+    [InlineData("C:\\Program Files\\App\\RateTray.exe", false)]        // sem aspas e com espaço: ambíguo
+    [InlineData("\"C:\\Program Files\\App\\RateTray.exe\"", true)]
+    [InlineData("\\Apps\\RateTray.exe", false)]                        // enraizado, mas não qualificado
+    [InlineData("RateTray.exe", false)]
     [InlineData("\"C:\\Apps\\ratetray.EXE\" --minimized", true)]
     [InlineData("\"C:\\Temp\\outro.exe\"", false)]
     [InlineData("C:\\Temp\\RateTray.exe.bat", false)]

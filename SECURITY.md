@@ -32,8 +32,9 @@ the earlier build keeps working. Removing a key in Settings removes both, and a 
 reported instead of passing silently. If an earlier build writes the old entry again, it is picked
 up again.
 
-A **Start with Windows** entry from RateTray is moved over only when it launches `RateTray.exe` by
-absolute path, and never replaces an existing Gaugely entry.
+A **Start with Windows** entry from RateTray is moved over only when it launches `RateTray.exe` by a
+fully qualified path — quoted, or without spaces, since Windows itself reads an unquoted
+`C:\Program Files\…` as `C:\Program` plus arguments — and never replaces an existing Gaugely entry.
 
 **Network** — every destination is a constant in the code, not a setting:
 
