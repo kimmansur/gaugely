@@ -17,6 +17,11 @@ public sealed class AboutForm : Form
     private readonly Label _status = new() { AutoSize = true, ForeColor = SystemColors.GrayText, Margin = new Padding(10, 8, 3, 3) };
     private readonly LinkLabel _download = new() { Text = Loc.T("about.download"), AutoSize = true, Visible = false, Margin = new Padding(10, 8, 3, 3) };
 
+    /// <summary>Fork: só aparece quando a versão nova tem binário publicado para instalar.</summary>
+    private readonly Button _install = new() { Text = Loc.T("about.install"), AutoSize = true, Visible = false, Margin = new Padding(10, 4, 3, 3) };
+
+    private UpdateInstaller.Release? _pending;
+
     /// <param name="known">Result of the start-up check, so an available update shows at once.</param>
     /// <param name="onChecked">Invoked after a manual check so the tray can update its menu marker.</param>
     public AboutForm(AppConfig config, UpdateCheck.Result? known = null, Action<UpdateCheck.Result?>? onChecked = null)
@@ -42,6 +47,7 @@ public sealed class AboutForm : Form
 
         _check.Click += async (_, _) => await CheckAsync();
         _download.LinkClicked += (_, _) => Open(AppInfo.ReleasesUrl);
+        _install.Click += async (_, _) => await InstallAsync();
 
         if (known is not null) ShowResult(known);
     }
@@ -77,6 +83,7 @@ public sealed class AboutForm : Form
         update.Controls.Add(_status);
         update.Controls.Add(_download);
         root.Controls.Add(update);
+        root.Controls.Add(_install);
 
         var auto = new CheckBox
         {
@@ -87,6 +94,15 @@ public sealed class AboutForm : Form
         };
         auto.CheckedChanged += (_, _) => { _config.AutoUpdateCheck = auto.Checked; ConfigStore.Save(_config); };
         root.Controls.Add(auto);
+
+        // Fork: crédito ao projeto original e o caminho para relatar problema ou sugerir melhoria.
+        var issues = new LinkLabel { Text = Loc.T("about.issues"), AutoSize = true, Margin = new Padding(3, 12, 3, 0) };
+        issues.LinkClicked += (_, _) => Open(AppInfo.IssuesUrl);
+        root.Controls.Add(issues);
+
+        var upstream = new LinkLabel { Text = Loc.T("about.basedOn"), AutoSize = true, Margin = new Padding(3, 4, 3, 0) };
+        upstream.LinkClicked += (_, _) => Open(AppInfo.UpstreamUrl);
+        root.Controls.Add(upstream);
 
         var close = new Button
         {
@@ -121,7 +137,7 @@ public sealed class AboutForm : Form
         var text = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Margin = Padding.Empty };
         text.Controls.Add(new Label
         {
-            Text = "RateTray",
+            Text = "Gaugely",
             AutoSize = true,
             Font = new Font(Font.FontFamily, Font.Size * 1.6f, FontStyle.Bold),
             Margin = new Padding(0, 2, 0, 0),
@@ -173,13 +189,58 @@ public sealed class AboutForm : Form
             _status.ForeColor = SystemColors.ControlText;
             _status.Text = Loc.T("about.updateAvailable", result.Latest.ToString(3));
             _download.Visible = true;
+            // Fork: sem release publicada resta o link para a página — não há o que instalar.
+            _pending = result.Release;
+            _install.Visible = _pending?.Find(UpdateInstaller.ExecutableAsset) is not null;
         }
         else
         {
             _status.ForeColor = SystemColors.GrayText;
             _status.Text = Loc.T("about.upToDate", AppInfo.Version);
             _download.Visible = false;
+            _install.Visible = false;
+            _pending = null;
         }
+    }
+
+    /// <summary>
+    /// Fork: baixa a release, confere o SHA256 e troca o executável. O reinício é pedido, não
+    /// imposto: a janela pode estar em uso e o app é de bandeja, some da vista se reiniciar sozinho.
+    /// </summary>
+    private async Task InstallAsync()
+    {
+        if (_pending is not { } release) return;
+
+        _install.Enabled = false;
+        _check.Enabled = false;
+        _status.ForeColor = SystemColors.ControlText;
+        _status.Text = Loc.T("about.installing", 0);
+
+        var progress = new Progress<int>(percent =>
+        {
+            if (!IsDisposed) _status.Text = Loc.T("about.installing", percent);
+        });
+
+        var executable = UpdateInstaller.CurrentExecutable();
+        var outcome = await UpdateInstaller.InstallAsync(release, executable, progress);
+
+        if (IsDisposed) return;
+        _check.Enabled = true;
+
+        if (!outcome.Applied)
+        {
+            _install.Enabled = true;
+            _status.ForeColor = SystemColors.ControlText;
+            _status.Text = Loc.T("about.installFailed", outcome.Error ?? "");
+            return;
+        }
+
+        _install.Visible = false;
+        _status.Text = Loc.T("about.installed", release.Version.ToString(3));
+
+        var restart = MessageBox.Show(this, Loc.T("about.restartPrompt", release.Version.ToString(3)),
+            Loc.T("about.title"), MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+        if (restart == DialogResult.Yes && UpdateInstaller.Restart(executable)) Application.Exit();
     }
 
     private static void Open(string url)

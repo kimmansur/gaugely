@@ -64,7 +64,7 @@ public class DetailsWindowTests
         var process = AppHarness.StartWithWindow("--details", TimeSpan.FromMinutes(1));
         try
         {
-            Assert.Equal("RateTray Details", AppHarness.WindowTitle(process.Id));
+            Assert.Equal("Gaugely Details", AppHarness.WindowTitle(process.Id));
         }
         finally
         {
@@ -143,7 +143,7 @@ public class SettingsWindowTests
         var process = AppHarness.StartWithWindow("--settings", TimeSpan.FromMinutes(1));
         try
         {
-            Assert.Contains("RateTray", AppHarness.WindowTitle(process.Id));
+            Assert.Contains("Gaugely", AppHarness.WindowTitle(process.Id));
         }
         finally
         {

@@ -16,10 +16,19 @@ public static class UpdateCheck
 {
     private static readonly HttpClient Http = CreateClient();
 
-    public sealed record Result(Version Latest, bool IsNewer);
+    /// <param name="Release">
+    /// Fork: preenchido quando a versão veio de uma release publicada — é o que permite baixar e
+    /// instalar sem consultar o GitHub de novo. Nulo quando só existe a tag, sem release.
+    /// </param>
+    public sealed record Result(Version Latest, bool IsNewer, UpdateInstaller.Release? Release = null);
 
     public static async Task<Result?> LatestAsync(Version current, CancellationToken token = default)
     {
+        // Fork: a release publicada vem primeiro, porque só ela tem binário para instalar. A lista
+        // de tags fica de reserva: avisa que há versão nova mesmo se o build ainda não tiver saído.
+        if (await UpdateInstaller.LatestReleaseAsync(token).ConfigureAwait(false) is { } release)
+            return new Result(release.Version, release.Version > AppInfo.Normalize(current), release);
+
         try
         {
             await using var stream = await Http.GetStreamAsync(AppInfo.ApiTagsUrl, token).ConfigureAwait(false);
@@ -59,7 +68,7 @@ public static class UpdateCheck
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         // GitHub rejects requests without a User-Agent; the JSON media type pins the API version.
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("RateTray");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Gaugely");
         client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return client;
     }

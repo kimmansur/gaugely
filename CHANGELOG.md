@@ -7,6 +7,26 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-23
+
+First release as **Gaugely**, a fork of RateTray 0.3.2.
+
+### Added
+- Kimi Code, OpenRouter and Google Antigravity providers; API keys live in the Windows Credential
+  Manager.
+- One tray icon per service, and a floating strip of rings with a notch mode.
+- Updates from this repository's releases: daily check (off by default), notification, and a
+  **Download and install** button that verifies asset origin, SHA256 and embedded version before a
+  single `ReplaceFile` swap.
+- Migration from RateTray: settings, saved keys and the *Start with Windows* entry are carried over.
+
+### Security
+- FORK-1/2/3: the settings file can no longer redirect the Claude token or choose which `codex.exe`
+  runs; token refresh is opt-in and pinned to the official host.
+- Release workflow: the tag reaches the build through an environment variable instead of being
+  interpolated into the script, and every third-party action is pinned to a commit.
+- Release assets now include `LICENSE.txt` and `THIRD-PARTY-NOTICES.md` next to the binary.
+
 ## [0.3.2] - 2026-08-19
 
 A patch release for two things one screenshot showed at once: a rate limit the tray had been

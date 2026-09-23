@@ -9,7 +9,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        // Diagnostics: `RateTray.exe --once > out.txt` polls both providers, prints every
+        // Diagnostics: `Gaugely.exe --once > out.txt` polls both providers, prints every
         // limit id the account exposes (the ids you put in settings.json) and exits.
         if (args.Contains("--once", StringComparer.OrdinalIgnoreCase))
             return DumpOnce().GetAwaiter().GetResult();
@@ -29,7 +29,7 @@ internal static class Program
         }
 
         // A second instance would add duplicate tray icons for the same limits.
-        using var single = new Mutex(initiallyOwned: true, @"Local\RateTray.SingleInstance", out var isFirst);
+        using var single = new Mutex(initiallyOwned: true, @"Local\Gaugely.SingleInstance", out var isFirst);
         if (!isFirst) return 0;
 
         ApplicationConfiguration.Initialize();
@@ -142,7 +142,7 @@ internal static class Program
     {
         MessageBox.Show(
             exception?.ToString() ?? "Unknown error",
-            "RateTray",
+            "Gaugely",
             MessageBoxButtons.OK,
             MessageBoxIcon.Error);
     }

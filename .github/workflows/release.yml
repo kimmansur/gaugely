@@ -17,20 +17,28 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v7
+      # Fork: ações presas ao commit, não à tag móvel — quem dominar o repositório de uma action
+      # move a tag e passa a rodar dentro deste build, que tem contents: write.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68   # v6
         with:
           dotnet-version: '9.0.x'
 
       - name: Derive version from the tag
         id: version
         shell: pwsh
+        # Fork: a tag entra por variável de ambiente, nunca interpolada no script. Interpolada, uma
+        # tag com aspa simples fecha a string e o resto vira comando dentro de um job com
+        # contents: write — injeção clássica de PowerShell pelo nome da referência.
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          $tag = '${{ github.event.inputs.tag }}'
-          if (-not $tag) { $tag = '${{ github.ref_name }}' }
+          $tag = $env:INPUT_TAG
+          if (-not $tag) { $tag = $env:REF_NAME }
           $version = $tag.TrimStart('v')
           if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "tag '$tag' is not vMAJOR.MINOR.PATCH" }
           "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
@@ -53,23 +61,28 @@ jobs:
       - name: Checksum
         shell: pwsh
         run: |
-          $hash = (Get-FileHash publish/RateTray.exe -Algorithm SHA256).Hash
-          "$hash  RateTray.exe" | Out-File -FilePath publish/SHA256SUMS.txt -Encoding ascii
+          $hash = (Get-FileHash publish/Gaugely.exe -Algorithm SHA256).Hash
+          "$hash  Gaugely.exe" | Out-File -FilePath publish/SHA256SUMS.txt -Encoding ascii
+          # A MIT exige o aviso de licença junto do binário distribuído, não só no código-fonte.
+          Copy-Item LICENSE publish/LICENSE.txt
+          Copy-Item THIRD-PARTY-NOTICES.md publish/THIRD-PARTY-NOTICES.md
 
       - name: Create release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64   # v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: |
-            publish/RateTray.exe
+            publish/Gaugely.exe
             publish/SHA256SUMS.txt
+            publish/LICENSE.txt
+            publish/THIRD-PARTY-NOTICES.md
           body: |
             Requires the [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0).
 
             Verify the download:
 
             ```powershell
-            Get-FileHash RateTray.exe -Algorithm SHA256
+            Get-FileHash Gaugely.exe -Algorithm SHA256
             ```

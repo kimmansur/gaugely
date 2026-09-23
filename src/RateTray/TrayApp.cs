@@ -27,6 +27,7 @@ public sealed class TrayApp : ApplicationContext
     private readonly List<IUsageProvider> _providers;
     private readonly System.Windows.Forms.Timer _timer = new();
     private readonly System.Windows.Forms.Timer _tooltipTimer = new();
+    private readonly System.Windows.Forms.Timer _layoutSaveTimer = new() { Interval = 500 };
     private readonly Dictionary<string, TrayIcon> _icons = [];
     private readonly ContextMenuStrip _menu = new();
     private readonly CancellationTokenSource _shutdown = new();
@@ -35,9 +36,12 @@ public sealed class TrayApp : ApplicationContext
     private readonly HashSet<string> _notified = [];
 
     private ToolStripMenuItem _iconsMenu = null!;
+    private ToolStripMenuItem _widgetIconsMenu = null!; // Fork: submenu separado para a faixa
     private ToolStripMenuItem _languageMenu = null!;
     private ToolStripMenuItem _aboutMenu = null!;
+    private NotifyIcon? _neutralIcon;               // Fork: ícone neutro quando não há ícone de serviço e a faixa está desligada
     private DetailsForm? _details;
+    private WidgetForm? _widget;                 // Fork: faixa flutuante, ligada pelo menu
     private TooltipWindow? _tooltip;
     private UpdateCheck.Result? _latestUpdate;
 
@@ -46,6 +50,13 @@ public sealed class TrayApp : ApplicationContext
     private DateTime _lastHover = DateTime.MinValue;
     private Point _lastHoverPos;
     private string? _hoveredId;
+
+    // Fork: quem abriu o cartão rico — impede HideTooltipWhenIdle de esconder o cartão da faixa.
+    private enum TooltipOwner { None, Tray, Widget }
+    private TooltipOwner _tooltipOwner;
+
+    /// <summary>Fork: tooltip nativa usada pela faixa quando RichTooltips está desligado.</summary>
+    private ToolTip? _widgetTip;
 
     private IReadOnlyList<ProviderResult> _lastResults = [];
     private Dictionary<string, LimitReading> _lastReadings = [];
@@ -82,6 +93,10 @@ public sealed class TrayApp : ApplicationContext
         [
             new ClaudeUsageProvider(_config.Claude),
             new CodexUsageProvider(_config.Codex),
+            // Fork: ficam desligados enquanto não houver chave no cofre (Enabled relê a cada ciclo).
+            new KimiUsageProvider(_config.Kimi),
+            new OpenRouterUsageProvider(_config.OpenRouter),
+            new AntigravityUsageProvider(_config.Antigravity),
         ];
 
         _lastGood = UsageCache.Load();
@@ -91,6 +106,7 @@ public sealed class TrayApp : ApplicationContext
         BuildMenu();
         _menu.Opened += (_, _) => HideTooltip();
         ShowCachedReadings();
+        if (_config.Widget.Enabled) SetWidget(true);   // Fork: a faixa volta como o usuário deixou
 
         _timer.Interval = PollIntervalMs;
         _timer.Tick += (_, _) => { ScheduleNextPoll(); _ = RefreshAsync(); };
@@ -100,7 +116,19 @@ public sealed class TrayApp : ApplicationContext
         _tooltipTimer.Interval = 200;
         _tooltipTimer.Tick += (_, _) => HideTooltipWhenIdle();
 
+        _layoutSaveTimer.Tick += (_, _) =>
+        {
+            _layoutSaveTimer.Stop();
+            ConfigStore.Save(_config);
+        };
+
         _ = RefreshAsync();
+
+        // Fork: se a inicialização chegou até aqui, a versão instalada sobe — o binário anterior
+        // deixa de ser o retorno possível e pode sair do disco.
+        UpdateInstaller.CleanupOld(UpdateInstaller.CurrentExecutable());
+        AutoStart.MigrateLegacy();
+
         MaybeCheckForUpdates();
     }
 
@@ -159,6 +187,7 @@ public sealed class TrayApp : ApplicationContext
             SyncIcons();
             RaiseNotifications();
             RefreshIconsMenu();
+            _widget?.Apply(WidgetGroups());
 
             if (_details is { Visible: true }) _details.ShowNearTray(_lastResults, _lastUpdate, _nextPoll);
         }
@@ -191,6 +220,7 @@ public sealed class TrayApp : ApplicationContext
 
         SyncIcons();
         RefreshIconsMenu();
+        _widget?.Apply(WidgetGroups());
     }
 
     /// <summary>
@@ -257,6 +287,60 @@ public sealed class TrayApp : ApplicationContext
     /// </summary>
     private void SeedIconsOnFirstRun()
     {
+        // Fork: janelas vistas neste ciclo, inclusive as restauradas do cache de um provedor que falhou,
+        // para um serviço fora do ar não parecer "inédito" quando voltar.
+        var vistas = _lastResults.SelectMany(result => result.Readings).ToList();
+        var mudou = false;
+
+        // Fork: migração automática — na primeira vez que há leituras e WidgetIcons ainda é nulo,
+        // copia Icons para que a faixa comece idêntica à bandeja de hoje.
+        if (_config.WidgetIcons is null && vistas.Count > 0)
+        {
+            _config.WidgetIcons = new List<string>(_config.Icons);
+            mudou = true;
+        }
+
+        foreach (var grupo in vistas.GroupBy(reading => reading.Group, StringComparer.OrdinalIgnoreCase))
+        {
+            var ids = grupo.Select(reading => reading.Id).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+            if (!_config.KnownGroups.Contains(grupo.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                // Primeira vez que este serviço é examinado. Com alguma janela já em Icons, a escolha
+                // do usuário vem de antes (configuração antiga): só registra, sem reativar desmarcadas.
+                // Sem nenhuma, é serviço novo, ou um que a versão anterior do fork exibia inteiro
+                // (lista vazia = tudo): entra todo marcado, visível como estava.
+                if (!ids.Any(id => _config.Icons.Contains(id, StringComparer.OrdinalIgnoreCase)))
+                    _config.Icons.AddRange(ids);
+                // Fork: espelha em WidgetIcons com a mesma regra — serviço novo aparece nas duas listas.
+                if (_config.WidgetIcons is not null &&
+                    !ids.Any(id => _config.WidgetIcons.Contains(id, StringComparer.OrdinalIgnoreCase)))
+                    _config.WidgetIcons.AddRange(ids);
+                _config.KnownGroups.Add(grupo.Key);
+                mudou = true;   // Fork: registrar o grupo precisa ser salvo mesmo sem janela nova
+            }
+            else
+            {
+                // Serviço conhecido: só janela inédita entra marcada; conhecida e desmarcada fica fora.
+                var novasParaIcons = ids.Where(id =>
+                    !_config.KnownReadingIds.Contains(id, StringComparer.OrdinalIgnoreCase) &&
+                    !_config.Icons.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+                _config.Icons.AddRange(novasParaIcons);
+                // Fork: espelha janelas inéditas em WidgetIcons — conhecida e desmarcada não reaparece.
+                if (_config.WidgetIcons is not null)
+                {
+                    var novasParaWidget = ids.Where(id =>
+                        !_config.KnownReadingIds.Contains(id, StringComparer.OrdinalIgnoreCase) &&
+                        !_config.WidgetIcons.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+                    _config.WidgetIcons.AddRange(novasParaWidget);
+                }
+            }
+
+            var novasConhecidas = ids.Where(id => !_config.KnownReadingIds.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+            if (novasConhecidas.Count > 0) { _config.KnownReadingIds.AddRange(novasConhecidas); mudou = true; }
+        }
+        if (mudou) ConfigStore.Save(_config);
+
         if (_config.IconsInitialized) return;
 
         var added = _lastResults
@@ -269,6 +353,9 @@ public sealed class TrayApp : ApplicationContext
             .ToList();
 
         _config.Icons.AddRange(added);
+        // Fork: upstream seed também espelha em WidgetIcons
+        _config.WidgetIcons?.AddRange(added.Where(id =>
+            !_config.WidgetIcons.Contains(id, StringComparer.OrdinalIgnoreCase)));
 
         var complete = _lastResults.Count > 0 && _lastResults.All(result => result.Ok);
         if (complete) _config.IconsInitialized = true;
@@ -278,8 +365,91 @@ public sealed class TrayApp : ApplicationContext
 
     // ------------------------------------------------------------- tray icons
 
+    /// <summary>
+    /// Fork: leituras de um serviço filtradas por uma lista de ícones. Método puro extraído para
+    /// viabilizar testes unitários sem instanciar TrayApp.
+    /// </summary>
+    internal static IReadOnlyList<LimitReading> FilteredReadingsOf(
+        IReadOnlyList<LimitReading> readings,
+        List<string> iconList,
+        IReadOnlyList<string> knownGroups,
+        string group)
+    {
+        var marcadas = readings.Where(r => iconList.Contains(r.Id, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (knownGroups.Contains(group, StringComparer.OrdinalIgnoreCase))
+            return ServiceGroup.Ordered(marcadas);
+        return ServiceGroup.Ordered(marcadas.Count == 0 ? readings : marcadas);
+    }
+
+    /// <summary>
+    /// Fork: limites para os ícones da bandeja — filtra por <see cref="AppConfig.Icons"/>.
+    /// </summary>
+    private IReadOnlyList<LimitReading> TrayReadingsOf(string group)
+    {
+        var readings = _lastResults.FirstOrDefault(r => r.Group == group)?.Readings ?? [];
+        return FilteredReadingsOf(readings, _config.Icons, _config.KnownGroups, group);
+    }
+
+    /// <summary>
+    /// Fork: limites para a faixa flutuante — filtra por <see cref="AppConfig.WidgetIcons"/>,
+    /// caindo para <see cref="AppConfig.Icons"/> enquanto a migração não aconteceu (nulo).
+    /// </summary>
+    private IReadOnlyList<LimitReading> WidgetReadingsOf(string group)
+    {
+        var readings = _lastResults.FirstOrDefault(r => r.Group == group)?.Readings ?? [];
+        var list = _config.WidgetIcons ?? _config.Icons;
+        return FilteredReadingsOf(readings, list, _config.KnownGroups, group);
+    }
+
+    /// <summary>
+    /// Fork: um ícone por serviço, com o número do limite que trava primeiro. Um serviço cujo
+    /// provedor falhou sem nenhuma leitura guardada aparece como "?" — sumir com ele esconderia
+    /// justamente o problema.
+    /// </summary>
+    private void SyncGroupedIcons()
+    {
+        var wanted = new List<string>();
+        var dark = TrayIconRenderer.UsesDarkTaskbar(_config.Theme);
+
+        foreach (var result in _lastResults)
+        {
+            var rows = TrayReadingsOf(result.Group);
+            if (rows.Count == 0 && result.Error is null) continue;
+
+            var id = ServiceGroup.IdFor(result.Group);
+            wanted.Add(id);
+            var icon = _icons.TryGetValue(id, out var existing) ? existing : CreateIcon(id);
+
+            var summary = ServiceGroup.Summary(result.Group, rows);
+            var color = summary is null
+                ? Harmony.Legible(_palette.Unknown, dark)
+                : _palette.ForReading(summary.Group, summary.Percent, 0, 1, dark);
+
+            var previous = icon.Icon;
+            icon.Icon = TrayIconRenderer.Render(summary?.IconText ?? "?", color, _config.FontFamily);
+            previous?.Dispose();
+
+            icon.Text = _config.RichTooltips
+                ? string.Empty
+                : Clamp(summary is null
+                    ? $"{result.Group}\n{result.Error ?? "?"}"
+                    : $"{result.Group} {LimitReading.FormatValue(summary)}: " + string.Join(" · ", rows.Select(LimitReading.FormatValue)));
+            icon.Visible = true;
+        }
+
+        foreach (var stale in _icons.Keys.Except(wanted, StringComparer.OrdinalIgnoreCase).ToList())
+            RemoveIcon(stale);
+    }
+
     private void SyncIcons()
     {
+        if (_config.GroupByService)
+        {
+            SyncGroupedIcons();
+            SyncNeutralIcon();  // Fork: requisito 5 — verifica ícone neutro também no modo agrupado
+            return;
+        }
+
         var wanted = new List<string>();
 
         foreach (var id in _config.Icons)
@@ -315,6 +485,44 @@ public sealed class TrayApp : ApplicationContext
 
         foreach (var stale in _icons.Keys.Except(wanted, StringComparer.OrdinalIgnoreCase).ToList())
             RemoveIcon(stale);
+
+        SyncNeutralIcon();  // Fork: requisito 5 — sem ícone de serviço e sem faixa, mostra ícone neutro
+    }
+
+    /// <summary>
+    /// Fork: requisito 5 — se não houver nenhum ícone de serviço na bandeja e a faixa estiver
+    /// desligada, mostra um único ícone neutro do app para que o menu continue acessível. Se
+    /// houver ícone de serviço ou a faixa estiver ligada, o neutro desaparece.
+    /// </summary>
+    private void SyncNeutralIcon()
+    {
+        var temIconeServico = _icons.Values.Any(i => i.Visible);
+        var faixaLigada = _config.Widget.Enabled;
+
+        if (!temIconeServico && !faixaLigada)
+        {
+            if (_neutralIcon is null)
+            {
+                _neutralIcon = new NotifyIcon
+                {
+                    Icon = AppIcon.Value ?? SystemIcons.Application,
+                    Text = "Gaugely",
+                    ContextMenuStrip = _menu,
+                    Visible = true,
+                };
+                _neutralIcon.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) ToggleDetails(); };
+            }
+            else
+            {
+                _neutralIcon.Visible = true;
+            }
+        }
+        else if (_neutralIcon is not null)
+        {
+            _neutralIcon.Visible = false;
+            _neutralIcon.Dispose();
+            _neutralIcon = null;
+        }
     }
 
     private TrayIcon CreateIcon(string id)
@@ -361,7 +569,8 @@ public sealed class TrayApp : ApplicationContext
     {
         if (reading is null) return Clamp($"{id}\n{error ?? "?"}");
 
-        var line = $"{reading.Label}: {Math.Round(reading.Percent)} %";
+        // Fork: usar LimitReading.FormatValue para lidar com leituras informativas corretamente
+        var line = $"{reading.Label}: {LimitReading.FormatValue(reading)}";
         return reading.ResetsAt is null ? Clamp(line) : Clamp($"{line}\n{reading.ResetText()}");
     }
 
@@ -369,12 +578,16 @@ public sealed class TrayApp : ApplicationContext
 
     private string? ErrorForId(string id)
     {
-        var group = GroupOf(id);
+        var group = ServiceGroup.IsGroupId(id) ? ServiceGroup.GroupOfId(id) : GroupOf(id);
         return _lastResults.FirstOrDefault(r => r.Group == group)?.Error;
     }
 
-    internal static string GroupOf(string id) =>
-        id.StartsWith("codex.", StringComparison.OrdinalIgnoreCase) ? "Codex" : "Claude";
+    /// <summary>
+    /// Fork: o grupo sai do prefixo do id. Antes só havia dois serviços e tudo que não era
+    /// "codex." caía em Claude — com Kimi e OpenRouter isso atribuiria o erro de um ao outro.
+    /// Prefixo desconhecido continua indo para Claude, como no upstream.
+    /// </summary>
+    internal static string GroupOf(string id) => ServiceCatalog.GetByPrefix(id).Group;
 
     // --------------------------------------------------------------- tooltips
 
@@ -398,7 +611,16 @@ public sealed class TrayApp : ApplicationContext
         if (id == _hoveredId && _tooltip is { Visible: true }) return;
 
         _hoveredId = id;
+        _tooltipOwner = TooltipOwner.Tray;  // Fork: marca que o cartão foi aberto pela bandeja
         _tooltip ??= new TooltipWindow(_config, _palette);
+
+        if (ServiceGroup.IsGroupId(id))
+        {
+            var group = ServiceGroup.GroupOfId(id);
+            _tooltip.ShowForGroup(TrayReadingsOf(group), group, ErrorForId(id), pos);
+            return;
+        }
+
         _tooltip.ShowFor(_lastReadings.GetValueOrDefault(id), GroupOf(id), ErrorForId(id), pos);
     }
 
@@ -410,11 +632,24 @@ public sealed class TrayApp : ApplicationContext
     {
         if (_tooltip is not { Visible: true }) { _tooltipTimer.Stop(); return; }
 
+        var pos = Cursor.Position;
+
+        // Fork: o cartão pertence à faixa — o evento HoverChanged da faixa também cuida dele,
+        // mas aqui garantimos que ele esconda se o mouse sair da faixa e do cartão
+        if (_tooltipOwner == TooltipOwner.Widget)
+        {
+            if (_widget is not { Visible: true } || (!_widget.Bounds.Contains(pos) && !_tooltip.Bounds.Contains(pos)))
+            {
+                _tooltipTimer.Stop();
+                HideTooltip();
+            }
+            return;
+        }
+
         // The shell stops sending MouseMove once the pointer is still, so idle time alone would
         // dismiss a card the user is actively hovering — very visible in the overflow flyout, where
         // MouseMove is sparse. Treat "pointer hasn't moved" as "still hovering" and keep the card
         // up; only once it has clearly moved away, with no MouseMove to refresh us, does it hide.
-        var pos = Cursor.Position;
         if (Math.Abs(pos.X - _lastHoverPos.X) <= HoverSlack && Math.Abs(pos.Y - _lastHoverPos.Y) <= HoverSlack)
         {
             _lastHover = DateTime.UtcNow;
@@ -435,6 +670,7 @@ public sealed class TrayApp : ApplicationContext
     {
         _tooltip?.Hide();
         _hoveredId = null;
+        _tooltipOwner = TooltipOwner.None;  // Fork: libera a posse do cartão
     }
 
     // ---------------------------------------------------------- notifications
@@ -479,10 +715,159 @@ public sealed class TrayApp : ApplicationContext
             Font = new Font(SystemFonts.MenuFont!, FontStyle.Bold),
         });
         _menu.Items.Add(new ToolStripMenuItem(Loc.T("menu.refresh"), null, (_, _) => _ = RefreshAsync(force: true)));
+
+        // Fork: a faixa flutuante. Fica junto do painel porque as duas mostram a mesma coisa —
+        // uma sob pedido, a outra o tempo todo.
+        var widget = new ToolStripMenuItem(Loc.T("menu.widget"))
+        {
+            Checked = _config.Widget.Enabled,
+            CheckOnClick = true,
+        };
+        widget.Click += (_, _) => SetWidget(widget.Checked);
+        _menu.Items.Add(widget);
+
+        // Fork: modo de apresentação (Flutuante / Notch)
+        var modoMenu = new ToolStripMenuItem(Loc.T("menu.widget.modo"));
+        var modoFlutuante = new ToolStripMenuItem(Loc.T("menu.widget.modo.flutuante"))
+        {
+            Checked = _config.Widget.Modo == ModoApresentacao.Flutuante,
+        };
+        modoFlutuante.Click += (_, _) =>
+        {
+            _config.Widget.Modo = ModoApresentacao.Flutuante;
+            ConfigStore.Save(_config);
+            _widget?.Relayout();
+            _widget?.Invalidate();
+            BuildMenu();  // Atualiza marcações
+        };
+        var modoNotch = new ToolStripMenuItem(Loc.T("menu.widget.modo.notch"))
+        {
+            Checked = _config.Widget.Modo == ModoApresentacao.Notch,
+        };
+        modoNotch.Click += (_, _) =>
+        {
+            _config.Widget.Modo = ModoApresentacao.Notch;
+            ConfigStore.Save(_config);
+            _widget?.Relayout();
+            _widget?.Invalidate();
+            BuildMenu();
+        };
+        modoMenu.DropDownItems.AddRange([modoFlutuante, modoNotch]);
+        _menu.Items.Add(modoMenu);
+
+        // Fork: borda (só visível no modo Notch, mas sempre construído para simplificar)
+        var bordaMenu = new ToolStripMenuItem(Loc.T("menu.widget.borda"));
+        foreach (var b in new[] {
+            (Label: Loc.T("menu.widget.borda.esquerda"), Value: BordaTela.Esquerda),
+            (Label: Loc.T("menu.widget.borda.direita"), Value: BordaTela.Direita),
+            (Label: Loc.T("menu.widget.borda.topo"), Value: BordaTela.Topo),
+            (Label: Loc.T("menu.widget.borda.base"), Value: BordaTela.Base),
+        })
+        {
+            var bItem = new ToolStripMenuItem(b.Label)
+            {
+                Checked = _config.Widget.Borda == b.Value,
+            };
+            bItem.Click += (_, _) =>
+            {
+                _config.Widget.Borda = b.Value;
+                ConfigStore.Save(_config);
+                _widget?.Relayout();
+                _widget?.Invalidate();
+                foreach (ToolStripMenuItem irmao in bordaMenu.DropDownItems) irmao.Checked = _config.Widget.Borda == (BordaTela)irmao.Tag!;
+            };
+            bItem.Tag = b.Value;
+            bordaMenu.DropDownItems.Add(bItem);
+        }
+        _menu.Items.Add(bordaMenu);
+
+        // Fork: "Horizontal" no modo Flutuante (mantém compatibilidade)
+        if (_config.Widget.Modo == ModoApresentacao.Flutuante)
+        {
+            var horizontal = new ToolStripMenuItem(Loc.T("menu.widget.horizontal"))
+            {
+                Checked = _config.Widget.Orientation == "horizontal",
+                CheckOnClick = true,
+            };
+            horizontal.Click += (_, _) =>
+            {
+                _config.Widget.Orientation = horizontal.Checked ? "horizontal" : "vertical";
+                ConfigStore.Save(_config);
+                _widget?.Relayout();
+                _widget?.Invalidate();
+            };
+            _menu.Items.Add(horizontal);
+        }
+
+        // Fork: alça de arrasto
+        var alca = new ToolStripMenuItem(Loc.T("menu.widget.alca"))
+        {
+            Checked = _config.Widget.MostrarAlca,
+            CheckOnClick = true,
+        };
+        alca.Click += (_, _) =>
+        {
+            _config.Widget.MostrarAlca = alca.Checked;
+            ConfigStore.Save(_config);
+            _widget?.Invalidate();
+        };
+        _menu.Items.Add(alca);
+
+        // Fork: recentralizar na borda atual
+        var recentralizar = new ToolStripMenuItem(Loc.T("menu.widget.recentralizar"));
+        recentralizar.Click += (_, _) => _widget?.Recentralizar();
+        _menu.Items.Add(recentralizar);
+
+        var sizeMenu = new ToolStripMenuItem(Loc.T("menu.widget.size"));
+        var sizes = new[]
+        {
+            (Name: Loc.T("menu.widget.size.small"), Value: 0.8),
+            (Name: Loc.T("menu.widget.size.normal"), Value: 1.0),
+            (Name: Loc.T("menu.widget.size.large"), Value: 1.3),
+            (Name: Loc.T("menu.widget.size.xlarge"), Value: 1.6)
+        };
+        foreach (var s in sizes)
+        {
+            var sItem = new ToolStripMenuItem(s.Name)
+            {
+                Checked = Math.Abs(_config.Widget.Scale - s.Value) < 0.01,
+                CheckOnClick = true
+            };
+            sItem.Click += (_, _) =>
+            {
+                // Fork: marca só o tamanho escolhido; CheckOnClick sozinho deixava vários marcados.
+                foreach (ToolStripMenuItem irmao in sizeMenu.DropDownItems) irmao.Checked = irmao == sItem;
+                _config.Widget.Scale = s.Value;
+                ConfigStore.Save(_config);
+                _widget?.Relayout();
+                _widget?.Invalidate();
+            };
+            sizeMenu.DropDownItems.Add(sItem);
+        }
+        _menu.Items.Add(sizeMenu);
+
+        var agrupar = new ToolStripMenuItem(Loc.T("menu.groupByService"))
+        {
+            Checked = _config.GroupByService,
+            CheckOnClick = true,
+        };
+        agrupar.Click += (_, _) =>
+        {
+            _config.GroupByService = agrupar.Checked;
+            ConfigStore.Save(_config);
+            HideTooltip();
+            SyncIcons();
+        };
+        _menu.Items.Add(agrupar);
+
         _menu.Items.Add(new ToolStripSeparator());
 
         _iconsMenu = new ToolStripMenuItem(Loc.T("menu.icons"));
         _menu.Items.Add(_iconsMenu);
+
+        // Fork: submenu separado para escolher quais serviços aparecem na faixa flutuante
+        _widgetIconsMenu = new ToolStripMenuItem(Loc.T("menu.widgetItems"));
+        _menu.Items.Add(_widgetIconsMenu);
 
         _languageMenu = new ToolStripMenuItem(Loc.T("menu.language"));
         _menu.Items.Add(_languageMenu);
@@ -496,7 +881,7 @@ public sealed class TrayApp : ApplicationContext
             if (AutoStart.TrySet(autostart.Checked, out var error)) return;
 
             autostart.Checked = AutoStart.IsEnabled;
-            MessageBox.Show(Loc.T("dialog.autostartFailed", error), "RateTray",
+            MessageBox.Show(Loc.T("dialog.autostartFailed", error), "Gaugely",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
         };
         _menu.Items.Add(autostart);
@@ -563,15 +948,21 @@ public sealed class TrayApp : ApplicationContext
     /// <summary>
     /// Lists every limit discovered on this account plus anything still referenced by the
     /// config, so an id can always be unchecked again even after it stopped being reported.
+    /// Fork: popula os dois submenus (Icons e Widget items) de uma só vez.
     /// </summary>
     private void RefreshIconsMenu()
     {
         _iconsMenu.DropDownItems.Clear();
+        _widgetIconsMenu.DropDownItems.Clear();
 
         var known = _lastReadings.Values
             .Select(r => (r.Id, r.Label, r.Group))
             .Concat(_config.Icons
                 .Where(id => !_lastReadings.ContainsKey(id))
+                .Select(id => (Id: id, Label: Loc.T("menu.notReported", id), Group: "")))
+            // Fork: inclui ids que estão só em WidgetIcons (desmarcados em Icons mas marcados na faixa)
+            .Concat((_config.WidgetIcons ?? [])
+                .Where(id => !_lastReadings.ContainsKey(id) && !_config.Icons.Contains(id, StringComparer.OrdinalIgnoreCase))
                 .Select(id => (Id: id, Label: Loc.T("menu.notReported", id), Group: "")))
             .DistinctBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -579,15 +970,21 @@ public sealed class TrayApp : ApplicationContext
         if (known.Count == 0)
         {
             _iconsMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("menu.noData")) { Enabled = false });
+            _widgetIconsMenu.DropDownItems.Add(new ToolStripMenuItem(Loc.T("menu.noData")) { Enabled = false });
             return;
         }
 
-        string? lastGroup = null;
+        // Fork: a lista efetiva para a faixa — WidgetIcons se existir, senão Icons
+        var widgetList = _config.WidgetIcons ?? _config.Icons;
+
+        string? lastGroupIcons = null;
+        string? lastGroupWidget = null;
         foreach (var entry in known.OrderBy(e => e.Group, StringComparer.Ordinal).ThenBy(e => e.Id, StringComparer.Ordinal))
         {
-            if (entry.Group != lastGroup && lastGroup is not null)
+            // --- submenu Icons (bandeja) ---
+            if (entry.Group != lastGroupIcons && lastGroupIcons is not null)
                 _iconsMenu.DropDownItems.Add(new ToolStripSeparator());
-            lastGroup = entry.Group;
+            lastGroupIcons = entry.Group;
 
             var item = new ToolStripMenuItem(entry.Label)
             {
@@ -596,6 +993,19 @@ public sealed class TrayApp : ApplicationContext
             };
             item.Click += (_, _) => ToggleIcon(entry.Id, item.Checked);
             _iconsMenu.DropDownItems.Add(item);
+
+            // --- submenu Widget items (faixa) ---
+            if (entry.Group != lastGroupWidget && lastGroupWidget is not null)
+                _widgetIconsMenu.DropDownItems.Add(new ToolStripSeparator());
+            lastGroupWidget = entry.Group;
+
+            var wItem = new ToolStripMenuItem(entry.Label)
+            {
+                Checked = widgetList.Contains(entry.Id, StringComparer.OrdinalIgnoreCase),
+                CheckOnClick = true,
+            };
+            wItem.Click += (_, _) => ToggleWidgetIcon(entry.Id, wItem.Checked);
+            _widgetIconsMenu.DropDownItems.Add(wItem);
         }
     }
 
@@ -612,6 +1022,30 @@ public sealed class TrayApp : ApplicationContext
 
         ConfigStore.Save(_config);
         SyncIcons();
+        SyncNeutralIcon();  // Fork: pode ter ficado sem ícone de serviço
+    }
+
+    /// <summary>
+    /// Fork: alterna uma janela em WidgetIcons. Materializa a lista a partir de Icons se for nula,
+    /// salva e atualiza a faixa.
+    /// </summary>
+    private void ToggleWidgetIcon(string id, bool enabled)
+    {
+        // Fork: materializa na primeira interação — a faixa começa idêntica à bandeja
+        _config.WidgetIcons ??= new List<string>(_config.Icons);
+
+        if (enabled)
+        {
+            if (!_config.WidgetIcons.Contains(id, StringComparer.OrdinalIgnoreCase))
+                _config.WidgetIcons.Add(id);
+        }
+        else
+        {
+            _config.WidgetIcons.RemoveAll(existing => existing.Equals(id, StringComparison.OrdinalIgnoreCase));
+        }
+
+        ConfigStore.Save(_config);
+        _widget?.Apply(WidgetGroups());
     }
 
     private void OpenSettings()
@@ -634,6 +1068,8 @@ public sealed class TrayApp : ApplicationContext
         // than patched after a settings change.
         _tooltip?.Dispose();
         _tooltip = null;
+        _widgetTip?.Dispose();               // Fork: refaz junto com o cartão rico
+        _widgetTip = null;
         _details?.Dispose();
         _details = null;
 
@@ -686,7 +1122,27 @@ public sealed class TrayApp : ApplicationContext
 
         _config.LastUpdateCheck = DateTimeOffset.Now;
         ConfigStore.Save(_config);
-        if (result is not null) SetLatestUpdate(result);
+        if (result is null) return;
+
+        SetLatestUpdate(result);
+        NotifyUpdate(result);
+    }
+
+    /// <summary>
+    /// Fork: avisa que há versão nova e para aí. Instalar é sempre um clique no Sobre — o hash da
+    /// release prova integridade no caminho, não quem publicou, então a decisão fica com a pessoa.
+    /// </summary>
+    private void NotifyUpdate(UpdateCheck.Result result)
+    {
+        if (!result.IsNewer) return;
+
+        var anchor = _icons.Values.FirstOrDefault(i => i.Visible);
+        if (anchor is null) return;
+
+        anchor.BalloonTipTitle = Loc.T("about.title");
+        anchor.BalloonTipText = Loc.T("about.updateNotice", result.Latest.ToString(3));
+        anchor.BalloonTipIcon = ToolTipIcon.Info;
+        anchor.ShowBalloonTip(10_000);
     }
 
     private void SetLatestUpdate(UpdateCheck.Result result)
@@ -719,16 +1175,106 @@ public sealed class TrayApp : ApplicationContext
 
     // --------------------------------------------------------------- shutdown
 
+    /// <summary>
+    /// Fork: liga ou desliga a faixa flutuante e guarda a escolha, para ela voltar sozinha no
+    /// próximo início. O clique nela abre o mesmo painel do ícone, e o botão direito abre o
+    /// mesmo menu — uma janela sem nenhuma dessas duas saídas viraria um enfeite preso na tela.
+    /// </summary>
+    private void SetWidget(bool ligada)
+    {
+        _config.Widget.Enabled = ligada;
+        ConfigStore.Save(_config);
+
+        if (!ligada)
+        {
+            HideTooltip();                         // Fork: esconde o cartão se a faixa sumiu
+            _widgetTip?.Dispose();
+            _widgetTip = null;
+            _widget?.Close();
+            _widget?.Dispose();
+            _widget = null;
+            SyncNeutralIcon();                     // Fork: sem faixa, pode precisar do ícone neutro
+            return;
+        }
+
+        if (_widget is null)
+        {
+            _widget = new WidgetForm(_config, _palette) { ContextMenuStrip = _menu };
+            _widget.Clicked += (_, _) => { HideTooltip(); ToggleDetails(); };   // Fork: clique = panorama, sem o cartão individual por cima
+            _widget.HoverChanged += OnWidgetHover;  // Fork: cartão rico ao passar o mouse
+            _widget.LayoutChanged += (_, _) =>
+            {
+                // Fork: debounce de 500 ms no salvamento para não sobrecarregar o disco
+                _layoutSaveTimer.Stop();
+                _layoutSaveTimer.Start();
+            };
+        }
+
+        _widget.Apply(WidgetGroups());
+        _widget.Show();
+        SyncNeutralIcon();                         // Fork: faixa ligada, ícone neutro sai
+    }
+
+    /// <summary>
+    /// Fork: reage ao hover na faixa flutuante. Com RichTooltips ligado, mostra o cartão rico
+    /// ao lado da faixa; com ele desligado, usa uma ToolTip nativa simples. A posição do cartão
+    /// usa a sobrecarga que recebe o retângulo de ancoragem.
+    /// </summary>
+    private void OnWidgetHover(object? sender, WidgetHoverEventArgs e)
+    {
+        if (e.Group is null)
+        {
+            // Fork: saiu do anel — esconde o cartão (rico ou simples).
+            if (_tooltipOwner == TooltipOwner.Widget) HideTooltip();
+            _widgetTip?.Hide(_widget!);
+            return;
+        }
+
+        // Fork: o painel de detalhes ou o menu estão abertos — não sobrepor.
+        if (_details is { Visible: true } || _menu.Visible) return;
+
+        var rows = WidgetReadingsOf(e.Group);
+        var error = _lastResults.FirstOrDefault(r => r.Group == e.Group)?.Error;
+
+        if (!_config.RichTooltips)
+        {
+            // Fork: fallback — tooltip nativa simples, como antes do cartão rico.
+            _widgetTip ??= new ToolTip { InitialDelay = 250, ReshowDelay = 120 };
+            var grupo = new WidgetGroup(e.Group, rows, error);
+            _widgetTip.SetToolTip(_widget!, WidgetForm.TipFor(grupo));
+            return;
+        }
+
+        _tooltip ??= new TooltipWindow(_config, _palette);
+        _tooltipOwner = TooltipOwner.Widget;
+
+        // Fork: usa o retângulo da faixa inteira para decidir o lado, e o do anel para alinhar.
+        _tooltip.ShowForGroup(rows, e.Group, error, e.AnchorScreenRect, _widget!.Bounds);
+        _tooltipTimer.Start();   // Fork: arma o vigia; sem isso, sem MouseLeave o cartão ficava preso
+    }
+
+    /// <summary>Fork: os serviços da faixa, pelo filtro de WidgetIcons (ou Icons se nulo).</summary>
+    private IReadOnlyList<WidgetGroup> WidgetGroups() =>
+        _lastResults
+            .Select(r => new WidgetGroup(r.Group, WidgetReadingsOf(r.Group), r.Error))
+            .Where(g => g.Rows.Count > 0 || g.Error is not null)
+            .ToList();
+
     private void Quit()
     {
         _timer.Stop();
         _tooltipTimer.Stop();
+        if (_layoutSaveTimer.Enabled) ConfigStore.Save(_config);   // Fork: Ctrl+roda nos últimos 500 ms não se perde
+        _layoutSaveTimer.Stop();
         _shutdown.Cancel();
 
         foreach (var id in _icons.Keys.ToList()) RemoveIcon(id);
 
         _tooltip?.Dispose();
+        _widgetTip?.Dispose();               // Fork: tooltip simples de fallback da faixa
+        if (_neutralIcon is not null) { _neutralIcon.Visible = false; _neutralIcon.Dispose(); _neutralIcon = null; }
         _details?.Dispose();
+        _widget?.Dispose();
         _dialog?.Close();
         ExitThread();
     }
@@ -739,6 +1285,7 @@ public sealed class TrayApp : ApplicationContext
         {
             _timer.Dispose();
             _tooltipTimer.Dispose();
+            _layoutSaveTimer.Dispose();
             _menu.Dispose();
             _shutdown.Dispose();
         }

@@ -8,7 +8,10 @@ namespace RateTray.Ui;
 public static class AutoStart
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string ValueName = "RateTray";
+    private const string ValueName = "Gaugely";
+
+    /// <summary>Nome usado antes da renomeação do app.</summary>
+    private const string LegacyValueName = "RateTray";
 
     public static bool IsEnabled
     {
@@ -45,6 +48,9 @@ public static class AutoStart
                 key.DeleteValue(ValueName, throwOnMissingValue: false);
             }
 
+            // Duas entradas iniciariam duas cópias no logon — a antiga sai em qualquer caso.
+            key.DeleteValue(LegacyValueName, throwOnMissingValue: false);
+
             return true;
         }
         catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException
@@ -53,6 +59,21 @@ public static class AutoStart
             error = ex.Message;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Fork: quem tinha início automático sob o nome antigo continua com ele, agora apontando para
+    /// este executável. Sem entrada antiga, não faz nada — não liga o que o usuário não ligou.
+    /// </summary>
+    public static void MigrateLegacy()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
+            if (key?.GetValue(LegacyValueName) is not string { Length: > 0 }) return;
+            TrySet(true, out _);
+        }
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException) { }
     }
 
     /// <summary>

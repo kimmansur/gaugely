@@ -43,16 +43,41 @@ public sealed record LimitReading
     public int VariantCount { get; init; } = 1;
 
     /// <summary>
+    /// Fork: valor absoluto em vez de percentual — saldo e gasto do OpenRouter. Não
+    /// existe "janela que enche" nesses números: US$ 17 de saldo não está a 17 % de nada, e
+    /// convertê-los num percentual inventado faria o ícone acender amarelo sem motivo.
+    /// </summary>
+    public decimal? Amount { get; init; }
+
+    /// <summary>Fork: unidade de <see cref="Amount"/>, como "US$". Só texto de exibição.</summary>
+    public string? AmountUnit { get; init; }
+
+    /// <summary>
+    /// Fork: leitura que informa, mas não trava nada. Fica fora da escolha do limite que trava
+    /// primeiro (<see cref="ServiceGroup.Binding"/>), senão um saldo de US$ 0 com
+    /// <see cref="Percent"/> zerado disputaria com uma cota de verdade.
+    /// </summary>
+    public bool IsInformational => Amount is not null;
+
+    /// <summary>
     /// Text drawn into the tray icon: the same rounded percentage the details window and the
     /// hover card show, without a sign. A full limit reads "100" — the renderer shrinks a
     /// three-digit value to fit, and capping it at "99" instead meant the one number that has
     /// to be right disagreed with every other place the same reading is shown.
     /// Values outside 0..100 are clamped: a provider reporting 103 % is still just "full".
+    ///
+    /// Fork: uma leitura informativa mostra o valor inteiro, arredondado para baixo — um saldo de
+    /// US$ 17,90 aparece como "17", porque arredondar para cima prometeria dinheiro que não há.
+    /// Negativo vira "0" pelo mesmo motivo do clamp acima.
     /// </summary>
-    public string IconText => Math.Round(Math.Clamp(Percent, 0, 100)).ToString("0");
+    public string IconText => Amount is { } amount
+        ? Math.Floor(Math.Max(0m, amount)).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+        : Math.Round(Math.Clamp(Percent, 0, 100)).ToString("0");
 
     public string ResetText()
     {
+        // Fork: saldo em dinheiro não zera; "Reset unknown" embaixo de US$ parecia defeito.
+        if (ResetsAt is null && IsInformational) return "";
         if (ResetsAt is not { } reset) return Loc.T("limit.resetUnknown");
 
         var stamp = Loc.DateTime(reset);
@@ -86,6 +111,17 @@ public sealed record LimitReading
         return minutes >= Day
             ? Loc.T("window.days", minutes / Day)
             : Loc.T("window.hours", minutes / Hour);
+    }
+
+    // Fork: um único formatador para percentuais e leituras informativas
+    internal static string FormatValue(LimitReading r)
+    {
+        if (r.IsInformational && r.Amount.HasValue)
+        {
+            var amountStr = r.Amount.Value.ToString("0.00");
+            return string.IsNullOrEmpty(r.AmountUnit) ? amountStr : $"{r.AmountUnit} {amountStr}";
+        }
+        return $"{Math.Round(r.Percent)} %";
     }
 }
 

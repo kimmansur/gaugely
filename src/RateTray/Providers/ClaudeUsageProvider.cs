@@ -118,7 +118,7 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", creds.AccessToken);
             request.Headers.Add("anthropic-beta", "oauth-2025-04-20");
             request.Headers.Add("anthropic-version", "2023-06-01");
-            request.Headers.UserAgent.ParseAdd("RateTray/0.1");
+            request.Headers.UserAgent.ParseAdd("Gaugely/0.1");
 
             using var response = await Http.SendAsync(request, deadline.Token).ConfigureAwait(false);
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)

@@ -1,96 +1,107 @@
 # Security
 
-## What this app touches
+Gaugely reads credentials, so it is fair to want to know exactly what it does with them. This
+file describes the fork as shipped; most of it is inherited from
+[RateTray](https://github.com/nowrap/rate-tray/blob/main/SECURITY.md), with the differences called
+out.
 
-It reads credentials, so it is fair to want to know exactly what it does with them.
+## What this app touches
 
 **Files read**
 
 | Path | Why | Written? |
 |---|---|---|
-| `%USERPROFILE%\.claude\.credentials.json` | OAuth access token for the usage request | Only when `claude.autoRefreshToken` is enabled — see below |
+| `%USERPROFILE%\.claude\.credentials.json` | OAuth access token for the Claude usage request | Only with `claude.autoRefreshToken` enabled — see below |
 | `%USERPROFILE%\.codex\auth.json` | `exp` claim of the access token, to report sign-in validity | Never |
-| `%APPDATA%\RateTray\settings.json` | This app's own configuration | Yes |
-| `%APPDATA%\RateTray\cache.json` | Last readings, so a restart shows numbers at once | Yes |
+| `%APPDATA%\Gaugely\settings.json` | This app's own configuration | Yes |
+| `%APPDATA%\Gaugely\cache.json` | Last readings, so a restart shows numbers at once | Yes |
+| `%APPDATA%\RateTray\settings.json` | Copied once into the folder above on first start, if present | Never |
 
 `cache.json` holds only values — limit ids, percentages, reset times, plan names. No token or
-credential ever reaches it. Deleting it costs nothing but a blank tray until the next poll.
+credential ever reaches it.
 
-Both credential files are ones the official CLIs already create and maintain. The app does not
-create, copy, cache or log them, and never writes a token to its own config, to disk elsewhere,
-or to its diagnostic output.
+**Windows Credential Manager**
 
-**Network**
+The Kimi Code and OpenRouter API keys are stored there, under `Gaugely/kimi` and
+`Gaugely/openrouter`, never in `settings.json`. Keys saved by earlier builds under
+`RateTray-Nox/…` are read once and copied to the new names; removing a key in Settings removes
+both.
 
-One destination as shipped: `https://api.anthropic.com/api/oauth/usage`, and only when Claude is
-enabled. That is where the Claude token goes, and nowhere else.
+**Network** — every destination is a constant in the code, not a setting:
 
-It is a setting rather than a constant, though, as is `claude.tokenUrl` for the refresh described
-below — both so a changed endpoint can be corrected without a rebuild. So the honest version of
-the sentence above is: whoever can write `settings.json` can point the token somewhere else.
-Locally that grants nothing new, since the same access reads `.credentials.json` directly. It does
-mean a settings file taken from someone else deserves a read before it is used, like any config
-carrying a URL.
+| Destination | When | What is sent |
+|---|---|---|
+| `https://api.anthropic.com/api/oauth/usage` | Claude enabled | The Claude OAuth token |
+| `https://console.anthropic.com/v1/oauth/token` | Only with `autoRefreshToken`, when the token has expired | The refresh token |
+| `https://api.kimi.com/coding/v1/usages` | A Kimi key is saved | The Kimi key |
+| `https://openrouter.ai/api/v1/credits`, `/key` | An OpenRouter key is saved | The OpenRouter key |
+| `https://api.github.com/repos/kimmansur/gaugely/…` | Update check (off by default) or the About buttons | Nothing — no token, no identifier |
 
-Two rules keep such a change from being a quiet one. A credential is only ever sent over https —
-anything else fails the poll with *"Endpoint is not https, no token sent"* before a connection is
-opened, with loopback excepted so a local mock still works. And an endpoint whose host is not the
-one shipped is named in the details window and in `--once` output. Neither prevents a deliberate
-change; both stop it from being one nobody notices.
+Codex and Antigravity involve no network access from this app: it starts the local
+`codex app-server` and `agy` processes and reads their output. What those do is their own
+behaviour.
 
-Codex data does not involve the network at all from this app's side — it starts a local
-`codex app-server` process and speaks JSON-RPC to it over stdio. Whatever that process does
-upstream is the Codex CLI's own behaviour.
-
-There is no telemetry and no crash reporting. The update check is off by default: enable it in the
-About dialog and RateTray asks GitHub once a day for the repository's tag list —
-`https://api.github.com/repos/nowrap/rate-tray/tags`, over https, carrying no token and nothing
-about you beyond the request itself. The dialog's manual "check for updates" button makes the same
-request on demand. Both use a fixed address, not a setting.
+There is no telemetry and no crash reporting.
 
 **Processes started**
 
-`codex.exe app-server`, once per poll, killed afterwards. The path is resolved from
-`codex.executablePath` if set, otherwise from the default install location and `PATH`.
+- `codex.exe app-server`, once per poll, killed afterwards.
+- `agy.exe -p /usage`, from its fixed install path under `%LOCALAPPDATA%\agy\bin`, with its own
+  auto-updater disabled for that call.
 
-## `autoRefreshToken`
+## Differences from RateTray
 
-Off by default. When enabled, the app refreshes the Claude OAuth token itself and writes the
-result back into `.credentials.json`.
+Upstream treats `settings.json` as a legitimate place to configure endpoints and executables. On a
+work machine that file is an attack surface: whoever can write it could redirect a token or make
+the app launch another program. The fork closes three paths, all enforced in `Normalize()`, which
+every loaded configuration passes through:
 
-Two things to know before turning it on:
+- **FORK-1** — `claude.usageUrl` and `claude.tokenUrl` keep their official host. A different host is
+  replaced by the default; a different path on the official host is still accepted, so a moved
+  endpoint can be followed without a rebuild.
+- **FORK-2** — `codex.executablePath` is ignored. `codex.exe` is found in its known install
+  locations and on `PATH`, never at a path read from the settings file.
+- **FORK-3** — `claude.autoRefreshToken` is available as an opt-in, because people who use the
+  Claude desktop app rather than the CLI have nothing else keeping the token fresh. The refresh
+  only runs with an expired token, writes the file atomically, and — through FORK-1 — can only go
+  to the official host.
 
-1. **The refresh path has not been exercised against the live endpoint.** The token URL and
-   client id are configurable precisely so a wrong value can be corrected without a rebuild.
-2. Refresh tokens usually rotate. A failed refresh could in principle leave you needing to sign
-   in again. The write is atomic and preserves every other field in the file, and any failure
-   falls back to "start Claude Code" without modifying anything — but off is still the safer
-   default, and Claude Code keeps the token fresh on its own while it runs.
+## Updates
+
+The update check is off by default. When enabled in About, it asks the GitHub API for this
+repository's latest release once a day. A newer release produces a notification; nothing is
+downloaded until you press **Download and install**.
+
+The installer then:
+
+1. accepts only assets under `https://api.github.com/repos/kimmansur/gaugely/releases/assets/`;
+2. downloads the executable into memory and compares its SHA256 with the release's
+   `SHA256SUMS.txt` before anything touches the disk;
+3. writes it under a random name that must not already exist, and refuses it unless the version
+   inside the file equals the release tag — so an old binary cannot be republished under a new
+   number;
+4. swaps it in with a single `ReplaceFile` call, keeping the previous version as `.old` until the
+   new one starts.
+
+**Limit, stated plainly:** the checksum is published in the same release as the binary. It proves
+the file was not altered on the way, not who published it. Someone in control of this GitHub
+account could publish a matching pair. That is why installing needs a click, and why a release is
+only built by the tag-triggered workflow, with every third-party action pinned to a commit.
 
 ## Reporting a vulnerability
 
-Please open a [private security advisory](../../security/advisories/new) rather than a public
-issue. If you would rather not use GitHub, or cannot, mail <security@nowrap.net> instead — a
-finding should not go unreported over the shape of the mailbox. Failing both, open a normal issue
-with only enough detail to make contact, and we will move it somewhere private.
+Please use GitHub's [private vulnerability reporting](https://github.com/kimmansur/gaugely/security/advisories/new)
+rather than a public issue. If that is not possible, open a normal issue with only enough detail
+to make contact, and it will be moved somewhere private.
 
-Mail can be encrypted to
-[`9AC4 EE08 CDE9 8755 5F00  34F1 3F09 5841 04AD A738`](https://ratetray.nowrap.net/.well-known/pgp-key.txt)
-(Ed25519, valid to 2029-08-07). Encryption is welcome but not expected — a report in plain text is
-worth far more than one that never gets sent.
-
-Both routes and the key are published machine-readably as
-[security.txt](https://ratetray.nowrap.net/.well-known/security.txt) (RFC 9116), which names this
-file as its policy.
-
-Expect a first response within a week. This is a spare-time project — there is no bounty and no
-guaranteed timeline, but credible reports will be taken seriously and credited unless you would
-rather not be.
+This is a spare-time project: there is no bounty and no guaranteed timeline, but credible reports
+are taken seriously and credited unless you would rather not be.
 
 ## Scope
 
-In scope: credential handling, the settings file, anything the app writes or transmits, and
-process launching.
+In scope: credential handling, the settings file, the update installer, anything the app writes
+or transmits, and process launching.
 
-Out of scope: vulnerabilities in Claude Code, the Codex CLI, or the upstream APIs themselves —
-report those to Anthropic and OpenAI respectively.
+Out of scope: vulnerabilities in Claude Code, the Codex CLI, `agy`, or the services' own APIs —
+report those to their vendors. Issues that exist identically in RateTray are best reported
+upstream as well.

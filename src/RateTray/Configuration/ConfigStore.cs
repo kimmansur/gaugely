@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace RateTray.Configuration;
 
-/// <summary>Loads and persists settings.json under %APPDATA%\RateTray.</summary>
+/// <summary>Loads and persists settings.json under %APPDATA%\Gaugely.</summary>
 public static class ConfigStore
 {
     private static readonly JsonSerializerOptions Options = new()
@@ -18,7 +18,29 @@ public static class ConfigStore
     };
 
     public static string Directory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Gaugely");
+
+    /// <summary>Pasta usada antes da renomeação do app — só lida, para migrar.</summary>
+    internal static string LegacyDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RateTray");
+
+    /// <summary>
+    /// Fork: na primeira execução depois da renomeação, traz o settings.json da pasta antiga. Copia,
+    /// não move — a versão anterior continua achando o seu. Nunca sobrescreve um arquivo novo.
+    /// </summary>
+    internal static void MigrateLegacy(string legacyDirectory, string directory)
+    {
+        try
+        {
+            var from = System.IO.Path.Combine(legacyDirectory, "settings.json");
+            var to = System.IO.Path.Combine(directory, "settings.json");
+            if (File.Exists(to) || !File.Exists(from)) return;
+
+            System.IO.Directory.CreateDirectory(directory);
+            File.Copy(from, to, overwrite: false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException) { }
+    }
 
     public static string Path_ => System.IO.Path.Combine(Directory, "settings.json");
 
@@ -28,6 +50,8 @@ public static class ConfigStore
     /// </summary>
     public static AppConfig Load()
     {
+        MigrateLegacy(LegacyDirectory, Directory);
+
         try
         {
             if (!File.Exists(Path_))

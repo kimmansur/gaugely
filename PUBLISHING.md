@@ -41,7 +41,7 @@ before tagging.
 
 ## What is deliberately not in the repository
 
-- `settings.json` and `cache.json` — user state, under `%APPDATA%\RateTray\`.
+- `settings.json` and `cache.json` — user state, under `%APPDATA%\Gaugely\`.
 - Anthropic or OpenAI logos — trademarks. The service marks are generic shapes drawn in
   `ServiceBadge.cs`, and `README` says so explicitly under *Trademarks*.
 - Real usage numbers. Test fixtures use the real payload *shape* with invented values.

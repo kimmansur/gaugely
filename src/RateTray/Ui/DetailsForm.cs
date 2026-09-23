@@ -23,7 +23,8 @@ public sealed class DetailsForm : Form
     private readonly AppConfig _config;
     private readonly Palette _palette;
 
-    private IReadOnlyList<ProviderResult> _results = [];
+    // Fork: Item 8 - cache do resultado e do LINQ do grupo para evitar recálculo no paint
+    private IReadOnlyList<(ProviderResult Result, IReadOnlyList<LimitReading> Readings)> _cachedResults = [];
     private DateTimeOffset? _lastUpdate;
     private DateTimeOffset? _nextPoll;
     private int _dpi = 96;
@@ -38,13 +39,14 @@ public sealed class DetailsForm : Form
     private Font _labelFont = null!;
     private Font _smallFont = null!;
     private Font _valueFont = null!;
+    private Font _headFont = null!;
 
     public DetailsForm(AppConfig config, Palette palette)
     {
         _config = config;
         _palette = palette;
 
-        Text = "RateTray Details";               // window title, used by the e2e smoke test
+        Text = "Gaugely Details";               // window title, used by the e2e smoke test
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
@@ -94,7 +96,7 @@ public sealed class DetailsForm : Form
     public void ShowNearTray(IReadOnlyList<ProviderResult> results, DateTimeOffset? lastUpdate,
         DateTimeOffset? nextPoll = null)
     {
-        _results = results;
+        _cachedResults = results.Select(r => (r, ServiceGroup.Ordered(r.Readings))).ToList();
         _lastUpdate = lastUpdate;
         _nextPoll = nextPoll;
 
@@ -115,6 +117,14 @@ public sealed class DetailsForm : Form
         var size = FlyoutPlacement.Fit(new Size(Px(BaseWidth), MeasureHeight()), screen.WorkingArea, margin);
         Bounds = new Rectangle(FlyoutPlacement.Locate(size, screen.WorkingArea, edge, margin), size);
 
+        // Fork: recorta a janela no contorno arredondado do cartão, para não sobrar quina clara.
+        using (var outline = RoundedRect(new Rectangle(0, 0, size.Width, size.Height), Px(14)))
+        {
+            var old = Region;
+            Region = new Region(outline);
+            old?.Dispose();
+        }
+
         Show();
         Activate();
         Invalidate();
@@ -128,27 +138,50 @@ public sealed class DetailsForm : Form
         _labelFont?.Dispose();
         _smallFont?.Dispose();
         _valueFont?.Dispose();
+        _headFont?.Dispose();
 
         _titleFont = new Font(family, Px(15), FontStyle.Bold, GraphicsUnit.Pixel);
         _labelFont = new Font(family, Px(14), FontStyle.Regular, GraphicsUnit.Pixel);
         _smallFont = new Font(family, Px(11), FontStyle.Regular, GraphicsUnit.Pixel);
         _valueFont = new Font(family, Px(14), FontStyle.Bold, GraphicsUnit.Pixel);
+        _headFont = new Font(family, Px(19), FontStyle.Bold, GraphicsUnit.Pixel);
     }
+
+    // Fork: layout de cartão. Um bloco por serviço — ícone, nome, plano e o pior
+    // percentual no cabeçalho; embaixo, uma linha por janela com barra, valor e quanto falta para
+    // zerar. O login só aparece quando está com problema: "válido até" em todo bloco era ruído.
+    private const int ServiceHeader = 36;
+    private const int ReadingRow = 26;
+    private const int ServiceGap = 14;
+
+    private static bool AuthNeedsAttention(ProviderResult result) => result.Auth is { IsValid: false };
 
     private int MeasureHeight()
     {
-        var height = Px(16);
-        foreach (var result in _results)
+        var height = Px(14);
+        foreach (var cached in _cachedResults)
         {
-            height += Px(26);                                   // group header
-            if (result.Auth is not null) height += Px(18);
+            var result = cached.Result;
+            height += Px(ServiceHeader);
+            if (AuthNeedsAttention(result)) height += Px(18);
             if (result.Notice is not null) height += Px(18);
             if (result.Error is not null) height += Px(20);
-            height += result.Readings.Count * Px(46);
-            height += Px(10);
+            height += result.Readings.Count * Px(ReadingRow);
+            height += Px(ServiceGap);
         }
 
         return height + Px(30);                                 // footer
+    }
+
+    /// <summary>"OAuth · max" → "Max"; "chatgpt · plus" → "Plus"; "Allegretto" → "Allegretto".</summary>
+    internal static string? PlanOf(AuthStatus? auth)
+    {
+        var detail = auth?.Detail;
+        if (string.IsNullOrWhiteSpace(detail)) return null;
+
+        var plan = detail.Split('·').Last().Trim();
+        if (plan.Length == 0 || plan.Equals("OAuth", StringComparison.OrdinalIgnoreCase)) return null;
+        return char.ToUpperInvariant(plan[0]) + plan[1..];
     }
 
     /// <summary>Band along the bottom edge, inside the border.</summary>
@@ -210,41 +243,81 @@ public sealed class DetailsForm : Form
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
         using (var back = new SolidBrush(Background)) g.FillRectangle(back, ClientRectangle);
-        using (var border = new Pen(BorderColor)) g.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+        using (var border = new Pen(BorderColor))
+        using (var outline = RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Px(14)))
+            g.DrawPath(border, outline);
 
         using var foreground = new SolidBrush(Foreground);
         using var muted = new SolidBrush(Muted);
 
         var pad = Px(16);
-        var y = Px(12);
-        var barLeft = Px(250);
+        var y = Px(14);
+        var textLeft = pad + Px(34);                            // alinhado ao nome, depois do ícone
+        var barLeft = Px(170);
         var barWidth = Px(200);
         var valueLeft = barLeft + barWidth + Px(12);
+        var resetLeft = valueLeft + Px(52);
         // Text that comes from a provider is drawn into these widths, never past them: an error
         // may be a server's whole answer, and a row here is one line high.
-        var fullWidth = Width - 2 * pad;
-        var labelWidth = barLeft - pad - Px(12);
+        var fullWidth = Width - pad - textLeft;
+        var labelWidth = barLeft - textLeft - Px(10);
 
-        if (_results.Count == 0)
+        if (_cachedResults.Count == 0)
         {
             g.DrawString(Loc.T("details.noData"), _labelFont, muted, pad, y);
             return;
         }
 
-        foreach (var result in _results)
+        for (var index = 0; index < _cachedResults.Count; index++)
         {
+            var result = _cachedResults[index].Result;
+            var readings = _cachedResults[index].Readings;
             var accent = Harmony.Legible(_palette.Service(result.Group), Dark);
-            var badge = new RectangleF(pad, y + Px(2), Px(16), Px(16));
-            ServiceBadge.Draw(g, badge, result.Group, accent);
-            g.DrawString(result.Group, _titleFont, foreground, pad + Px(23), y);
-            y += Px(26);
+            ServiceBadge.Draw(g, new RectangleF(pad, y + Px(2), Px(24), Px(24)), result.Group, accent, Dark);
+            g.DrawString(result.Group, _titleFont, foreground, textLeft, y + Px(4));
 
-            if (result.Auth is { } auth)
+            // O número grande do cabeçalho é o mesmo da faixa e do ícone: o que trava primeiro.
+            // Serviço só de saldo mostra o saldo.
+            var head = ServiceGroup.Binding(readings) is { } binding
+                ? ($"{Math.Round(binding.Percent)} %", _palette.ForReading(result.Group, binding.Percent, 0, 1, Dark))
+                : readings.FirstOrDefault(r => r.IsInformational) is { } balance
+                    ? ($"{balance.AmountUnit} {balance.Amount:N2}", accent)
+                    : ((string, Color)?)null;
+            
+            float headWidth = 0;
+            if (head is { } h) headWidth = g.MeasureString(h.Item1, _headFont).Width;
+
+            if (PlanOf(result.Auth) is { } plan)
+            {
+                var nameWidth = g.MeasureString(result.Group, _titleFont).Width;
+                var spaceRight = Width - pad - headWidth - Px(16); // Margem antes do head
+                var maxChipWidth = spaceRight - (textLeft + nameWidth + Px(8));
+                
+                var chipWidth = Math.Min(g.MeasureString(plan, _smallFont).Width + Px(12), Math.Max(Px(30), maxChipWidth));
+                var chip = new Rectangle((int)(textLeft + nameWidth + Px(8)), y + Px(6), (int)chipWidth, Px(18));
+                
+                using (var chipBack = new SolidBrush(Color.FromArgb(Dark ? 40 : 22, Foreground)))
+                using (var chipPath = RoundedRect(chip, Px(9)))
+                    g.FillPath(chipBack, chipPath);
+                    
+                // Fork: Item 12 - corta o nome do plano com elipse usando TextLine
+                TextLine.Draw(g, plan, _smallFont, muted, chip.X + Px(6), chip.Y + Px(2), chip.Width - Px(12));
+            }
+
+            if (head is { } hh)
+            {
+                using var headBrush = new SolidBrush(hh.Item2);
+                g.DrawString(hh.Item1, _headFont, headBrush, Width - pad - headWidth, y + Px(2));
+            }
+
+            y += Px(ServiceHeader);
+
+            if (AuthNeedsAttention(result) && result.Auth is { } auth)
             {
                 var text = Loc.T("details.auth", auth.Summary()) +
                            (auth.Detail is { Length: > 0 } d ? $"  ·  {d}" : "");
-                using var brush = new SolidBrush(auth.IsValid ? Muted : Harmony.Legible(_palette.Critical, Dark));
-                TextLine.Draw(g, text, _smallFont, brush, pad, y, fullWidth);
+                using var brush = new SolidBrush(Harmony.Legible(_palette.Critical, Dark));
+                TextLine.Draw(g, text, _smallFont, brush, textLeft, y, fullWidth);
                 y += Px(18);
             }
 
@@ -253,7 +326,7 @@ public sealed class DetailsForm : Form
                 // Not an error, so not in the critical colour — but not muted away either:
                 // an endpoint someone else configured should catch the eye once.
                 using var brush = new SolidBrush(Harmony.Legible(_palette.Warn, Dark));
-                TextLine.Draw(g, notice, _smallFont, brush, pad, y, fullWidth);
+                TextLine.Draw(g, notice, _smallFont, brush, textLeft, y, fullWidth);
                 y += Px(18);
             }
 
@@ -264,26 +337,42 @@ public sealed class DetailsForm : Form
                     error += "  ·  " + Loc.T("details.retryIn", LimitReading.FormatSpan(retry - DateTimeOffset.Now));
 
                 using var brush = new SolidBrush(Harmony.Legible(_palette.Critical, Dark));
-                TextLine.Draw(g, error, _smallFont, brush, pad, y, fullWidth);
+                TextLine.Draw(g, error, _smallFont, brush, textLeft, y, fullWidth);
                 y += Px(20);
             }
 
-            foreach (var reading in result.Readings)
+            foreach (var reading in readings)
             {
+                TextLine.Draw(g, reading.Label, _labelFont, muted, textLeft, y + Px(2), labelWidth);
+
+                if (reading.IsInformational)
+                {
+                    // Valor em dinheiro não tem barra: não existe "cheio". Alinha com os percentuais.
+                    using var amountBrush = new SolidBrush(Foreground);
+                    g.DrawString($"{reading.AmountUnit} {reading.Amount:N2}", _valueFont, amountBrush, barLeft, y + Px(2));
+                    y += Px(ReadingRow);
+                    continue;
+                }
+
                 var color = _palette.ForReading(reading.Group, reading.Percent, reading.Variant, reading.VariantCount, Dark);
+                DrawBar(g, new Rectangle(barLeft, y + Px(8), barWidth, Px(7)), reading.Percent, color);
 
-                TextLine.Draw(g, reading.Label + (reading.IsActive ? "  •" : ""), _labelFont, foreground, pad, y, labelWidth);
-                TextLine.Draw(g, reading.ResetText(), _smallFont, muted, pad, y + Px(18), labelWidth);
+                using (var valueBrush = new SolidBrush(color))
+                    g.DrawString($"{Math.Round(reading.Percent)} %", _valueFont, valueBrush, valueLeft, y + Px(2));
 
-                DrawBar(g, new Rectangle(barLeft, y + Px(12), barWidth, Px(8)), reading.Percent, color);
+                // Quanto falta para zerar, curto: o horário completo fica no cartão do mouse.
+                if (reading.ResetsAt is { } reset && reset > DateTimeOffset.Now)
+                    TextLine.Draw(g, "↻ " + LimitReading.FormatSpan(reset - DateTimeOffset.Now), _smallFont, muted,
+                        resetLeft, y + Px(4), Width - pad - resetLeft);
 
-                using var valueBrush = new SolidBrush(color);
-                g.DrawString($"{Math.Round(reading.Percent)} %", _valueFont, valueBrush, valueLeft, y + Px(7));
-
-                y += Px(46);
+                y += Px(ReadingRow);
             }
 
-            y += Px(10);
+            y += Px(ServiceGap);
+
+            if (index < _cachedResults.Count - 1)
+                using (var line = new Pen(BorderColor))
+                    g.DrawLine(line, pad, y - Px(ServiceGap) / 2, Width - pad, y - Px(ServiceGap) / 2);
         }
 
         var footer = _lastUpdate is { } stamp
@@ -328,11 +417,13 @@ public sealed class DetailsForm : Form
     {
         if (disposing)
         {
+            Region?.Dispose();
             _countdown.Dispose();
             _titleFont?.Dispose();
             _labelFont?.Dispose();
             _smallFont?.Dispose();
             _valueFont?.Dispose();
+            _headFont?.Dispose();
         }
 
         base.Dispose(disposing);

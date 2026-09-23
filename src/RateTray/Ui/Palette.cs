@@ -21,9 +21,17 @@ public sealed class Palette(AppConfig config)
     private static readonly Color ClaudeFallback = Color.FromArgb(217, 119, 87);
     private static readonly Color CodexFallback = Color.FromArgb(16, 163, 127);
 
-    public Color Service(string group) => group.Equals("Codex", StringComparison.OrdinalIgnoreCase)
-        ? Parse(config.Colors.Codex, CodexFallback)
-        : Parse(config.Colors.Claude, ClaudeFallback);
+    // Fork: cores dos serviços acrescentados no fork, editáveis na aba de cores. O harmonizador do
+    // upstream continua derivando âmbar e vermelho só de Claude e Codex (ver Tone).
+    private static readonly Color KimiFallback = Color.FromArgb(96, 125, 255);
+    private static readonly Color OpenRouterFallback = Color.FromArgb(160, 118, 250);
+    private static readonly Color GeminiFallback = Color.FromArgb(66, 133, 244);
+
+    public Color Service(string group)
+    {
+        var record = RateTray.Model.ServiceCatalog.GetByGroup(group);
+        return Parse(record.ColorSetting(config.Colors), record.FallbackColor);
+    }
 
     /// <summary>Mean saturation and lightness of the service colours.</summary>
     private Harmony.Hsl Tone => Harmony.SharedTone(Service("Claude"), Service("Codex"));

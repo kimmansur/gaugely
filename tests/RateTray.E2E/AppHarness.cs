@@ -5,7 +5,7 @@ using System.Text;
 namespace RateTray.E2E;
 
 /// <summary>
-/// Launches the real RateTray.exe and inspects it from the outside — no access to its
+/// Launches the real Gaugely.exe and inspects it from the outside — no access to its
 /// internals, which is the point of these tests.
 /// </summary>
 internal static class AppHarness
@@ -18,7 +18,7 @@ internal static class AppHarness
     {
         get
         {
-            var beside = Path.Combine(AppContext.BaseDirectory, "RateTray.exe");
+            var beside = Path.Combine(AppContext.BaseDirectory, "Gaugely.exe");
             if (File.Exists(beside)) return beside;
 
             var configuration = AppContext.BaseDirectory.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}")
@@ -26,11 +26,11 @@ internal static class AppHarness
                 : "Debug";
             var fromSource = Path.GetFullPath(Path.Combine(
                 AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-                "src", "RateTray", "bin", configuration, "net9.0-windows", "RateTray.exe"));
+                "src", "RateTray", "bin", configuration, "net9.0-windows", "Gaugely.exe"));
 
             return File.Exists(fromSource)
                 ? fromSource
-                : throw new FileNotFoundException($"RateTray.exe not found (looked in {beside} and {fromSource})");
+                : throw new FileNotFoundException($"Gaugely.exe not found (looked in {beside} and {fromSource})");
         }
     }
 

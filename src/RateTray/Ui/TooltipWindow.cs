@@ -67,7 +67,102 @@ public sealed class TooltipWindow : Form
 
     private int Px(int value) => (int)Math.Round(value * (_dpi / 96.0));
 
+    /// <summary>Fork: linhas do cartão de serviço; vazia no cartão de um limite só.</summary>
+    private IReadOnlyList<LimitReading> _groupRows = [];
+
+    private const int GroupRowHeight = 21;
+
     public void ShowFor(LimitReading? reading, string group, string? error, Point cursor)
+    {
+        _groupRows = [];
+        Present(reading, group, error, cursor);
+    }
+
+    /// <summary>
+    /// Fork: cartão de um serviço inteiro — o maior percentual no cabeçalho, uma linha por janela
+    /// abaixo e, no rodapé, quando zera a que trava primeiro.
+    /// </summary>
+    // Fork: serviço só com saldo (OpenRouter) não tem limite que trava; o cabeçalho mostra o saldo.
+    public void ShowForGroup(IReadOnlyList<LimitReading> rows, string group, string? error, Point cursor)
+    {
+        _groupRows = rows;
+        Present((ServiceGroup.Binding(rows) ?? rows.FirstOrDefault(r => r.IsInformational)), group, error, cursor);
+    }
+
+    /// <summary>
+    /// Fork: sobrecarga para a faixa flutuante — o cartão abre à esquerda ou à direita do
+    /// <paramref name="widgetRect"/> (o retângulo completo da faixa em coordenadas de tela),
+    /// alinhado verticalmente ao <paramref name="anchorRect"/> (o retângulo do anel).
+    /// </summary>
+    public void ShowForGroup(IReadOnlyList<LimitReading> rows, string group, string? error,
+                             Rectangle anchorRect, Rectangle widgetRect)
+    {
+        _groupRows = rows;
+        PresentBesideWidget((ServiceGroup.Binding(rows) ?? rows.FirstOrDefault(r => r.IsInformational)), group, error, anchorRect, widgetRect);
+    }
+
+    /// <summary>
+    /// Fork: posiciona o cartão ao lado da faixa. Se a faixa está na metade direita da tela,
+    /// o cartão abre à esquerda; caso contrário, à direita. Sem sair da área de trabalho.
+    /// </summary>
+    private void PresentBesideWidget(LimitReading? reading, string group, string? error,
+                                     Rectangle anchorRect, Rectangle widgetRect)
+    {
+        _reading = reading;
+        _group = group;
+        _error = error;
+
+        var refPoint = new Point(anchorRect.Left + anchorRect.Width / 2,
+                                 anchorRect.Top + anchorRect.Height / 2);
+        _dpi = Native.DpiForPoint(refPoint);
+        BuildFonts();
+
+        var screen = Screen.FromPoint(refPoint);
+        var work = screen.WorkingArea;
+        var size = Measure();
+        var gap = Px(6);
+        var pad = Px(4);
+
+        int x, y;
+
+        if (widgetRect.Width > widgetRect.Height)
+        {
+            // Fork: faixa horizontal -> cartão acima se na metade inferior, abaixo se na superior
+            var widgetCenterY = widgetRect.Top + widgetRect.Height / 2;
+            var areaCenterY = work.Top + work.Height / 2;
+
+            y = widgetCenterY >= areaCenterY
+                ? widgetRect.Top - size.Height - gap      // acima
+                : widgetRect.Bottom + gap;                // abaixo
+
+            // alinhado horizontalmente pelo centro do anel
+            x = anchorRect.Left + anchorRect.Width / 2 - size.Width / 2;
+        }
+        else
+        {
+            // Fork: faixa vertical -> cartão à esquerda se na metade direita, à direita se na esquerda
+            var widgetCenterX = widgetRect.Left + widgetRect.Width / 2;
+            var areaCenterX = work.Left + work.Width / 2;
+
+            x = widgetCenterX >= areaCenterX
+                ? widgetRect.Left - size.Width - gap      // à esquerda
+                : widgetRect.Right + gap;                  // à direita
+
+            // alinhado verticalmente pelo centro do anel
+            y = anchorRect.Top + anchorRect.Height / 2 - size.Height / 2;
+        }
+
+        // Clamped para não sair da área de trabalho.
+        x = Math.Clamp(x, work.Left + pad, Math.Max(work.Left + pad, work.Right - size.Width - pad));
+        y = Math.Clamp(y, work.Top + pad, Math.Max(work.Top + pad, work.Bottom - size.Height - pad));
+
+        Bounds = new Rectangle(x, y, size.Width, size.Height);
+
+        if (!Visible) Show();
+        Invalidate();
+    }
+
+    private void Present(LimitReading? reading, string group, string? error, Point cursor)
     {
         _reading = reading;
         _group = group;
@@ -148,8 +243,24 @@ public sealed class TooltipWindow : Form
     {
         using var g = CreateGraphics();
 
+        if (_groupRows.Count > 0)
+        {
+            // Fork: evita "0 %" no cabeçalho se não há leitura que trava, e usa o formatador para medir
+            var cabecaValor = _reading is { } rCabeca ? LimitReading.FormatValue(rCabeca) : "";
+            var cabecaExtra = cabecaValor.Length > 0 ? g.MeasureString(cabecaValor, _valueFont).Width + Px(16) : 0;
+            var cabeca = g.MeasureString(_group, _labelFont).Width + cabecaExtra;
+            var linhas = _groupRows.Max(r =>
+                g.MeasureString(r.Label, _labelFont).Width + g.MeasureString(LimitReading.FormatValue(r), _labelFont).Width + Px(16));
+            var rodape = _error ?? _reading?.ResetText() ?? "";
+            var rodapeLargura = rodape.Length == 0 ? 0 : g.MeasureString(rodape, _smallFont).Width;
+
+            var largura = (int)Math.Ceiling(new[] { cabeca, linhas, rodapeLargura }.Max()) + Px(20) + Px(22);
+            var altura = Px(34) + _groupRows.Count * Px(GroupRowHeight) + (rodape.Length == 0 ? Px(6) : Px(24));
+            return new Size(Math.Clamp(largura, Px(180), Px(460)), altura);
+        }
+
         var head = _reading?.Label ?? _group;
-        var value = _reading is { } r ? $"{Math.Round(r.Percent)} %" : "?";
+        var value = _reading is { } r ? LimitReading.FormatValue(r) : "?";
         var detail = _error ?? _reading?.ResetText() ?? "";
 
         var headWidth = g.MeasureString(head, _labelFont).Width + g.MeasureString(value, _valueFont).Width + Px(16);
@@ -173,14 +284,14 @@ public sealed class TooltipWindow : Form
         var accent = Harmony.Legible(_palette.Service(_group), Dark);
         var pad = Px(10);
 
-        ServiceBadge.Draw(g, new RectangleF(pad, Px(9), Px(16), Px(16)), _group, accent);
+        ServiceBadge.Draw(g, new RectangleF(pad, Px(9), Px(16), Px(16)), _group, accent, Dark);
 
         var textLeft = pad + Px(22);
         var head = _reading?.Label ?? _group;
 
         // The card is width-clamped, so anything longer than it — an error carrying a server's
         // answer above all — is drawn to the edge and cut with an ellipsis, never past it.
-        var value = _reading is { } r ? $"{Math.Round(r.Percent)} %" : null;
+        var value = _reading is { } rDraw ? LimitReading.FormatValue(rDraw) : null;
         var valueWidth = value is null ? 0f : g.MeasureString(value, _valueFont).Width;
 
         using (var brush = new SolidBrush(Foreground))
@@ -195,6 +306,29 @@ public sealed class TooltipWindow : Form
         }
 
         var detail = _error ?? _reading?.ResetText();
+
+        if (_groupRows.Count > 0)
+        {
+            // Fork: uma linha por janela, rótulo à esquerda e valor na cor do próprio limite.
+            var y = Px(33);
+            using var rotulo = new SolidBrush(Muted);
+            foreach (var linha in _groupRows)
+            {
+                var valor = LimitReading.FormatValue(linha);
+                var larguraValor = g.MeasureString(valor, _labelFont).Width;
+                TextLine.Draw(g, linha.Label, _labelFont, rotulo, textLeft, y, Width - pad - textLeft - larguraValor - Px(6));
+
+                using var cor = new SolidBrush(_palette.ForReading(linha.Group, linha.Percent, linha.Variant, linha.VariantCount, Dark));
+                g.DrawString(valor, _labelFont, cor, Width - pad - larguraValor, y);
+                y += Px(GroupRowHeight);
+            }
+
+            if (string.IsNullOrEmpty(detail)) return;
+            using var rodape = new SolidBrush(_error is null ? Muted : Harmony.Legible(_palette.Critical, Dark));
+            TextLine.Draw(g, detail, _smallFont, rodape, textLeft, y + Px(2), Width - pad - textLeft);
+            return;
+        }
+
         if (string.IsNullOrEmpty(detail)) return;
 
         using var detailBrush = new SolidBrush(_error is null ? Muted : Harmony.Legible(_palette.Critical, Dark));

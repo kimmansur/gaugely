@@ -33,6 +33,9 @@ public sealed class SettingsForm : Form
 
     private readonly Button _claudeColor = new();
     private readonly Button _codexColor = new();
+    private readonly Button _kimiColor = new();
+    private readonly Button _openRouterColor = new();
+    private readonly Button _antigravityColor = new();
     private readonly NumericUpDown _warnHue = new() { Minimum = 0, Maximum = 359 };
     private readonly NumericUpDown _criticalHue = new() { Minimum = 0, Maximum = 359 };
     private readonly NumericUpDown _shadeSpread = new() { Minimum = 0, Maximum = 50 };
@@ -50,8 +53,20 @@ public sealed class SettingsForm : Form
     private readonly NumericUpDown _claudeMinInterval = new() { Minimum = 0, Maximum = 3600, Increment = 30 };
     private readonly NumericUpDown _codexTimeout = new() { Minimum = 5, Maximum = 300 };
 
+    // Fork: chaves de API. A caixa nunca mostra o que foi digitado e é limpa assim que a chave vai
+    // para o cofre; o estado ao lado diz só "configurada" ou não, nunca um pedaço da chave.
+    private readonly TextBox _kimiKey = new() { UseSystemPasswordChar = true };
+    private readonly TextBox _openRouterKey = new() { UseSystemPasswordChar = true };
+    private readonly Label _kimiState = new();
+    private readonly Label _openRouterState = new();
+
+    private Button? _ok;
+
     private Color _claudeValue;
     private Color _codexValue;
+    private Color _kimiValue;
+    private Color _openRouterValue;
+    private Color _antigravityValue;
 
     public SettingsForm(AppConfig config, IReadOnlyList<LimitReading> known)
     {
@@ -84,6 +99,7 @@ public sealed class SettingsForm : Form
         tabs.TabPages.Add(ColorsPage());
         tabs.TabPages.Add(IconsPage());
         tabs.TabPages.Add(ServicesPage());
+        tabs.TabPages.Add(KeysPage());
         return tabs;
     }
 
@@ -118,6 +134,19 @@ public sealed class SettingsForm : Form
 
         AddRow(grid, Loc.T("settings.color.claude"), _claudeColor);
         AddRow(grid, Loc.T("settings.color.codex"), _codexColor);
+
+        // Fork: um seletor por serviço do fork, no mesmo formato dos dois originais.
+        foreach (var extra in (Button[])[_kimiColor, _openRouterColor, _antigravityColor])
+        {
+            extra.Height = 26;
+            extra.FlatStyle = FlatStyle.Flat;
+        }
+        _kimiColor.Click += (_, _) => PickColor(ref _kimiValue, _kimiColor);
+        _openRouterColor.Click += (_, _) => PickColor(ref _openRouterValue, _openRouterColor);
+        _antigravityColor.Click += (_, _) => PickColor(ref _antigravityValue, _antigravityColor);
+        AddRow(grid, Loc.T("settings.color.kimi"), _kimiColor);
+        AddRow(grid, Loc.T("settings.color.openrouter"), _openRouterColor);
+        AddRow(grid, Loc.T("settings.color.antigravity"), _antigravityColor);
         AddRow(grid, Loc.T("settings.color.warnHue"), _warnHue);
         AddRow(grid, Loc.T("settings.color.criticalHue"), _criticalHue);
         AddRow(grid, Loc.T("settings.color.shadeSpread"), _shadeSpread);
@@ -168,9 +197,97 @@ public sealed class SettingsForm : Form
         AddFullRow(grid, Check(_codexEnabled, Loc.T("settings.codex.enabled")));
         AddRow(grid, Loc.T("settings.codex.path"), WithBrowse(_codexPath));
         AddRow(grid, Loc.T("settings.codex.timeout"), _codexTimeout);
+
+        // Fork: a trava do executável do Codex vive em CodexOptions.Normalize(), que ignora este
+        // campo. Deixá-lo editável prometeria um efeito que não existe, então fica visível e
+        // desligado. A renovação do Claude voltou a ser escolha do usuário (FORK-3 revisto).
+        _codexPath.Enabled = false;
+
         AddSpacer(grid);
 
         return Page(Loc.T("settings.tab.services"), grid);
+    }
+
+    /// <summary>
+    /// Fork: chaves do Kimi e do OpenRouter. Diferente do resto do diálogo, salvar e
+    /// remover agem na hora, direto no Gerenciador de Credenciais do Windows: a chave não passa
+    /// pelo AppConfig nem pelo settings.json, então não há o que esperar pelo botão Salvar — e
+    /// Cancelar não desfaz, o que o texto de ajuda deixa claro.
+    /// </summary>
+    private TabPage KeysPage()
+    {
+        var grid = Grid();
+        AddFullRow(grid, Hint(Loc.T("settings.keys.hint")));
+        AddRow(grid, Loc.T("settings.keys.kimi"), KeyEditor(CredentialVault.Kimi, _kimiKey, _kimiState));
+        AddRow(grid, Loc.T("settings.keys.openrouter"), KeyEditor(CredentialVault.OpenRouter, _openRouterKey, _openRouterState));
+        AddFullRow(grid, Hint(Loc.T("settings.keys.openrouterTip")));
+        AddSpacer(grid);
+
+        return Page(Loc.T("settings.tab.keys"), grid);
+    }
+
+    /// <summary>Caixa mascarada, "Salvar no cofre", "Remover" e o estado, numa linha só.</summary>
+    private Control KeyEditor(string service, TextBox box, Label state)
+    {
+        var host = new TableLayoutPanel { ColumnCount = 4, Height = 30, Dock = DockStyle.Fill, Margin = Padding.Empty };
+        host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        host.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        host.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        host.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+        box.Dock = DockStyle.Fill;
+        var save = new Button { Text = Loc.T("settings.keys.save"), AutoSize = true };
+        var remove = new Button { Text = Loc.T("settings.keys.remove"), AutoSize = true };
+        state.AutoSize = true;
+        state.Anchor = AnchorStyles.Left;
+        state.Margin = new Padding(8, 7, 3, 3);
+
+        save.Click += (_, _) =>
+        {
+            if (string.IsNullOrWhiteSpace(box.Text)) return;
+
+            var ok = CredentialVault.Write(service, box.Text);
+            box.Clear();                            // a chave não fica na tela nem um instante a mais
+            ShowKeyState(service, state);
+
+            if (!ok)
+            {
+                MessageBox.Show(this, Loc.T("settings.keys.saveFailed"), "Gaugely",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        };
+
+        remove.Click += (_, _) =>
+        {
+            box.Clear();
+            if (!CredentialVault.Delete(service))
+            {
+                MessageBox.Show(this, Loc.T("settings.keys.removeFailed"), "Gaugely",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            ShowKeyState(service, state);
+        };
+
+        // Enter na caixa da chave grava no cofre. Sem isto o Enter acionava o OK do diálogo, que
+        // fecha a janela e deixa a chave digitada para trás sem aviso.
+        box.GotFocus += (_, _) => AcceptButton = save;
+        box.LostFocus += (_, _) => AcceptButton = _ok;
+
+        ShowKeyState(service, state);
+
+        host.Controls.Add(box, 0, 0);
+        host.Controls.Add(save, 1, 0);
+        host.Controls.Add(remove, 2, 0);
+        host.Controls.Add(state, 3, 0);
+        return host;
+    }
+
+    /// <summary>Só a existência da chave, consultada no cofre — nunca o conteúdo.</summary>
+    private static void ShowKeyState(string service, Label state)
+    {
+        var has = CredentialVault.Has(service);
+        state.Text = Loc.T(has ? "settings.keys.configured" : "settings.keys.notConfigured");
+        state.ForeColor = has ? SystemColors.ControlText : SystemColors.GrayText;
     }
 
     /// <summary>
@@ -200,6 +317,7 @@ public sealed class SettingsForm : Form
         bar.Controls.Add(cancel);
         bar.Controls.Add(openJson);
 
+        _ok = save;
         AcceptButton = save;
         CancelButton = cancel;
         return bar;
@@ -335,6 +453,9 @@ public sealed class SettingsForm : Form
         var palette = new Palette(_config);
         SetColor(ref _claudeValue, _claudeColor, palette.Service("Claude"));
         SetColor(ref _codexValue, _codexColor, palette.Service("Codex"));
+        SetColor(ref _kimiValue, _kimiColor, palette.Service("Kimi"));
+        SetColor(ref _openRouterValue, _openRouterColor, palette.Service("OpenRouter"));
+        SetColor(ref _antigravityValue, _antigravityColor, palette.Service("Antigravity"));
         _warnHue.Value = Math.Clamp(_config.Colors.WarnHue, 0, 359);
         _criticalHue.Value = Math.Clamp(_config.Colors.CriticalHue, 0, 359);
         _shadeSpread.Value = (decimal)Math.Clamp(Math.Round(_config.Colors.ShadeSpread * 100), 0, 50);
@@ -375,6 +496,9 @@ public sealed class SettingsForm : Form
 
         _config.Colors.Claude = Hex(_claudeValue);
         _config.Colors.Codex = Hex(_codexValue);
+        _config.Colors.Kimi = Hex(_kimiValue);
+        _config.Colors.OpenRouter = Hex(_openRouterValue);
+        _config.Colors.Antigravity = Hex(_antigravityValue);
         _config.Colors.WarnHue = (int)_warnHue.Value;
         _config.Colors.CriticalHue = (int)_criticalHue.Value;
         _config.Colors.ShadeSpread = (double)_shadeSpread.Value / 100.0;
@@ -425,6 +549,9 @@ public sealed class SettingsForm : Form
 
         SetColor(ref _claudeValue, _claudeColor, palette.Service("Claude"));
         SetColor(ref _codexValue, _codexColor, palette.Service("Codex"));
+        SetColor(ref _kimiValue, _kimiColor, palette.Service("Kimi"));
+        SetColor(ref _openRouterValue, _openRouterColor, palette.Service("OpenRouter"));
+        SetColor(ref _antigravityValue, _antigravityColor, palette.Service("Antigravity"));
         _warnHue.Value = defaults.WarnHue;
         _criticalHue.Value = defaults.CriticalHue;
         _shadeSpread.Value = (decimal)Math.Round(defaults.ShadeSpread * 100);
@@ -445,6 +572,9 @@ public sealed class SettingsForm : Form
             {
                 Claude = Hex(_claudeValue),
                 Codex = Hex(_codexValue),
+                Kimi = Hex(_kimiValue),
+                OpenRouter = Hex(_openRouterValue),
+                Antigravity = Hex(_antigravityValue),
                 WarnHue = (int)_warnHue.Value,
                 CriticalHue = (int)_criticalHue.Value,
                 ShadeSpread = (double)_shadeSpread.Value / 100.0,
@@ -491,7 +621,7 @@ public sealed class SettingsForm : Form
         catch (Exception ex) when (ex is Win32Exception or IOException
                                       or UnauthorizedAccessException or InvalidOperationException)
         {
-            MessageBox.Show(this, Loc.T("dialog.settingsFailed", ex.Message), "RateTray",
+            MessageBox.Show(this, Loc.T("dialog.settingsFailed", ex.Message), "Gaugely",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }

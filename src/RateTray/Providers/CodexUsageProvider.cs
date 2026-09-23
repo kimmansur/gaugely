@@ -105,7 +105,7 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
         try
         {
             await process.StandardInput.WriteLineAsync(
-                """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"RateTray","version":"0.1.0"}}}""").ConfigureAwait(false);
+                """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Gaugely","version":"0.1.0"}}}""").ConfigureAwait(false);
             await process.StandardInput.WriteLineAsync(
                 """{"jsonrpc":"2.0","method":"initialized","params":{}}""").ConfigureAwait(false);
             await process.StandardInput.WriteLineAsync(
@@ -296,7 +296,18 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
         {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Programs", "OpenAI", "Codex", "bin", "codex.exe"),
+            // Fork: instalação do codex-cli (0.145). O app desktop do Codex deixa o binário
+            // aqui e não o põe no PATH, então sem esta linha o ícone do Codex nunca aparece.
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".codex", ".sandbox-bin", "codex.exe"),
         };
+
+        // Fork: instalação pelo app desktop do Codex, que guarda o binário sob uma pasta com
+        // código de versão (…\OpenAI\Codex\bin\<hash>\codex.exe), que muda a cada atualização;
+        // por isso a pasta é varrida em vez de escrita à mão. Mais recente primeiro.
+        candidates.AddRange(VersionedCodexBins(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "OpenAI", "Codex", "bin")));
 
         foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
         {
@@ -306,6 +317,25 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
         }
 
         return candidates.FirstOrDefault(File.Exists);
+    }
+
+    /// <summary>
+    /// codex.exe under one level of versioned folders, newest write time first.
+    /// </summary>
+    internal static IEnumerable<string> VersionedCodexBins(string binRoot)
+    {
+        try
+        {
+            return new DirectoryInfo(binRoot)
+                .EnumerateDirectories()
+                .OrderByDescending(d => d.LastWriteTimeUtc)
+                .Select(d => Path.Combine(d.FullName, "codex.exe"))
+                .ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return [];
+        }
     }
 
     private static void TryKill(Process process)

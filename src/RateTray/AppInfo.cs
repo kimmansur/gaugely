@@ -8,9 +8,21 @@ namespace RateTray;
 /// </summary>
 public static class AppInfo
 {
-    public const string RepoUrl = "https://github.com/nowrap/rate-tray";
+    /// <summary>Projeto original (RateTray), mantido no Sobre para crédito — não é de onde saem as versões.</summary>
+    public const string UpstreamUrl = "https://github.com/nowrap/rate-tray";
+
+    // Fork: as versões saem deste repositório, não do upstream — é ele que tem o modo notch, os
+    // provedores extras e o resto. O repositório é público, então a API responde sem credencial.
+    private const string Repo = "kimmansur/gaugely";
+
+    public const string RepoUrl = "https://github.com/" + Repo;
     public const string ReleasesUrl = RepoUrl + "/releases";
-    public const string ApiTagsUrl = "https://api.github.com/repos/nowrap/rate-tray/tags";
+    public const string IssuesUrl = RepoUrl + "/issues";
+    public const string ApiTagsUrl = "https://api.github.com/repos/" + Repo + "/tags";
+    public const string ApiLatestReleaseUrl = "https://api.github.com/repos/" + Repo + "/releases/latest";
+
+    /// <summary>Todo asset instalável tem de estar sob este prefixo — o resto é descartado.</summary>
+    public const string ApiAssetsPrefix = "https://api.github.com/repos/" + Repo + "/releases/assets/";
 
     /// <summary>Display version, e.g. "0.2.0" — build metadata after a '+' is trimmed.</summary>
     public static string Version { get; } = ReadVersion();
