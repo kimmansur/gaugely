@@ -97,6 +97,11 @@ public sealed class TrayApp : ApplicationContext
             new KimiUsageProvider(_config.Kimi),
             new OpenRouterUsageProvider(_config.OpenRouter),
             new AntigravityUsageProvider(_config.Antigravity),
+            // Fork: trilho de API — gasto, uso e saldo por chave. Desligados sem chave no cofre.
+            new AnthropicApiUsageProvider(_config.AnthropicApi),
+            new OpenAIApiUsageProvider(_config.OpenAIApi),
+            new KimiApiUsageProvider(_config.KimiApi),
+            new DeepSeekUsageProvider(_config.DeepSeek),
         ];
 
         _lastGood = UsageCache.Load();

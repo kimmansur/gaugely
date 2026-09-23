@@ -1,7 +1,6 @@
 {
   "language.name": "Deutsch",
   "format.dateTime": "ddd dd.MM. HH:mm",
-
   "settings.title": "Gaugely — Einstellungen",
   "settings.tab.general": "Allgemein",
   "settings.tab.colors": "Farben",
@@ -56,7 +55,6 @@
   "settings.keys.notConfigured": "nicht eingerichtet",
   "settings.keys.saveFailed": "Der Schlüssel konnte nicht in der Windows-Anmeldeinformationsverwaltung gespeichert werden.",
   "settings.keys.removeFailed": "Der Schlüssel konnte nicht aus der Windows-Anmeldeinformationsverwaltung entfernt werden.",
-
   "menu.details": "Details anzeigen",
   "menu.widget": "Schwebendes Fenster",
   "menu.widget.horizontal": "Horizontal",
@@ -78,7 +76,6 @@
   "menu.quit": "Beenden",
   "menu.noData": "Noch keine Daten",
   "menu.notReported": "{0}  (derzeit nicht gemeldet)",
-
   "about.title": "Über Gaugely",
   "about.tagline": "Live-Ratenlimits für Claude Code und Codex, im Windows-Tray.",
   "about.version": "Version {0}",
@@ -101,17 +98,13 @@
   "about.updateNotice": "Gaugely {0} ist verfügbar. Zum Installieren „Über“ öffnen.",
   "about.issues": "Problem melden oder Verbesserung vorschlagen",
   "about.basedOn": "Basiert auf RateTray von nowrap (MIT)",
-
   "dialog.autostartFailed": "Autostart konnte nicht geändert werden:\n{0}",
   "dialog.settingsFailed": "Einstellungen konnten nicht geöffnet werden:\n{0}",
-
   "toast.title": "{0}: {1} % verbraucht",
-
   "details.auth": "Anmeldung: {0}",
   "details.footer": "Aktualisiert {0}  ·  alle {1} s  ·  Esc schließt",
   "details.retryIn": "nächster Versuch in {0}",
   "details.noData": "Noch keine Daten",
-
   "auth.valid": "gültig",
   "auth.validUntil": "gültig bis {0} (noch {1})",
   "auth.expired": "abgelaufen — neu anmelden",
@@ -119,20 +112,16 @@
   "auth.notLoggedIn": "nicht angemeldet",
   "auth.apiKey": "API-Key",
   "auth.noKey": "kein API-Schlüssel",
-
   "limit.resetUnknown": "Reset unbekannt",
   "limit.resetDue": "Reset {0} (fällig)",
   "limit.resetIn": "Reset {0} (in {1})",
-
   "span.daysHours": "{0} d {1} h",
   "span.hoursMinutes": "{0} h {1} min",
   "span.minutes": "{0} min",
-
   "window.week": "Woche",
   "window.weeks": "{0} Wochen",
   "window.days": "{0} d",
   "window.hours": "{0} h",
-
   "label.claude.session": "Session (5 h)",
   "label.claude.weeklyAll": "Woche · Alle Modelle",
   "label.claude.weeklyScoped": "Woche · {0}",
@@ -152,7 +141,6 @@
   "note.openrouter.resetWeekly": "Schlüssel-Limit, wöchentlich zurückgesetzt",
   "note.openrouter.resetMonthly": "Schlüssel-Limit, monatlich zurückgesetzt",
   "note.openrouter.resetNever": "Schlüssel-Limit, ohne Zurücksetzen",
-
   "error.claude.noCredentials": "Keine Claude-Anmeldung gefunden (.credentials.json fehlt)",
   "error.claude.insecureUrl": "Endpunkt ist nicht https, kein Token gesendet: {0}",
   "error.insecureUrl": "Senden von Anmeldedaten über eine Nicht-HTTPS-URL verweigert: {0}",
@@ -165,7 +153,6 @@
   "error.backoff": "Nach wiederholten Fehlern pausiert — neuer Versuch in Kürze",
   "error.claude.rateLimited": "Ratenlimit der Usage-API erreicht — Abruf pausiert",
   "error.fetchFailed": "Abruf fehlgeschlagen: {0}",
-
   "error.codex.notFound": "codex nicht gefunden (in PATH aufnehmen oder codex.executablePath setzen)",
   "error.codex.expired": "Codex-Anmeldung abgelaufen — `codex login` ausführen",
   "error.codex.noLimits": "Keine Limits gemeldet",
@@ -191,5 +178,19 @@
   "error.openrouter.rateLimited": "Ratenlimit von OpenRouter erreicht — Abruf pausiert",
   "error.openrouter.timeout": "OpenRouter hat nicht innerhalb von {0} s geantwortet",
   "error.openrouter.http": "HTTP {0} von OpenRouter",
-  "error.openrouter.noData": "OpenRouter lieferte weder Guthaben noch Nutzungsdaten"
+  "error.openrouter.noData": "OpenRouter lieferte weder Guthaben noch Nutzungsdaten",
+  "label.api.spendMonth": "Ausgaben diesen Monat",
+  "label.api.spendToday": "Ausgaben heute",
+  "label.api.balance": "Guthaben",
+  "note.api.tokensRequests": "{0} Tokens · {1} Anfragen",
+  "note.api.tokens": "{0} Tokens",
+  "note.kimiapi.split": "Gutschein {0} · Bargeld {1}",
+  "note.deepseek.split": "Gutgeschrieben {0} · aufgeladen {1}",
+  "error.api.noKey": "Kein {0}-API-Schlüssel — unter Einstellungen → Dienste hinzufügen",
+  "error.api.rejected": "{0} hat den API-Schlüssel abgelehnt",
+  "error.api.forbidden": "{0}: Dieser Schlüssel darf keine Abrechnung lesen — er braucht Admin-Rechte",
+  "error.api.rateLimited": "Ratenlimit von {0} erreicht — Abruf pausiert",
+  "error.api.timeout": "{0} hat nicht innerhalb von {1} s geantwortet",
+  "error.api.http": "HTTP {0} von {1}",
+  "error.api.noData": "{0} hat keine Abrechnungsdaten geliefert"
 }

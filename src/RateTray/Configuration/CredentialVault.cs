@@ -22,6 +22,14 @@ public static class CredentialVault
 {
     public const string Kimi = "kimi";
     public const string OpenRouter = "openrouter";
+    public const string OpenAIAdmin = "openai-admin";
+    public const string AnthropicAdmin = "anthropic-admin";
+    public const string KimiPlatform = "kimi-platform";
+    public const string DeepSeek = "deepseek";
+
+    /// <summary>Todos os serviços com chave no cofre, na ordem em que aparecem nos ajustes.</summary>
+    public static readonly IReadOnlyList<string> Services =
+        [Kimi, KimiPlatform, OpenRouter, OpenAIAdmin, AnthropicAdmin, DeepSeek];
 
     private const uint CredTypeGeneric = 1;
 
@@ -78,6 +86,10 @@ public static class CredentialVault
     {
         Kimi => "Gaugely/kimi",
         OpenRouter => "Gaugely/openrouter",
+        OpenAIAdmin => "Gaugely/openai-admin",
+        AnthropicAdmin => "Gaugely/anthropic-admin",
+        KimiPlatform => "Gaugely/kimi-platform",
+        DeepSeek => "Gaugely/deepseek",
         _ => throw new ArgumentOutOfRangeException(nameof(service), service, "serviço sem alvo no cofre"),
     };
 
@@ -86,11 +98,11 @@ public static class CredentialVault
     /// anterior continua funcionando se for preciso voltar a ela. A única exceção é o usuário
     /// remover a chave: aí sai dos dois, senão ela voltaria da migração na leitura seguinte.
     /// </summary>
-    internal static string LegacyTargetFor(string service) => service switch
+    internal static string? LegacyTargetFor(string service) => service switch
     {
         Kimi => "RateTray-Nox/kimi",
         OpenRouter => "RateTray-Nox/openrouter",
-        _ => throw new ArgumentOutOfRangeException(nameof(service), service, "serviço sem alvo no cofre"),
+        _ => null,                                   // serviço que não existia antes da renomeação
     };
 
     /// <summary>
@@ -102,7 +114,9 @@ public static class CredentialVault
         var secret = ReadTarget(TargetFor(service));
         if (secret is not null) return secret;
 
-        var legacy = ReadTarget(LegacyTargetFor(service));
+        if (LegacyTargetFor(service) is not { } legacyTarget) return null;
+
+        var legacy = ReadTarget(legacyTarget);
         if (legacy is not null) Write(service, legacy);
         return legacy;
     }
@@ -190,7 +204,7 @@ public static class CredentialVault
 
     /// <summary>Remove a chave. Verdadeiro também quando ela já não existia: o estado final é o pedido.</summary>
     public static bool Delete(string service) =>
-        DeleteTarget(TargetFor(service)) & DeleteTarget(LegacyTargetFor(service));
+        DeleteTarget(TargetFor(service)) & (LegacyTargetFor(service) is not { } legacy || DeleteTarget(legacy));
 
     private static bool DeleteTarget(string target)
     {
@@ -203,7 +217,7 @@ public static class CredentialVault
     /// chave colada nos ajustes passe a valer sem reiniciar. Não decodifica o segredo.
     /// </summary>
     public static bool Has(string service) =>
-        HasTarget(TargetFor(service)) || HasTarget(LegacyTargetFor(service));
+        HasTarget(TargetFor(service)) || (LegacyTargetFor(service) is { } legacy && HasTarget(legacy));
 
     private static bool HasTarget(string target)
     {

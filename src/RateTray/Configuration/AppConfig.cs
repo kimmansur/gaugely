@@ -97,6 +97,18 @@ public sealed class AppConfig
     /// <summary>Fork: saldo e gasto do OpenRouter. A chave mora no Gerenciador de Credenciais, não aqui.</summary>
     public OpenRouterOptions OpenRouter { get; set; } = new();
 
+    /// <summary>Fork: gasto e uso da API da OpenAI (chave Admin). Trilho de API do fornecedor OpenAI.</summary>
+    public ApiProviderOptions OpenAIApi { get; set; } = new();
+
+    /// <summary>Fork: gasto e uso da API da Anthropic (chave Admin). Trilho de API do fornecedor Claude.</summary>
+    public ApiProviderOptions AnthropicApi { get; set; } = new();
+
+    /// <summary>Fork: saldo da plataforma Kimi (chave da plataforma, não a do Kimi Code).</summary>
+    public ApiProviderOptions KimiApi { get; set; } = new() { MinIntervalSeconds = 300 };
+
+    /// <summary>Fork: saldo da API da DeepSeek.</summary>
+    public ApiProviderOptions DeepSeek { get; set; } = new() { MinIntervalSeconds = 300 };
+
     /// <summary>Fork: faixa flutuante sempre visível, complementar aos ícones da bandeja.</summary>
     public WidgetOptions Widget { get; set; } = new();
 
@@ -145,6 +157,10 @@ public sealed class AppConfig
         Kimi = (Kimi ?? new()).Normalize();
         Antigravity = (Antigravity ?? new()).Normalize();
         OpenRouter = (OpenRouter ?? new()).Normalize();
+        OpenAIApi = (OpenAIApi ?? new()).Normalize();
+        AnthropicApi = (AnthropicApi ?? new()).Normalize();
+        KimiApi = (KimiApi ?? new() { MinIntervalSeconds = 300 }).Normalize();
+        DeepSeek = (DeepSeek ?? new() { MinIntervalSeconds = 300 }).Normalize();
         Widget = (Widget ?? new()).Normalize();
 
         return this;
@@ -187,6 +203,10 @@ public sealed class ColorOptions
     internal const string KimiDefault = "#607DFF";
     internal const string OpenRouterDefault = "#A076FA";
     internal const string AntigravityDefault = "#4285F4";
+    internal const string OpenAIApiDefault = "#19C37D";
+    internal const string AnthropicApiDefault = "#C15F3C";
+    internal const string KimiApiDefault = "#8FA3FF";
+    internal const string DeepSeekDefault = "#4D6BFE";
     internal const double ShadeSpreadDefault = 0.15;
 
     /// <summary>Claude's terracotta accent.</summary>
@@ -200,6 +220,14 @@ public sealed class ColorOptions
     public string OpenRouter { get; set; } = OpenRouterDefault;
 
     public string Antigravity { get; set; } = AntigravityDefault;
+
+    public string OpenAIApi { get; set; } = OpenAIApiDefault;
+
+    public string AnthropicApi { get; set; } = AnthropicApiDefault;
+
+    public string KimiApi { get; set; } = KimiApiDefault;
+
+    public string DeepSeek { get; set; } = DeepSeekDefault;
 
     /// <summary>
     /// Hue of the warning colour in degrees (48 = amber). The colour itself is built from this
@@ -237,6 +265,10 @@ public sealed class ColorOptions
         Kimi = Sane.Text(Kimi, KimiDefault);
         OpenRouter = Sane.Text(OpenRouter, OpenRouterDefault);
         Antigravity = Sane.Text(Antigravity, AntigravityDefault);
+        OpenAIApi = Sane.Text(OpenAIApi, OpenAIApiDefault);
+        AnthropicApi = Sane.Text(AnthropicApi, AnthropicApiDefault);
+        KimiApi = Sane.Text(KimiApi, KimiApiDefault);
+        DeepSeek = Sane.Text(DeepSeek, DeepSeekDefault);
         WarnHue = Math.Clamp(WarnHue, 0, 359);
         CriticalHue = Math.Clamp(CriticalHue, 0, 359);
 
@@ -531,6 +563,27 @@ public sealed class OpenRouterOptions
     {
         TimeoutSeconds = Math.Clamp(TimeoutSeconds, 5, 300);
         MinIntervalSeconds = Math.Clamp(MinIntervalSeconds, 0, 3_600);
+        return this;
+    }
+}
+
+/// <summary>
+/// Fork: opções de um provedor do trilho de API (gasto, uso ou saldo lidos por chave). Endereço
+/// fixo no código e chave só no cofre, como no OpenRouter. O intervalo mínimo padrão é de 15 min
+/// porque gasto e uso chegam em baldes diários — consultar a cada 90 s só gastaria cota da API.
+/// </summary>
+public sealed class ApiProviderOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    public int TimeoutSeconds { get; set; } = 20;
+
+    public int MinIntervalSeconds { get; set; } = 900;
+
+    internal ApiProviderOptions Normalize()
+    {
+        TimeoutSeconds = Math.Clamp(TimeoutSeconds, 5, 300);
+        MinIntervalSeconds = Math.Clamp(MinIntervalSeconds, 60, 86_400);
         return this;
     }
 }

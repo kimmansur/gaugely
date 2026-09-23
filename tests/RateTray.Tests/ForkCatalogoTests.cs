@@ -40,15 +40,14 @@ public class ForkCatalogoTests
     }
 
     [Fact]
-    public void CincoGrupos_EstaoPresentes()
+    public void Grupos_de_assinatura_e_de_api_estao_catalogados_sem_repeticao()
     {
-        // Fork: garante que os 5 grupos base estão catalogados
+        // Fork: cinco serviços de assinatura/crédito originais e quatro do trilho de API.
         var grupos = ServiceCatalog.Services.Select(s => s.Group).ToList();
-        Assert.Equal(5, grupos.Count);
-        Assert.Contains("Claude", grupos);
-        Assert.Contains("Codex", grupos);
-        Assert.Contains("Kimi", grupos);
-        Assert.Contains("OpenRouter", grupos);
-        Assert.Contains("Antigravity", grupos);
+        Assert.Equal(9, grupos.Count);
+        Assert.Equal(grupos.Count, grupos.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        foreach (var g in new[] { "Claude", "Codex", "Kimi", "OpenRouter", "Antigravity",
+                                  "Anthropic API", "OpenAI API", "Kimi API", "DeepSeek" })
+            Assert.Contains(g, grupos);
     }
 }
