@@ -7,6 +7,28 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-23
+
+### Added
+- New settings window: sidebar with Services, Tray, Floating widget, Appearance, Alerts, Updates
+  and Advanced; light and dark themes; right-to-left layout for Arabic. Every option in
+  `settings.json` can now be changed in the window, and `settings.json` stays available.
+- API track next to each subscription: spending and token use for the **Anthropic API** and the
+  **OpenAI API** (Admin keys), balance for the **Kimi platform** and **DeepSeek**. Keys are pasted
+  in the window, stored only in Windows Credential Manager, and can be tested on the spot.
+- Edits to `settings.json` are picked up while the app runs; an invalid file is ignored until it is
+  valid again.
+- Languages: English and German rewritten; Portuguese (Brazil), Spanish, French, Italian, Russian,
+  Arabic, Chinese (Simplified), Japanese and Korean added.
+
+### Changed
+- `codex.executablePath` is gone (it had been ignored since 0.5.0); old files still load.
+- The longest pause after failures now applies without restarting.
+- Dates are always shown in the Gregorian calendar.
+
+### Fixed
+- The notch items in the tray menu showed raw text keys instead of labels.
+
 ## [0.5.0] - 2026-09-23
 
 First release as **Gaugely**, a fork of RateTray 0.3.2.

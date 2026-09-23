@@ -13,6 +13,9 @@ namespace RateTray.Providers;
 /// </summary>
 public sealed class PollScheduler(int maxBackoffMinutes = 15)
 {
+    /// <summary>Fork: ajustável com o app rodando — a janela de ajustes e o settings.json mudam isto.</summary>
+    public int MaxBackoffMinutes { get; set; } = maxBackoffMinutes;
+
     private readonly Dictionary<string, int> _failures = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTimeOffset> _retryAt = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, TimeSpan> _minInterval = new(StringComparer.OrdinalIgnoreCase);
@@ -67,7 +70,7 @@ public sealed class PollScheduler(int maxBackoffMinutes = 15)
         _failures[group] = failures;
         _polledAt[group] = now;
 
-        var until = now + Backoff(statedDelay, failures, refreshSeconds, maxBackoffMinutes, rateLimited);
+        var until = now + Backoff(statedDelay, failures, refreshSeconds, MaxBackoffMinutes, rateLimited);
         _retryAt[group] = until;
         return until;
     }

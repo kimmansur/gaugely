@@ -133,7 +133,7 @@ public class ClaudeUsageProviderTests
 
             // The check sits in front of the socket, not after it, so nothing was sent to fail.
             Assert.False(result.Ok);
-            Assert.Contains("https", result.Error);
+            Assert.Contains("https", result.Error, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

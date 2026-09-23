@@ -69,6 +69,7 @@ public static class ConfigStore
             // Writing it back leaves the file complete, self-documenting and no longer broken
             // instead of silently short.
             if (JsonSerializer.Serialize(config, Options) != json) Save(config);
+            else LastWritten = json;
 
             return config;
         }
@@ -88,6 +89,72 @@ public static class ConfigStore
     public static AppConfig FromJson(string json) =>
         (JsonSerializer.Deserialize<AppConfig>(json, Options) ?? new AppConfig()).Normalize();
 
+    /// <summary>
+    /// Fork: o último JSON que o próprio app gravou. A recarga automática compara o arquivo com
+    /// isto para não tratar a própria gravação como edição de fora.
+    /// </summary>
+    internal static string? LastWritten { get; private set; }
+
+    /// <summary>
+    /// Fork: lê o settings.json editado por fora (editor de texto). Devolve nulo quando o conteúdo
+    /// é o que o próprio app gravou por último, ou quando o JSON está inválido — um arquivo salvo
+    /// pela metade não pode derrubar os ajustes em uso; a próxima gravação válida é aplicada.
+    /// <paramref name="busy"/> indica arquivo preso por outro programa: vale tentar de novo.
+    /// Não regrava o arquivo, para não brigar com o editor que está com ele aberto.
+    /// </summary>
+    internal static AppConfig? ReadExternalEdit(out bool busy)
+    {
+        busy = false;
+        try
+        {
+            var json = File.ReadAllText(Path_);
+            if (json == LastWritten) return null;
+
+            var config = FromJson(json);
+            LastWritten = json;
+            return config;
+        }
+        catch (IOException)
+        {
+            busy = true;
+            return null;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or SecurityException
+                                      or JsonException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    public static string ToJson(AppConfig config) => JsonSerializer.Serialize(config, Options);
+
+    /// <summary>Fork: cópia independente, para a janela de ajustes editar sem mexer no que está valendo.</summary>
+    public static AppConfig Clone(AppConfig config) => FromJson(ToJson(config));
+
+    /// <summary>
+    /// Fork: copia os <b>valores</b> de <paramref name="from"/> para dentro dos objetos de
+    /// <paramref name="to"/>, sem trocar os objetos. Os provedores guardam referência às próprias
+    /// opções (<c>_config.Kimi</c>, <c>_config.OpenAIApi</c>...); trocar o objeto os deixaria lendo
+    /// o antigo para sempre. Objetos de opções do próprio app são percorridos; valores, listas e
+    /// textos são atribuídos inteiros.
+    /// </summary>
+    public static void CopyInto(object from, object to)
+    {
+        foreach (var property in to.GetType().GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+        {
+            if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length > 0) continue;
+
+            var value = property.GetValue(from);
+            var type = property.PropertyType;
+            var isOptionsObject = type.IsClass && type != typeof(string) && type.Namespace == typeof(AppConfig).Namespace;
+
+            if (isOptionsObject && value is not null && property.GetValue(to) is { } target)
+                CopyInto(value, target);
+            else
+                property.SetValue(to, value);
+        }
+    }
+
     public static void Save(AppConfig config)
     {
         try
@@ -97,6 +164,7 @@ public static class ConfigStore
             var temp = Path_ + ".tmp";
             File.WriteAllText(temp, json);
             File.Move(temp, Path_, overwrite: true);
+            LastWritten = json;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                                       or SecurityException or NotSupportedException)

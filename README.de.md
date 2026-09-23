@@ -118,7 +118,7 @@ Alles lässt sich auch direkt in `%APPDATA%\RateTray\settings.json` bearbeiten:
   },
   "claude": { "enabled": true, "autoRefreshToken": false, "timeoutSeconds": 20,
               "minIntervalSeconds": 300 },   // Mindestabstand zwischen Usage-Abfragen
-  "codex":  { "enabled": true, "executablePath": null, "timeoutSeconds": 30 }
+  "codex":  { "enabled": true, "timeoutSeconds": 30 }
 }
 ```
 

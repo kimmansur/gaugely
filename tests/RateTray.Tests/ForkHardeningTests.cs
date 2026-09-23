@@ -48,7 +48,8 @@ public class ForkHardeningTests
         { "codex": { "executablePath": "C:\\Users\\Public\\payload.exe" } }
         """);
 
-        Assert.Null(config.Codex.ExecutablePath);
+        Assert.DoesNotContain("payload", ConfigStore.ToJson(config), StringComparison.OrdinalIgnoreCase);
+        Assert.Null(typeof(CodexOptions).GetProperty("ExecutablePath"));
     }
 
     [Fact]

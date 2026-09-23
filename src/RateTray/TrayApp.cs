@@ -28,6 +28,10 @@ public sealed class TrayApp : ApplicationContext
     private readonly System.Windows.Forms.Timer _timer = new();
     private readonly System.Windows.Forms.Timer _tooltipTimer = new();
     private readonly System.Windows.Forms.Timer _layoutSaveTimer = new() { Interval = 500 };
+    private readonly System.Windows.Forms.Timer _reloadTimer = new() { Interval = 700 };   // Fork: recarga do settings.json
+    private FileSystemWatcher? _configWatcher;
+    private bool _reloadPending;
+    private int _reloadRetries;
     private readonly Dictionary<string, TrayIcon> _icons = [];
     private readonly ContextMenuStrip _menu = new();
     private readonly CancellationTokenSource _shutdown = new();
@@ -89,20 +93,7 @@ public sealed class TrayApp : ApplicationContext
         Loc.Use(_config.Language);
 
         _palette = new Palette(_config);
-        _providers =
-        [
-            new ClaudeUsageProvider(_config.Claude),
-            new CodexUsageProvider(_config.Codex),
-            // Fork: ficam desligados enquanto não houver chave no cofre (Enabled relê a cada ciclo).
-            new KimiUsageProvider(_config.Kimi),
-            new OpenRouterUsageProvider(_config.OpenRouter),
-            new AntigravityUsageProvider(_config.Antigravity),
-            // Fork: trilho de API — gasto, uso e saldo por chave. Desligados sem chave no cofre.
-            new AnthropicApiUsageProvider(_config.AnthropicApi),
-            new OpenAIApiUsageProvider(_config.OpenAIApi),
-            new KimiApiUsageProvider(_config.KimiApi),
-            new DeepSeekUsageProvider(_config.DeepSeek),
-        ];
+        _providers = ProviderFactory.All(_config);
 
         _lastGood = UsageCache.Load();
         _schedule = new PollScheduler(_config.MaxBackoffMinutes);
@@ -126,6 +117,8 @@ public sealed class TrayApp : ApplicationContext
             _layoutSaveTimer.Stop();
             ConfigStore.Save(_config);
         };
+
+        WatchConfigFile();
 
         _ = RefreshAsync();
 
@@ -273,6 +266,7 @@ public sealed class TrayApp : ApplicationContext
     /// </summary>
     private void ApplyPollSpacing()
     {
+        _schedule.MaxBackoffMinutes = _config.MaxBackoffMinutes;
         foreach (var provider in _providers) _schedule.SetMinInterval(provider.Group, provider.MinInterval);
     }
 
@@ -1057,13 +1051,22 @@ public sealed class TrayApp : ApplicationContext
     {
         if (BringOpenDialogToFront()) return;
 
-        using var form = new SettingsForm(_config, _lastReadings.Values.ToList());
+        using var form = new Ui.Settings.SettingsWindow(_config, _lastReadings.Values.ToList(), _lastResults, SetLatestUpdate);
         _dialog = form;
         DialogResult result;
         try { result = form.ShowDialog(); }
         finally { _dialog = null; }
-        if (result != DialogResult.OK) return;
+        if (result == DialogResult.OK) ApplyConfigChanges();
+        ReloadIfPending();
+    }
 
+    /// <summary>
+    /// Fork: aplica uma configuração que mudou por inteiro — pela janela de ajustes ou por edição
+    /// do settings.json. Os valores já estão dentro de <see cref="_config"/>; aqui só se refaz o
+    /// que guarda cópia deles (idioma, relógio, janelas com fonte e cor em cache, faixa, menu).
+    /// </summary>
+    private void ApplyConfigChanges()
+    {
         Loc.Use(_config.Language);
         _timer.Interval = PollIntervalMs;
         ApplyPollSpacing();
@@ -1078,8 +1081,69 @@ public sealed class TrayApp : ApplicationContext
         _details?.Dispose();
         _details = null;
 
+        // Fork: a faixa também é ajustada pela configuração — liga, desliga ou se redesenha.
+        SetWidget(_config.Widget.Enabled, save: false);
+        _widget?.Relayout();
+        _widget?.Invalidate();
+        SyncIcons();
+
         BuildMenu();
         _ = RefreshAsync();
+    }
+
+    // ------------------------------------------------------------ settings.json
+
+    /// <summary>
+    /// Fork: quem prefere editar o settings.json vê a mudança valer sem reiniciar o app. O
+    /// observador só avisa; a leitura espera o arquivo parar de mudar (editores gravam em mais de
+    /// um passo) e ignora a gravação do próprio app.
+    /// </summary>
+    private void WatchConfigFile()
+    {
+        var ui = SynchronizationContext.Current;
+        _reloadTimer.Tick += (_, _) => { _reloadTimer.Stop(); ReloadConfigFromDisk(); };
+
+        try
+        {
+            System.IO.Directory.CreateDirectory(ConfigStore.Directory);
+            _configWatcher = new FileSystemWatcher(ConfigStore.Directory, "settings.json")
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
+            };
+
+            void Changed(object? sender, EventArgs e) => ui?.Post(_ => { _reloadTimer.Stop(); _reloadTimer.Start(); }, null);
+            _configWatcher.Changed += Changed;
+            _configWatcher.Created += Changed;
+            _configWatcher.Renamed += Changed;
+            _configWatcher.EnableRaisingEvents = true;
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            _configWatcher?.Dispose();
+            _configWatcher = null;              // sem recarga automática; a janela de ajustes continua valendo
+        }
+    }
+
+    private void ReloadConfigFromDisk()
+    {
+        // Com uma janela aberta, a recarga espera: a janela de ajustes tem a sua própria cópia e
+        // salvar nela gravaria por cima do que acabou de chegar do arquivo.
+        if (_dialog is not null) { _reloadPending = true; return; }
+
+        var edited = ConfigStore.ReadExternalEdit(out var busy);
+        if (busy && ++_reloadRetries <= 5) { _reloadTimer.Start(); return; }
+        _reloadRetries = 0;
+        if (edited is null) return;
+
+        ConfigStore.CopyInto(edited, _config);
+        ApplyConfigChanges();
+    }
+
+    private void ReloadIfPending()
+    {
+        if (!_reloadPending) return;
+        _reloadPending = false;
+        ReloadConfigFromDisk();
     }
 
     // ------------------------------------------------------------------ about
@@ -1092,6 +1156,7 @@ public sealed class TrayApp : ApplicationContext
         _dialog = about;
         try { about.ShowDialog(); }
         finally { _dialog = null; }
+        ReloadIfPending();
     }
 
     /// <summary>
@@ -1185,10 +1250,10 @@ public sealed class TrayApp : ApplicationContext
     /// próximo início. O clique nela abre o mesmo painel do ícone, e o botão direito abre o
     /// mesmo menu — uma janela sem nenhuma dessas duas saídas viraria um enfeite preso na tela.
     /// </summary>
-    private void SetWidget(bool ligada)
+    private void SetWidget(bool ligada, bool save = true)
     {
         _config.Widget.Enabled = ligada;
-        ConfigStore.Save(_config);
+        if (save) ConfigStore.Save(_config);
 
         if (!ligada)
         {
@@ -1291,6 +1356,8 @@ public sealed class TrayApp : ApplicationContext
             _timer.Dispose();
             _tooltipTimer.Dispose();
             _layoutSaveTimer.Dispose();
+            _reloadTimer.Dispose();
+            _configWatcher?.Dispose();
             _menu.Dispose();
             _shutdown.Dispose();
         }

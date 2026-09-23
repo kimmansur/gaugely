@@ -28,6 +28,17 @@ internal static class Program
             return PreviewSettings().GetAwaiter().GetResult();
         }
 
+        // Fork: `--render-ui <pasta> [idioma] [tema]` desenha cada página dos ajustes em PNG, com dados
+        // de exemplo — prova visual de layout e tradução sem abrir janela para ninguém.
+        var render = Array.FindIndex(args, a => a.Equals("--render-ui", StringComparison.OrdinalIgnoreCase));
+        if (render >= 0 && render + 1 < args.Length)
+        {
+            ApplicationConfiguration.Initialize();
+            return Ui.Settings.SettingsRender.Run(args[render + 1],
+                render + 2 < args.Length ? args[render + 2] : null,
+                render + 3 < args.Length ? args[render + 3] : "dark");
+        }
+
         // A second instance would add duplicate tray icons for the same limits.
         using var single = new Mutex(initiallyOwned: true, @"Local\Gaugely.SingleInstance", out var isFirst);
         if (!isFirst) return 0;
@@ -66,18 +77,14 @@ internal static class Program
         var results = await PollAsync(config).ConfigureAwait(true);
         var known = results.SelectMany(r => r.Readings).ToList();
 
-        using var form = new Ui.SettingsForm(config, known);
+        using var form = new Ui.Settings.SettingsWindow(config, known, results);
         Application.Run(form);
         return 0;
     }
 
     private static async Task<ProviderResult[]> PollAsync(AppConfig config)
     {
-        IUsageProvider[] providers =
-        [
-            new ClaudeUsageProvider(config.Claude),
-            new CodexUsageProvider(config.Codex),
-        ];
+        var providers = ProviderFactory.All(config);
 
         return await Task.WhenAll(providers
             .Where(p => p.Enabled)
@@ -94,11 +101,7 @@ internal static class Program
         Localization.Loc.Use("en");
 
         var config = ConfigStore.Load();
-        IUsageProvider[] providers =
-        [
-            new ClaudeUsageProvider(config.Claude),
-            new CodexUsageProvider(config.Codex),
-        ];
+        var providers = ProviderFactory.All(config);
 
         var failed = false;
         Console.WriteLine($"settings.json: {ConfigStore.Path_}");

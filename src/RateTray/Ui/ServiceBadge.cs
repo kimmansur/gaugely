@@ -44,7 +44,7 @@ public static class ServiceBadge
         }
     }
 
-    private static Image? LogoFor(string group, bool dark)
+    internal static Image? LogoFor(string group, bool dark)
     {
         var record = RateTray.Model.ServiceCatalog.FindByGroup(group);
         if (record is null) return null;

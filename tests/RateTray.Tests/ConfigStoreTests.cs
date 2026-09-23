@@ -104,10 +104,9 @@ public class ConfigStoreTests
     public void A_blank_path_collapses_to_null_so_the_default_location_applies()
     {
         var config = ConfigStore.FromJson(
-            """{ "claude": { "credentialsPath": "   " }, "codex": { "executablePath": "" } }""");
+            """{ "claude": { "credentialsPath": "   " } }""");
 
         Assert.Null(config.Claude.CredentialsPath);
-        Assert.Null(config.Codex.ExecutablePath);
     }
 
     [Fact]

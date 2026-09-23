@@ -506,17 +506,14 @@ public sealed class CodexOptions
 {
     public bool Enabled { get; set; } = true;
 
-    /// <summary>Defaults to resolving "codex" on PATH.</summary>
-    public string? ExecutablePath { get; set; }
-
     public int TimeoutSeconds { get; set; } = 30;
 
     internal CodexOptions Normalize()
     {
-        // FORK-2: o executável é sempre descoberto pelo próprio app (pasta do Codex e PATH).
-        // No upstream este campo aceita qualquer caminho, e o programa apontado é iniciado a
-        // cada consulta, sem validação nem aviso — o pior caminho do arquivo de ajustes.
-        ExecutablePath = null;
+        // FORK-2: não existe mais "executablePath". O executável é sempre descoberto pelo próprio
+        // app (pasta do Codex e PATH). No upstream o campo aceitava qualquer caminho, e o programa
+        // apontado era iniciado a cada consulta — o pior caminho do arquivo de ajustes. Um
+        // settings.json antigo que ainda o traga é lido normalmente; o campo só é ignorado.
         TimeoutSeconds = Math.Clamp(TimeoutSeconds, 5, 300);
         return this;
     }

@@ -60,11 +60,33 @@ public static class Loc
         Current = code;
         _active = code == FallbackLanguage ? Fallback : LoadTable(code);
 
-        try { Culture = CultureInfo.GetCultureInfo(code); }
+        try { Culture = Gregorian(CultureInfo.GetCultureInfo(code)); }
         catch (CultureNotFoundException) { Culture = CultureInfo.InvariantCulture; }
     }
 
+    /// <summary>
+    /// Fork: datas sempre no calendário gregoriano. A cultura "ar" do .NET formata no calendário
+    /// hegírico por padrão, e os prazos de renovação das cotas viriam em outro calendário. Vale
+    /// para qualquer idioma cuja cultura tenha o gregoriano como opção, sem lista fixa.
+    /// </summary>
+    internal static CultureInfo Gregorian(CultureInfo culture)
+    {
+        if (culture.Calendar is GregorianCalendar) return culture;
+        var gregorian = culture.OptionalCalendars.OfType<GregorianCalendar>().FirstOrDefault();
+        if (gregorian is null) return culture;
+
+        var copy = (CultureInfo)culture.Clone();
+        copy.DateTimeFormat.Calendar = gregorian;
+        return CultureInfo.ReadOnly(copy);
+    }
+
     /// <summary>Display name of a language, taken from its own table.</summary>
+    /// <summary>
+    /// Fork: o idioma atual se lê da direita para a esquerda (árabe). Tirado da própria cultura do
+    /// .NET, não de uma lista nossa, para um idioma novo nessa direção funcionar sem código.
+    /// </summary>
+    public static bool IsRightToLeft => Culture.TextInfo.IsRightToLeft;
+
     public static string DisplayName(string code)
     {
         var table = code == Current ? _active : LoadTable(code);

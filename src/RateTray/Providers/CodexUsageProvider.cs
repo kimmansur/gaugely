@@ -286,12 +286,6 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
     /// </summary>
     private string? ResolveExecutable()
     {
-        if (options.ExecutablePath is { Length: > 0 } configured)
-        {
-            var expanded = Environment.ExpandEnvironmentVariables(configured);
-            return File.Exists(expanded) ? expanded : null;
-        }
-
         var candidates = new List<string>
         {
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
