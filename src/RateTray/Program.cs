@@ -31,11 +31,12 @@ internal static class Program
         // Fork: `--render-ui <pasta> [idioma] [tema]` desenha cada página dos ajustes em PNG, com dados
         // de exemplo — prova visual de layout e tradução sem abrir janela para ninguém.
         // Fork: `--render-icon <arquivo.ico>` gera o ícone do app a partir de GaugelyMark — é o que
-        // tools/New-AppIcon.ps1 chama. O .ico no repositório é resultado, não fonte.
+        // tools/New-AppIcon.ps1 chama. O .ico no repositório é resultado, não fonte. Substitui o
+        // arquivo indicado: é ferramenta local de quem gera o ícone, e o uso diz isso.
         var icon = Array.FindIndex(args, a => a.Equals("--render-icon", StringComparison.OrdinalIgnoreCase));
         if (icon >= 0)
         {
-            if (icon + 1 >= args.Length) { Console.Error.WriteLine("usage: Gaugely.exe --render-icon <file.ico>"); return 2; }
+            if (icon + 1 >= args.Length) { Console.Error.WriteLine("usage: Gaugely.exe --render-icon <file.ico>   (replaces the file)"); return 2; }
             File.WriteAllBytes(args[icon + 1], Ui.GaugelyMark.CreateIco(Ui.GaugelyMark.IconSizes));
             return 0;
         }
