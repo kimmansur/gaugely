@@ -13,7 +13,7 @@ out.
 |---|---|---|
 | `%USERPROFILE%\.claude\.credentials.json` (or the file set in `claude.credentialsPath`) | OAuth access token for the Claude usage request | Only with `claude.autoRefreshToken` enabled — see below |
 | `%USERPROFILE%\.codex\auth.json` | `exp` claim of the access token, to report sign-in validity | Never |
-| `%APPDATA%\Gaugely\settings.json` | This app's own configuration | Yes, through `settings.json.tmp`; an unreadable file is kept as `settings.json.bad` |
+| `%APPDATA%\Gaugely\settings.json` | This app's own configuration | Yes, through `settings.json.tmp`; an unreadable file is copied to `settings.json.bad` when that copy succeeds |
 | `%APPDATA%\Gaugely\cache.json` | Last readings, so a restart shows numbers at once | Yes |
 | `%APPDATA%\RateTray\settings.json` | Copied once into the folder above on first start, if present | Never |
 | `%LOCALAPPDATA%\Gaugely\agy-cwd\`, `agy-usage.log` | Working folder and single log file for the `agy` call, so it does not leave a new log per poll | Yes |
@@ -117,8 +117,9 @@ The installer then:
 the file was not altered on the way, not who published it. Someone in control of this GitHub
 account could publish a matching pair. That is why installing needs a click, and why a release is
 only built by the release workflow — started by pushing a tag, or by hand for an existing tag —
-which checks out that tag, verifies it, runs every test first, and pins every third-party action
-to a commit.
+which checks out that tag, verifies it, runs the unit and end-to-end suites first (end-to-end tests
+skip themselves where there is no interactive desktop), and pins every third-party action to a
+commit.
 
 The download URL is checked before the request: it has to be one of this repository's release
 assets. GitHub answers that URL with a redirect to its own file storage, and the download follows

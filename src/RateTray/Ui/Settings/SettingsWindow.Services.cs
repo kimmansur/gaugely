@@ -188,7 +188,7 @@ public sealed partial class SettingsWindow
         var wrapped = new List<Control>();
         block.SizeChanged += (_, _) =>
         {
-            var width = Math.Max(Shapes.Scale(this, 120), block.ClientSize.Width - block.Padding.Horizontal - 2);
+            var width = Math.Max(1, block.ClientSize.Width - block.Padding.Horizontal - 2);
             foreach (var control in wrapped)
             {
                 control.MaximumSize = new Size(width, 0);
@@ -242,7 +242,7 @@ public sealed partial class SettingsWindow
         body.Controls.Add(text);
         block.Controls.Add(body);
         FitHeight(block, body);
-        block.SizeChanged += (_, _) => text.MaximumSize = new Size(Math.Max(Shapes.Scale(this, 120), block.ClientSize.Width - block.Padding.Horizontal - 2), 0);
+        block.SizeChanged += (_, _) => text.MaximumSize = new Size(Math.Max(1, block.ClientSize.Width - block.Padding.Horizontal - 2), 0);
         return block;
     }
 
