@@ -51,10 +51,16 @@ internal static class SettingsRender
                 form.ShowPage(page);
                 Pump();
 
+                // Só a área útil: a moldura e a barra de título não se desenham fora da tela e
+                // sairiam como faixas brancas.
                 using (var window = new Bitmap(form.Width, form.Height))
                 {
                     form.DrawToBitmap(window, new Rectangle(Point.Empty, form.Size));
-                    window.Save(Path.Combine(directory, $"{language}-{page}-janela.png"));
+                    var origin = form.PointToScreen(Point.Empty);
+                    var client = new Rectangle(origin.X - form.Left, origin.Y - form.Top, form.ClientSize.Width, form.ClientSize.Height);
+                    client.Intersect(new Rectangle(Point.Empty, window.Size));
+                    using var cropped = window.Clone(client, window.PixelFormat);
+                    cropped.Save(Path.Combine(directory, $"{language}-{page}-janela.png"));
                     written++;
                 }
 

@@ -69,16 +69,19 @@ public sealed partial class SettingsWindow
             try
             {
                 var gap = Shapes.Scale(this, 12);
-                var width = (grid.Width - gap) / 2;
+                // Duas colunas só quando cada cartão tem pelo menos ~300 px lógicos; abaixo disso
+                // (tela estreita, escala alta) os botões e textos não cabem, e vira uma coluna.
+                var columns = (grid.Width - gap) / 2 >= Shapes.Scale(this, 300) ? 2 : 1;
+                var width = columns == 2 ? (grid.Width - gap) / 2 : grid.Width;
                 var rtl = SettingsTheme.RightToLeft;
                 var y = 0;
-                for (var i = 0; i < cards.Count; i += 2)
+                for (var i = 0; i < cards.Count; i += columns)
                 {
                     var first = cards[i];
-                    var second = i + 1 < cards.Count ? cards[i + 1] : null;
+                    var second = columns == 2 && i + 1 < cards.Count ? cards[i + 1] : null;
                     first.Width = width;
                     if (second is not null) second.Width = width;
-                    first.Location = new Point(rtl ? width + gap : 0, y);
+                    first.Location = new Point(second is not null && rtl ? width + gap : 0, y);
                     if (second is not null) second.Location = new Point(rtl ? 0 : width + gap, y);
                     y += Math.Max(first.Height, second?.Height ?? 0) + gap;
                 }

@@ -1,256 +1,117 @@
-# RateTray
+# Gaugely
 
-**Live-Auslastung der Limits von Claude Code und Codex — im Windows-Infobereich.**
+Nutzungslimits und API-Ausgaben deiner KI-Werkzeuge, live im Windows-Infobereich.
 
-Ein Icon pro Limit, gezeichnet wie Core Temp die CPU-Werte pro Kern anzeigt.
+Gaugely zeigt, wie viel von jedem Abo übrig ist — Claude Code, Codex, Kimi Code und Google
+Antigravity — und was du für die APIs von Anthropic, OpenAI, Kimi, OpenRouter und DeepSeek
+ausgibst, als Symbole im Infobereich und auf Wunsch als schwebende Leiste mit Anzeigen. So siehst
+du ein Limit kommen, bevor es dich mitten in der Arbeit stoppt.
+
+Gaugely ist ein Fork von **[RateTray](https://github.com/nowrap/rate-tray)** von nowrap, unter
+der MIT-Lizenz. Die Abfragelogik, die Symbole, das Detailfenster und das meiste, was die App
+ausmacht, stammen von dort. Dank und Anerkennung gehen an das ursprüngliche Projekt.
+
+![Gaugely-Einstellungen, Seite Dienste](docs/settings.de.png)
 
 *[English version](README.md)*
 
-> Geschrieben von Claude Code (Claude Opus 5) unter menschlicher Anleitung. Bitte
-> [Entstehung](#entstehung) lesen, bevor du es auf deine Anmeldedaten loslässt.
+## Was der Fork ergänzt
 
-![Tray-Icons](docs/tray-icons.png)
+- **Zwei Bereiche pro Anbieter.** Das Abo-Kontingent, das sich füllt und zurückgesetzt wird, und
+  — mit einem API-Schlüssel — was dich die API gekostet hat:
 
-Die Farbe sagt zweierlei gleichzeitig: unterhalb der Warnschwelle steht jede Zahl in der Farbe
-ihres Dienstes (Terracotta = Claude, Grün = Codex), ab der Warnschwelle übernimmt die
-Dringlichkeit für beide — erst Amber, dann Rot.
+  | Anbieter | Abo | API |
+  |---|---|---|
+  | Claude | Claude Code (5-Stunden- und Wochenfenster) | Anthropic Admin API: Ausgaben diesen Monat und heute, Tokens — erfordert eine Organisation und einen Admin-Schlüssel |
+  | OpenAI | Codex | OpenAI Admin API: Ausgaben diesen Monat und heute, Tokens und Anfragen — ein offizielles Prepaid-Guthaben gibt es nicht |
+  | Google | AI-Pro-Kontingente, gelesen über die lokale `agy`-CLI (Antigravity) | nicht verfügbar: Google meldet Ausgaben nur über Cloud Billing |
+  | Kimi | Kimi Code (5-Stunden- und Wochenfenster) | Guthaben der Kimi-Plattform (ein Plattform-Schlüssel, nicht der von Kimi Code) |
+  | OpenRouter | — | Guthaben, Ausgaben heute, diese Woche und diesen Monat |
+  | DeepSeek | — | Guthaben |
 
-Linksklick auf ein beliebiges Icon öffnet das Detail-Fenster:
-
-![Detail-Fenster](docs/details.de.png)
-
-## Wozu
-
-Die Zahl gibt es längst — sie ist nur umständlich zu erreichen. Sie steht in den Web-Apps, also
-ein ganzes Fenster weiter, wenn man die in einer Webview-Hülle wie Rambox geparkt hat, und dort
-dann vergraben: Bei Claude ist die Anzeige zurück in die Einstellungen gewandert, bei ChatGPT lag
-sie immer darin. So oder so heißt nachsehen: raus aus dem, was man gerade tut. Die CLIs zeigen
-sie auch, aber nur innerhalb einer laufenden Sitzung (`/usage` in Claude Code, `/status` in
-Codex). Hier stehen dieselben Zahlen dort, wo man sie sieht, ohne etwas zu unterbrechen — und
-warnen, bevor man mitten in einer Aufgabe anschlägt.
-
-Die Werte sind **Live-Abfragen der offiziellen Limits**, keine Schätzung aus lokalen
-Transcript-Dateien. Der Abruf kostet keine Modell-Token.
-
-Entstanden ist das aus einer spontanen Idee, zunächst als Experiment — nicht aus einer
-erkannten Marktlücke. Die Alternativen weiter unten tauchten erst später auf, bei der Recherche
-zu möglichen Portierungen nach macOS und Linux. Da gab es dieses Werkzeug schon, keine von ihnen
-hat also die Entscheidung beeinflusst, es zu bauen.
-
-| Dienst | Quelle |
-|---|---|
-| Claude | `GET api.anthropic.com/api/oauth/usage`, mit dem Token, den Claude Code ohnehin speichert |
-| Codex | `codex app-server` → JSON-RPC `account/rateLimits/read` |
-
-## Voraussetzungen
-
-- Windows 10 oder 11
-- [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0)
-- Eine angemeldete Installation von Claude Code und/oder Codex CLI — eines von beiden genügt
+- **Ein Einstellungsfenster für alles.** Seitenleiste mit Dienste, Infobereich, Schwebendes
+  Widget, Darstellung, Warnungen, Updates und Erweitert; hell und dunkel. Jede Option aus
+  `settings.json` lässt sich dort ändern, und `settings.json` funktioniert weiterhin: Änderungen an
+  der Datei gelten, während die App läuft, und eine ungültige Datei wird ignoriert, bis sie wieder
+  gültig ist.
+- **Im Fenster eingefügte API-Schlüssel landen nur in der Windows-Anmeldeinformationsverwaltung**,
+  nie in `settings.json`. Die Schaltfläche **Testen** fragt den Dienst sofort ab.
+- **11 Sprachen**: Englisch, Deutsch, Portugiesisch (Brasilien), Spanisch, Französisch,
+  Italienisch, Russisch, Arabisch (von rechts nach links), Chinesisch (vereinfacht), Japanisch
+  und Koreanisch.
+- **Ein Symbol pro Dienst.** Der Infobereich zeigt das Limit, das zuerst ausläuft; die Karte beim
+  Überfahren zeigt die Limits dieses Dienstes.
+- **Schwebende Leiste.** Ein Ring pro Dienst, immer im Vordergrund, waagerecht oder senkrecht,
+  in der Größe veränderbar, mit einem *Notch*-Modus, der sie bündig an einen Bildschirmrand setzt.
+- **Härtung** — siehe [SECURITY.md](SECURITY.md):
+  - **FORK-1** — die Claude-Endpunkte für Nutzung und Token lassen sich über `settings.json` nicht
+    auf einen anderen Host umlenken; ein fremder Host fällt auf den offiziellen zurück.
+  - **FORK-2** — es gibt keine Einstellung dafür, welche `codex.exe` gestartet wird; die App findet
+    sie selbst.
+  - **FORK-3** — die automatische Erneuerung des Claude-Tokens ist als Opt-in erlaubt, aber nur
+    gegenüber dem offiziellen Host.
+  - Anfragen mit Schlüssel oder Token folgen nie Weiterleitungen und lehnen übergroße Antworten ab.
+- **Updates aus den Releases dieses Repositorys**, vor dem Anwenden geprüft — siehe unten.
 
 ## Installation
 
-`RateTray.exe` aus dem [aktuellen Release](../../releases/latest) laden und starten, oder
-selbst bauen:
+1. Installiere die [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0), falls
+   sie fehlt.
+2. Lade `Gaugely.exe` und `SHA256SUMS.txt` aus dem
+   [neuesten Release](https://github.com/kimmansur/gaugely/releases/latest) herunter.
+3. Prüfe den Hash, bevor du die Datei startest:
+
+   ```powershell
+   Get-FileHash Gaugely.exe -Algorithm SHA256
+   ```
+
+4. Lege sie in einen eigenen Ordner — nicht in „Downloads“ — und starte sie. Setze im Menü des
+   Infobereichs den Haken bei **Mit Windows starten**, wenn sie bei der Anmeldung starten soll.
+5. Rechtsklick auf das Symbol im Infobereich → **Einstellungen…**, um Dienste ein- oder
+   auszuschalten und API-Schlüssel hinzuzufügen.
+
+## Updates
+
+Standardmäßig aus. Unter **Einstellungen → Updates** oder in **Über Gaugely** kannst du Gaugely
+dieses Repository einmal täglich prüfen lassen. Gibt es ein neueres Release, erscheint eine
+Benachrichtigung, und **Über Gaugely → Herunterladen und installieren** holt es.
+
+Bevor etwas ersetzt wird, prüft das Installationsprogramm drei Dinge: Der Download stammt aus den
+Release-Dateien dieses Repositorys, sein SHA256 stimmt mit der `SHA256SUMS.txt` des Releases
+überein, und die in der ausführbaren Datei eingetragene Version entspricht dem Release-Tag. Der
+Austausch ist ein einziger `ReplaceFile`-Aufruf, und die vorherige Version bleibt als
+`Gaugely.exe.old` erhalten, bis die neue startet.
+
+Was das **nicht** beweist, ist, wer das Release veröffentlicht hat — die Prüfsumme liegt im selben
+Release wie die Datei. Deshalb braucht die Installation immer einen Klick und geschieht nie von
+selbst.
+
+## Umstieg von RateTray
+
+Beim ersten Start kopiert Gaugely deine `%APPDATA%\RateTray\settings.json`, übernimmt die Kimi-
+und OpenRouter-Schlüssel früherer Builds des Forks und übernimmt einen vorhandenen Eintrag
+**Mit Windows starten**. Die alten Dateien bleiben liegen; zurück geht es also einfach, indem man
+die alte Datei startet.
+
+## Probleme und Ideen
+
+Eröffne ein [Issue](https://github.com/kimmansur/gaugely/issues). Gib die Gaugely-Version (aus
+„Über Gaugely“), deine Windows-Version und, falls ein Dienst einen Fehler zeigt, dessen Text an.
+Bitte füge keine Tokens, API-Schlüssel oder Inhalte deiner Anmeldedateien ein.
+
+Sicherheitsprobleme bitte über [SECURITY.md](SECURITY.md) melden.
+
+## Bauen
 
 ```powershell
-git clone https://github.com/nowrap/rate-tray.git
-cd ratetray
-dotnet publish src\RateTray\RateTray.csproj -c Release -r win-x64
+dotnet test tests/RateTray.Tests/RateTray.Tests.csproj
+dotnet publish src/RateTray/RateTray.csproj -c Release -r win-x64 -o publish
 ```
 
-Das Ergebnis ist eine einzelne Datei unter
-`src\RateTray\bin\Release\net9.0-windows\win-x64\publish\`.
-
-> **Windows 11 blendet neue Infobereich-Symbole zunächst aus.** Sie erscheinen erst hinter dem
-> Pfeil `^`. Zum dauerhaften Anheften aus dem Überlauf auf die Taskleiste ziehen, oder unter
-> *Einstellungen → Personalisierung → Taskleiste → Weitere Symbole in der Taskleiste*
-> einschalten.
-
-## Bedienung
-
-| Aktion | Ergebnis |
-|---|---|
-| Mouseover | Karte mit Dienst-Symbol, aktuellem Wert und Reset-Zeit |
-| Linksklick | Detail-Fenster: alle Limits, Reset-Zeiten, Gültigkeit der Anmeldung — und eine dezente Leiste an der Unterkante, die bis zur nächsten Aktualisierung läuft |
-| Rechtsklick | Menü: Icons wählen, aktualisieren, Sprache, Autostart, Einstellungen, Über |
-| `Esc` | Detail-Fenster schließen |
-
-Welche Icons erscheinen, wird **beim ersten Start aus deinem Konto ermittelt** — die Tarife
-unterscheiden sich, und modellspezifische Fenster wie Fable gibt es nur bei manchen. Einzelne
-Limits lassen sich unter *Rechtsklick → Icons* oder im Einstellungsdialog ab- und anschalten.
-
-## Einstellungen
-
-Rechtsklick → *Einstellungen öffnen*, oder `RateTray.exe --settings`.
-
-<p align="center">
-  <img src="docs/settings.de.png" alt="Einstellungen, Reiter Allgemein" width="49%">
-  <img src="docs/settings-colors.de.png" alt="Einstellungen, Reiter Farben" width="49%">
-</p>
-
-Der Farben-Reiter zeigt beim Ändern eine Live-Vorschau der echten Tray-Icons, abgeleitete
-Palette inklusive.
-
-Alles lässt sich auch direkt in `%APPDATA%\RateTray\settings.json` bearbeiten:
-
-```jsonc
-{
-  "refreshSeconds": 90,       // Minimum 30 — der Usage-Endpunkt limitiert enge Schleifen
-  "language": "auto",            // auto | en | de
-  "theme": "auto",               // auto | light | dark — richtet sich nach der Taskleiste
-  "richTooltips": true,          // eigene Hover-Karte; false = einfacher Windows-Tooltip
-  "icons": [ "claude.session", "claude.weekly_all", "codex.primary" ],
-  "iconsInitialized": true,      // auf false setzen, um die Limits neu zu ermitteln
-  "maxBackoffMinutes": 15,     // längste Pause nach wiederholten Fehlern
-  "autoUpdateCheck": false,    // opt-in: einmal täglich GitHub auf neue Version prüfen
-  "thresholds":    { "warn": 75, "critical": 90 },
-  "notifications": { "enabled": true, "atPercent": 80 },
-  "colors": {
-    "claude": "#D97757",
-    "codex":  "#10A37F",
-    "warnHue": 48,               // Amber
-    "criticalHue": 352,          // Karmesin
-    "warn": null,                // null = aus den beiden Dienstfarben abgeleitet
-    "critical": null,
-    "unknown": null,
-    "shadeSpread": 0.15          // Abstufung zwischen Limits eines Dienstes; 0 = aus
-  },
-  "claude": { "enabled": true, "autoRefreshToken": false, "timeoutSeconds": 20,
-              "minIntervalSeconds": 300 },   // Mindestabstand zwischen Usage-Abfragen
-  "codex":  { "enabled": true, "timeoutSeconds": 30 }
-}
-```
-
-### Farben
-
-Direkt gewählt werden nur die beiden Dienstfarben. Warn-, Kritisch- und Neutralfarbe werden
-daraus **abgeleitet**: Der Farbton ist gesetzt (Amber, Karmesin, Fast-Grau), Sättigung und
-Helligkeit stammen aus dem gemeinsamen Ton der Dienstfarben. Wer eigene Markenfarben einsetzt,
-bekommt eine mitziehende Palette statt eines festen Rots, das dann überall beißt.
-
-Limits *desselben* Dienstes werden allein über die Helligkeit abgestuft, damit drei
-Claude-Icons nebeneinander unterscheidbar bleiben, ohne die Markenfarbe zu verlassen. Ab der
-Warnschwelle endet die Abstufung: darüber teilen sich alle Dienste und alle Limits ein Amber und
-ein Karmesin — eine Warnung darf nicht davon abhängen, dass man die Palette kennt.
-
-Vor der Ausgabe durchläuft jede Farbe eine Lesbarkeitsstufe, die die Helligkeit an das
-Taskleisten-Design anpasst, ohne den Farbton anzutasten — eine dunkle Markenfarbe bleibt so auch
-auf dunkler Leiste erkennbar.
-
-## Wenn etwas schiefgeht
-
-Ein fehlgeschlagener Abruf leert den Tray nicht. Die zuletzt eingetroffenen Werte bleiben
-stehen, der Fehler wird daneben angezeigt, und der betroffene Dienst wird exponentiell
-zurückgestellt — höchstens 15 Minuten. Nennt der Server ein `Retry-After`, gilt dessen Wert
-statt der Schätzung, und das Detail-Fenster zeigt, wie lange die Pause noch läuft. Ein
-Ratenlimit bekommt sofort die volle Pause statt sich dorthin hochzuarbeiten — ein
-aufgebrauchtes Kontingent wird durch Nachfragen nicht besser.
-*Jetzt aktualisieren* im Menü hebt sie auf.
-
-Intervall, Backoff-Obergrenze und die Anfrage-Timeouts beider Dienste stehen im
-Einstellungsdialog. Optionen, die eine neuere Version mitbringt, werden beim nächsten Start in
-eine bestehende `settings.json` geschrieben — die Datei zeigt also immer alles Einstellbare.
-
-Die letzten gültigen Werte liegen zusätzlich in `%APPDATA%\RateTray\cache.json`. Nach einem
-Neustart stehen die Zahlen dadurch sofort da, statt einer Reihe `?` bis der erste Abruf durch
-ist. Einträge älter als zwei Tage werden verworfen statt als aktuell ausgegeben.
-
-## Anmeldung
-
-Das Detail-Fenster zeigt pro Dienst, wie lange die Anmeldung noch gültig ist.
-
-- **Claude** — Der Zugriffstoken hält wenige Stunden. Solange Claude Code läuft, erneuert es ihn
-  auf der Platte und der Tray liest ihn nur neu. Ist er abgelaufen, sagt der Tray das.
-  `claude.autoRefreshToken` lässt den Tray den Refresh selbst durchführen; die Option ist
-  **standardmäßig aus**, weil dieser Pfad nicht gegen den echten Endpunkt erprobt ist.
-  Schlägt er fehl, erscheint der Hinweis auf Claude Code und die Anmeldedatei bleibt unberührt.
-- **Codex** — Der Zugriffstoken gilt rund zehn Tage. Danach `codex login` ausführen.
-
-## Diagnose
-
-```powershell
-# Beide Provider einmal abfragen, alle verfügbaren Limit-IDs ausgeben, beenden.
-# Die App ist ein GUI-Programm, daher Ausgabe umleiten statt `>` zu verwenden:
-Start-Process .\RateTray.exe -ArgumentList "--once" -Wait -NoNewWindow `
-  -RedirectStandardOutput out.txt ; Get-Content out.txt
-
-.\RateTray.exe --details    # nur das Detail-Fenster
-.\RateTray.exe --settings   # nur der Einstellungsdialog
-```
-
-`--once` gibt immer Englisch aus, unabhängig von der eingestellten Sprache — so lässt sich die
-Ausgabe unverändert in ein Issue einfügen.
-
-## Entwicklung
-
-```powershell
-dotnet build RateTray.sln
-dotnet test tests\RateTray.Tests        # Unit-Tests, ohne Desktop lauffähig
-dotnet test tests\RateTray.E2E          # startet die echte .exe; überspringt sich headless
-
-pwsh tools\New-AppIcon.ps1                   # app.ico aus der Palette neu erzeugen
-```
-
-Siehe [CONTRIBUTING.md](CONTRIBUTING.md) — darunter, wie man eine Sprache ergänzt: eine
-JSON-Datei, kein Code. In [docs/IDEAS.md](docs/IDEAS.md) stehen die offenen Fäden: Portierung
-auf macOS und Linux, ein `--line`-Modus für tmux und Statusleisten, winget-Paketierung, und was
-bislang ungetestet ist (englisch).
-
-## Datenschutz
-
-Ausgeliefert spricht die App mit zwei Stellen: dem Usage-Endpunkt von Anthropic und einem lokalen
-`codex app-server`-Prozess. Ein optionaler Update-Check — standardmäßig aus, im Über-Dialog
-einschaltbar — kommt als dritte hinzu: GitHub, einmal täglich nach der Tag-Liste gefragt, ohne
-Token und ohne etwas über dich. Anmeldedaten werden aus den Dateien gelesen, die die offiziellen
-CLIs ohnehin pflegen, und niemals kopiert, protokolliert oder anderswohin gesendet. Siehe
-[SECURITY.md](SECURITY.md).
-
-## Dank
-
-Die Idee ist von [Core Temp](https://www.alcpu.com/CoreTemp/) abgeschaut, das seit Jahren
-CPU-Temperaturen pro Kern als Zahlen in den Infobereich schreibt. RateTray macht dasselbe für
-eine andere Art von Kontingent.
-
-## Alternativen
-
-Beide können deutlich mehr als RateTray und verdienen den ersten Blick:
-
-- [CodexBar](https://github.com/steipete/CodexBar) — macOS-Menüleiste, über 60 Anbieter, dazu
-  eine CLI für macOS und Linux.
-- [Win-CodexBar](https://github.com/nesszer/Win-CodexBar) — Windows-Tray, 56 Anbieter,
-  Browser-Cookie-Import, DPAPI-Ablage, Installer und winget-Paket.
-
-Das sind die Deluxe-Varianten, und wer ein Dashboard möchte, ist dort richtig. RateTray verfolgt
-stattdessen den Core-Temp-Ansatz: Der Wert wird ins Icon selbst gezeichnet, es gibt also nichts
-zu öffnen und nichts zu klicken. 377 KB, zwei Dienste, eine Idee.
-
-## Marken
-
-Keine Verbindung zu Anthropic oder OpenAI, weder unterstützt noch gesponsert. „Claude" und
-„Codex" benennen die Dienste, die dieses Werkzeug ausliest. Die Dienst-Symbole in der Oberfläche
-sind selbst gezeichnete generische Formen, nicht die Logos der Unternehmen.
-
-## Entstehung
-
-Nahezu der gesamte Code, die Tests und die Dokumentation stammen von Claude Code (Claude
-Opus 5), entstanden in einer Arbeitssitzung. Ein Mensch hat den Entwurf bestimmt, alle
-Produktentscheidungen getroffen — Name, Farben, Schwellen, Lizenz — und die laufende App
-geprüft.
-
-Was das für dich als Leser bedeutet:
-
-- 214 Unit-Tests und 9 End-to-End-Tests, alle grün, und die App lief gegen echte Claude- und
-  Codex-Konten.
-- **Es gab kein unabhängiges menschliches Code-Review.** Das Programm liest deine
-  Anmeldedateien, also lies [SECURITY.md](SECURITY.md) — dort steht, welche Dateien angefasst
-  werden und wohin überhaupt etwas geht — und überflieg den Code, bevor du ihm vertraust.
-- Mehrere Fehler wurden gefunden, indem jemand die App beim Fehlverhalten beobachtet hat, nicht
-  durch Nachdenken über den Code. Der [Changelog](CHANGELOG.md) und die Commit-Nachrichten
-  benennen das offen.
-
-Commits tragen einen `Co-Authored-By`-Eintrag mit dem Modellnamen.
+Projektordner und Namensräume behalten absichtlich die Namen `RateTray` des Originals, damit sich
+Korrekturen aus dem ursprünglichen Projekt weiterhin übernehmen lassen.
 
 ## Lizenz
 
-[MIT](LICENSE)
+MIT — siehe [LICENSE](LICENSE). Der ursprüngliche Copyright-Vermerk von RateTray ist dort erhalten.
+Material Dritter und Marken sind in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) aufgeführt.

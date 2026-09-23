@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Windows tray indicator showing Claude and Codex subscription usage as Core Temp-style
-numbers — one custom `TrayIcon` per limit (`Ui/TrayIcon.cs`: `Shell_NotifyIcon` with a per-icon
+Gaugely, a fork of RateTray: a Windows tray indicator showing AI subscription usage (Claude Code,
+Codex, Kimi Code, Antigravity) and API spend or balance (Anthropic, OpenAI, Kimi platform,
+OpenRouter, DeepSeek) as Core Temp-style numbers — one custom `TrayIcon` per limit (`Ui/TrayIcon.cs`: `Shell_NotifyIcon` with a per-icon
 GUID, so each is its own persistent, individually show/hideable Windows tray entry), each drawing
 its percentage straight into the icon.
 Windows-only by design (WinForms, GDI+, the HKCU Run key).
@@ -26,13 +27,14 @@ Start-Process src/RateTray/bin/Debug/net9.0-windows/RateTray.exe `
   -ArgumentList "--once" -Wait -NoNewWindow -RedirectStandardOutput out.txt
 
 dotnet run --project src/RateTray -- --details     # just the fly-out
-dotnet run --project src/RateTray -- --settings    # just the settings dialog
+dotnet run --project src/RateTray -- --settings    # just the settings window
+dotnet run --project src/RateTray -- --render-ui out all dark   # every settings page, every language, as PNG
 
 pwsh tools/New-AppIcon.ps1                              # regenerate app.ico
 dotnet publish src/RateTray -c Release -r win-x64  # single-file release
 ```
 
-State lives at `%APPDATA%\RateTray\` — `settings.json` and `cache.json`, neither in the
+State lives at `%APPDATA%\Gaugely\` — `settings.json` and `cache.json`, neither in the
 repo. Delete `settings.json` to re-run first-run discovery. A single-instance mutex makes a
 second launch exit silently, so kill the running process before starting a rebuilt binary.
 

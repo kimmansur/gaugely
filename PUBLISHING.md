@@ -18,8 +18,9 @@ Add under the title in both READMEs once the repo exists:
 
 ## Repository settings worth setting
 
-- **Description**: "Live usage limits for Claude Code and Codex, in the Windows tray."
-- **Topics**: `windows`, `tray`, `dotnet`, `winforms`, `claude-code`, `codex`, `system-tray`
+- **Description**: "Live usage limits and API spending for your AI tools, in the Windows tray."
+- **Topics**: `windows`, `tray`, `dotnet`, `winforms`, `claude-code`, `codex`, `openai`,
+  `anthropic`, `openrouter`, `system-tray`
 - **Security → Private vulnerability reporting**: enable it, or the link in `SECURITY.md`
   goes nowhere.
 - **Actions → Workflow permissions**: the release workflow needs write access to contents.

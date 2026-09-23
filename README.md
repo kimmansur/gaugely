@@ -1,30 +1,53 @@
 # Gaugely
 
-Live usage limits for your AI subscriptions, in the Windows tray.
+Live usage limits and API spending for your AI tools, in the Windows tray.
 
-Gaugely shows how much is left of each plan — Claude Code, Codex, Kimi Code, OpenRouter and
-Google Antigravity — as tray icons and as an optional floating strip of gauges, so you see a
-limit coming before it stops you mid-task.
+Gaugely shows how much is left of each subscription — Claude Code, Codex, Kimi Code and Google
+Antigravity — and what you are spending on the APIs of Anthropic, OpenAI, Kimi, OpenRouter and
+DeepSeek, as tray icons and as an optional floating strip of gauges, so you see a limit coming
+before it stops you mid-task.
 
 It is a fork of **[RateTray](https://github.com/nowrap/rate-tray)** by nowrap, released under the
 MIT license. The polling engine, the tray icons, the details window and most of what makes it
 work come from there. Credit and thanks go to the original project.
 
+![Gaugely settings, Services page](docs/settings.png)
+
+*[Deutsche Version](README.de.md)*
+
 ## What the fork adds
 
-- **More services.** Kimi Code (5-hour and weekly windows), OpenRouter (credit balance and spend)
-  and Google Antigravity (Gemini and third-party model quotas, read from the local `agy` CLI).
+- **Two tracks per provider.** The subscription quota that fills up and resets, and — with an
+  API key — what the API has cost you:
+
+  | Provider | Subscription | API |
+  |---|---|---|
+  | Claude | Claude Code (5-hour and weekly windows) | Anthropic Admin API: spend this month and today, tokens — needs an organization and an Admin key |
+  | OpenAI | Codex | OpenAI Admin API: spend this month and today, tokens and requests — no official prepaid balance exists |
+  | Google | AI Pro quotas, read from the local `agy` CLI (Antigravity) | not available: Google reports spend only through Cloud Billing |
+  | Kimi | Kimi Code (5-hour and weekly windows) | Kimi platform balance (a platform key, not the Kimi Code key) |
+  | OpenRouter | — | Credit balance, spend today, this week and this month |
+  | DeepSeek | — | Balance |
+
+- **A settings window for everything.** Sidebar with Services, Tray, Floating widget,
+  Appearance, Alerts, Updates and Advanced; light and dark. Every option in `settings.json` can be
+  changed there, and `settings.json` still works: edits to the file apply while the app runs, and
+  an invalid file is ignored until it is valid again.
+- **API keys pasted in the window go only to the Windows Credential Manager**, never to
+  `settings.json`. A **Test** button reads the service on the spot.
+- **11 languages**: English, German, Portuguese (Brazil), Spanish, French, Italian, Russian,
+  Arabic (right to left), Chinese (Simplified), Japanese and Korean.
 - **One icon per service.** The tray shows the limit that will run out first; the hover card
-  lists every window of that service.
+  shows that service's limits.
 - **Floating strip.** A ring per service, always on top, horizontal or vertical, resizable, with a
   *notch* mode that docks it flush against a screen edge.
-- **Hardening of the settings file** — see [SECURITY.md](SECURITY.md):
+- **Hardening** — see [SECURITY.md](SECURITY.md):
   - **FORK-1** — the Claude usage and token endpoints cannot be pointed at another host from
     `settings.json`; a foreign host falls back to the official one.
-  - **FORK-2** — `codex.executablePath` is ignored; the app finds `codex.exe` itself.
+  - **FORK-2** — there is no setting for which `codex.exe` runs; the app finds it itself.
   - **FORK-3** — automatic Claude token refresh is allowed as an opt-in, but only ever towards
     the official host.
-- **API keys in the Windows Credential Manager**, never in `settings.json`.
+  - Requests that carry a key or token never follow redirects and refuse oversized responses.
 - **Updates from this repository's releases**, verified before they are applied — see below.
 
 ## Install
@@ -41,10 +64,12 @@ work come from there. Credit and thanks go to the original project.
 
 4. Put it in a folder of its own — not your Downloads — and start it. Tick
    **Start with Windows** in the tray menu if you want it at logon.
+5. Right-click the tray icon → **Settings…** to turn services on or off and to add API keys.
 
 ## Updates
 
-Off by default. In **About**, you can let Gaugely check this repository once a day. When a newer
+Off by default. In **Settings → Updates** or in **About**, you can let Gaugely check this
+repository once a day. When a newer
 release exists you get a notification, and **About → Download and install** fetches it.
 
 Before anything is replaced, the installer checks three things: the download comes from this

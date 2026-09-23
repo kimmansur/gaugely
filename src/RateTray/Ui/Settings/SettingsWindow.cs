@@ -309,14 +309,20 @@ public sealed partial class SettingsWindow : Form
 
         page.Controls.Add(stack);
         page.Resize += (_, _) => FitWidth(page, stack);
-        page.HandleCreated += (_, _) => FitWidth(page, stack);
+        page.HandleCreated += (_, _) =>
+        {
+            SettingsTheme.ThemeScrollBars(page, _theme.Dark);
+            FitWidth(page, stack);
+        };
         return (page, stack);
     }
 
     /// <summary>Largura útil de uma página para as seções ocuparem a coluna toda.</summary>
     private void FitWidth(Panel page, FlowLayoutPanel stack)
     {
-        var width = Math.Max(Shapes.Scale(this, 480), page.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
+        // Sem largura mínima: numa tela estreita ou com escala alta, um mínimo fixo virava rolagem
+        // horizontal e cortava os cartões. O conteúdo quebra linha e os cartões viram uma coluna.
+        var width = Math.Max(Shapes.Scale(this, 200), page.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
         stack.MaximumSize = new Size(width, 0);
         foreach (Control child in stack.Controls)
         {
@@ -415,6 +421,51 @@ public sealed partial class SettingsWindow : Form
         grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         grid.Controls.Add(text);
         grid.Controls.Add(control);
+        FitControl(grid, control);
+    }
+
+    /// <summary>
+    /// A coluna dos controles assume a largura do controle mais largo da seção. Numa tela estreita
+    /// ou com escala alta, uma lista de escolha larga deixava a coluna dos rótulos com zero e os
+    /// rótulos sumiam. Aqui cada controle fica com no máximo metade da linha; painéis compostos
+    /// (caminho + Procurar, tempo + intervalo) quebram linha, e a caixa de texto encolhe.
+    /// </summary>
+    private void FitControl(TableLayoutPanel grid, Control control)
+    {
+        var preferred = control.Width;
+        var box = (control as FlowLayoutPanel)?.Controls.OfType<TextBoxBase>().FirstOrDefault();
+        var boxPreferred = box?.Width ?? 0;
+
+        void Fit()
+        {
+            if (grid.ClientSize.Width <= 0) return;
+            var allowed = Math.Max(Shapes.Scale(this, 90), grid.ClientSize.Width / 2);
+            switch (control)
+            {
+                case ChoiceBox or TextBoxBase or NumericUpDown:
+                    control.Width = Math.Min(preferred, allowed);
+                    break;
+                case FlowLayoutPanel flow when box is not null:
+                    // Caixa + botão: numa linha só, na metade da linha; quem cede espaço é a caixa.
+                    var others = flow.Controls.Cast<Control>().Where(c => c != box).Sum(c => c.Width + c.Margin.Horizontal);
+                    flow.WrapContents = false;
+                    box.Width = Math.Max(Shapes.Scale(this, 60), Math.Min(boxPreferred, allowed - others - box.Margin.Horizontal));
+                    break;
+                case FlowLayoutPanel flow:
+                    // Painel que quebra linha dentro de coluna de largura automática colapsa para um
+                    // item por linha. Então: numa linha quando cabe; senão, largura fixa e quebra.
+                    var room = Math.Max(allowed, grid.ClientSize.Width * 2 / 3);
+                    var natural = flow.Controls.Cast<Control>().Sum(c => c.PreferredSize.Width + c.Margin.Horizontal) + flow.Padding.Horizontal;
+                    var wraps = natural > room;
+                    flow.WrapContents = wraps;
+                    flow.MinimumSize = wraps ? new Size(room, 0) : Size.Empty;
+                    flow.MaximumSize = wraps ? new Size(room, 0) : Size.Empty;
+                    break;
+            }
+        }
+
+        grid.SizeChanged += (_, _) => Fit();
+        Fit();
     }
 
     /// <summary>

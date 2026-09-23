@@ -7,6 +7,22 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-23
+
+### Fixed
+- Settings window on narrow screens or at high display scaling (found in a remote-desktop
+  session, 832 px wide at 200 %): row labels disappeared next to wide controls, a fixed minimum
+  width forced horizontal scrolling and cut the service cards, and the scroll bar stayed light in
+  the dark theme. Controls now take at most half a row, the service cards drop to one column when
+  two do not fit, and scroll bars follow the theme.
+- Colour codes in the Arabic settings read `D97757#`; they are now always left to right.
+- A failed save at start-up is announced like any other failed save.
+
+### Changed
+- READMEs (the German one rewritten from scratch), SECURITY.md and the contributor notes now
+  describe the API track, the settings window and the languages. The screenshot script uses the
+  new `--render-ui` mode.
+
 ## [0.6.0] - 2026-09-23
 
 ### Added

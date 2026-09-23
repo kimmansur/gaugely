@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Regenerates docs/details.png and docs/details.de.png.
+    Regenerates docs/details.png, docs/details.de.png, docs/settings.png and docs/settings.de.png.
 
 .DESCRIPTION
     The details window is rendered from invented readings rather than captured from a running
@@ -68,7 +68,7 @@ public static class WindowCapture
 
 [void][WindowCapture]::SetProcessDPIAware()
 
-$assembly = Join-Path $PSScriptRoot "..\src\RateTray\bin\$Configuration\net9.0-windows\RateTray.dll"
+$assembly = Join-Path $PSScriptRoot "..\src\RateTray\bin\$Configuration\net9.0-windows\Gaugely.dll"
 if (-not (Test-Path $assembly)) { throw "Build first: dotnet build -c $Configuration" }
 [void][System.Reflection.Assembly]::Load([System.IO.File]::ReadAllBytes((Resolve-Path $assembly)))
 
@@ -189,38 +189,19 @@ function Save-Details($language, $fileName) {
     $form.Dispose()
 }
 
-function Save-Settings($language, $fileName, $tabIndex) {
-    $results = New-SampleResults $language
-
-    $known = New-Object "System.Collections.Generic.List[RateTray.Model.LimitReading]"
-    foreach ($result in $results) { foreach ($reading in $result.Readings) { $known.Add($reading) } }
-
-    $config = New-Object RateTray.Configuration.AppConfig
-    # Explicit rather than "auto", which would render as "Automatic (Deutsch)" in the English
-    # screenshot on a German machine.
-    $config.Language = $language
-    foreach ($reading in $known) { $config.Icons.Add($reading.Id) }
-
-    $form = New-Object RateTray.Ui.SettingsForm($config, $known)
-    $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
-    $form.Show()
-    [System.Windows.Forms.Application]::DoEvents()
-
-    # The dialog owns its TabControl, so the tab is selected directly rather than by poking
-    # the native control from outside, which changes the header but not the page.
-    foreach ($control in $form.Controls) {
-        if ($control -is [System.Windows.Forms.TabControl]) { $control.SelectedIndex = $tabIndex }
-    }
-    [System.Windows.Forms.Application]::DoEvents()
-
-    Save-Window $form $fileName
-    $form.Dispose()
+# The settings window renders itself: `--render-ui` opens it off-screen with invented readings and
+# writes every page as PNG. Page 0 (Services) is the one shown in the READMEs.
+function Save-Settings($language, $fileName) {
+    $exe = [System.IO.Path]::ChangeExtension($assembly, '.exe')
+    $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("gaugely-render-" + [guid]::NewGuid())
+    $process = Start-Process -FilePath $exe -ArgumentList @('--render-ui', $temp, $language, 'dark') -Wait -PassThru -NoNewWindow
+    if ($process.ExitCode -ne 0) { throw "--render-ui failed for $language (exit $($process.ExitCode))" }
+    Copy-Item (Join-Path $temp "$language-0-janela.png") (Join-Path $OutputDirectory $fileName) -Force
+    Remove-Item $temp -Recurse -Force
 }
 
 Save-Details 'en' 'details.png'
 Save-Details 'de' 'details.de.png'
 
-Save-Settings 'en' 'settings.png' 0
-Save-Settings 'de' 'settings.de.png' 0
-Save-Settings 'en' 'settings-colors.png' 1
-Save-Settings 'de' 'settings-colors.de.png' 1
+Save-Settings 'en' 'settings.png'
+Save-Settings 'de' 'settings.de.png' 

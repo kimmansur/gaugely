@@ -119,6 +119,20 @@ public sealed class SettingsTheme
         _ = DwmSetWindowAttribute(form.Handle, DwmwaWindowCornerPreference, ref round, sizeof(int));
     }
 
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+    private static extern int SetWindowTheme(IntPtr hwnd, string? subAppName, string? subIdList);
+
+    /// <summary>
+    /// Barras de rolagem do tema: sem isto, um painel rolável no tema escuro mostra a barra branca
+    /// do Windows. Sem efeito onde o tema não existe.
+    /// </summary>
+    public static void ThemeScrollBars(Control control, bool dark)
+    {
+        if (!control.IsHandleCreated) return;
+        try { _ = SetWindowTheme(control.Handle, dark ? "DarkMode_Explorer" : "Explorer", null); }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { }
+    }
+
     /// <summary>Fonte da interface: Segoe UI Variable no Windows 11, Segoe UI antes dele.</summary>
     public static Font UiFont(float size, FontStyle style = FontStyle.Regular)
     {

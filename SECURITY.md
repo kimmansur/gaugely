@@ -20,13 +20,20 @@ out.
 The copied file goes through the same `Normalize()` as any other settings file, so FORK-1 and
 FORK-2 apply to it. Opt-ins that were on before — `autoRefreshToken`, for instance — stay on.
 
+`settings.json` is watched while the app runs. An edit made in a text editor is read, normalised
+the same way and applied; an invalid file is ignored and the settings in use stay as they are. The
+app does not write over an edit it has not applied yet: automatic saves are skipped and a tray
+notice says so, and the settings window asks before saving over it.
+
 `cache.json` holds only values — limit ids, percentages, reset times, plan names. No token or
 credential ever reaches it.
 
 **Windows Credential Manager**
 
-The Kimi Code and OpenRouter API keys are stored there, under `Gaugely/kimi` and
-`Gaugely/openrouter`, never in `settings.json`. Keys saved by earlier builds under
+API keys are stored there and never in `settings.json`: `Gaugely/kimi` (Kimi Code),
+`Gaugely/kimi-platform`, `Gaugely/openrouter`, `Gaugely/openai-admin`, `Gaugely/anthropic-admin`
+and `Gaugely/deepseek`. They are typed or pasted into the settings window, which writes them to
+the Credential Manager at once and clears the box; Cancel does not undo a saved or removed key. Keys saved by earlier builds under
 `RateTray-Nox/…` are read once and copied to the new names; the old entry is left in place so
 the earlier build keeps working. Removing a key in Settings removes both, and a failed removal is
 reported instead of passing silently. If an earlier build writes the old entry again, it is picked
@@ -44,11 +51,21 @@ fully qualified path — quoted, or without spaces, since Windows itself reads a
 | `https://console.anthropic.com/v1/oauth/token` | Only with `autoRefreshToken`, when the token has expired | The refresh token |
 | `https://api.kimi.com/coding/v1/usages` | A Kimi key is saved | The Kimi key |
 | `https://openrouter.ai/api/v1/credits`, `/key` | An OpenRouter key is saved | The OpenRouter key |
+| `https://api.anthropic.com/v1/organizations/cost_report`, `/usage_report/messages` | An Anthropic Admin key is saved | The Anthropic Admin key |
+| `https://api.openai.com/v1/organization/costs`, `/usage/completions` | An OpenAI Admin key is saved | The OpenAI Admin key |
+| `https://api.moonshot.ai/v1/users/me/balance` | A Kimi platform key is saved | The Kimi platform key |
+| `https://api.deepseek.com/user/balance` | A DeepSeek key is saved | The DeepSeek key |
 | `https://api.github.com/repos/kimmansur/gaugely/…` | Update check (off by default) or the About buttons | Nothing — no token, no identifier |
 
 Codex and Antigravity involve no network access from this app: it starts the local
 `codex app-server` and `agy` processes and reads their output. What those do is their own
 behaviour.
+
+Requests that carry a key or token never follow redirects — a 3xx is reported as an error, so a
+key sent in a custom header such as Anthropic's `x-api-key` cannot be carried to another host — and
+responses above 4 MB are refused. Network errors are shown by category, never with the exception
+text. A paginated cost report counts only when every page arrived; otherwise the last good reading
+stays on screen.
 
 There is no telemetry and no crash reporting.
 

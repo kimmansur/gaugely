@@ -216,7 +216,9 @@ public sealed partial class SettingsWindow
 
         foreach (var service in ServiceCatalog.Services)
         {
-            var swatch = Styled.Secondary(new Button { AutoSize = false, Width = Shapes.Scale(this, 96), Height = Shapes.Scale(this, 28) }, _theme);
+            // Código de cor é texto da esquerda para a direita em qualquer idioma: sem isto, o árabe
+            // mostrava "D97757#".
+            var swatch = Styled.Secondary(new Button { AutoSize = false, Width = Shapes.Scale(this, 96), Height = Shapes.Scale(this, 28), RightToLeft = RightToLeft.No }, _theme);
             swatch.FlatAppearance.BorderColor = _theme.Border;
             PaintSwatch(swatch, new Palette(_draft).Service(service.Group));
             swatch.AccessibleName = Loc.T("settings.color.of", service.Group);

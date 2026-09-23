@@ -39,6 +39,7 @@ https://github.com/lobehub/lobe-icons (`@lobehub/icons-static-svg` 1.95.0).
 
 ## Trademarks
 
-Claude, Codex, Kimi, OpenRouter, Google and Antigravity are trademarks of their respective owners.
+Anthropic, Claude, OpenAI, Codex, Google, Gemini, Antigravity, Kimi, Moonshot AI, OpenRouter and DeepSeek are
+trademarks of their respective owners.
 Each mark is used only to identify the service whose usage Gaugely displays. Gaugely is not
 affiliated with, sponsored or endorsed by any of them.
