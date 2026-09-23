@@ -76,6 +76,23 @@ public sealed partial class SettingsWindow : Form
         KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) { DialogResult = DialogResult.Cancel; Close(); } };
     }
 
+    /// <summary>
+    /// O tamanho pedido é lógico; com a escala do Windows em 125–150 % ele passa da tela de um
+    /// notebook. Depois da escala aplicada, a janela é encolhida para caber na área útil do
+    /// monitor onde abre, e recentralizada nele.
+    /// </summary>
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+
+        var area = Screen.FromPoint(Cursor.Position).WorkingArea;
+        var margin = Shapes.Scale(this, 16);
+        MinimumSize = new Size(Math.Min(MinimumSize.Width, area.Width - margin), Math.Min(MinimumSize.Height, area.Height - margin));
+        Size = new Size(Math.Min(Width, area.Width - margin), Math.Min(Height, area.Height - margin));
+        if (StartPosition == FormStartPosition.CenterScreen)
+            Location = new Point(area.X + (area.Width - Width) / 2, area.Y + (area.Height - Height) / 2);
+    }
+
     /// <summary>Abre direto numa página (pelo índice da barra lateral) — usado na renderização de prova.</summary>
     internal void ShowPage(int index) => ShowNav(_nav[Math.Clamp(index, 0, _nav.Count - 1)].Item);
 
