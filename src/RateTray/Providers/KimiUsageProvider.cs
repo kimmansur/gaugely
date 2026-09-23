@@ -29,7 +29,7 @@ public sealed class KimiUsageProvider(KimiOptions options) : IUsageProvider
     /// cada consulta vem de <see cref="KimiOptions.TimeoutSeconds"/> por um token vinculado.
     /// </summary>
     // Fork: SocketsHttpHandler previne exhaustion e DNS stale mantendo Timeout.InfiniteTimeSpan
-    private static readonly HttpClient Http = new(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) }) { Timeout = Timeout.InfiniteTimeSpan };
+    private static readonly HttpClient Http = SecureHttp.Create();   // Fork: sem redirecionamento, com teto de tamanho
 
     public string Group => GroupName;
 
@@ -110,8 +110,7 @@ public sealed class KimiUsageProvider(KimiOptions options) : IUsageProvider
         }
         catch (Exception ex)
         {
-            // ex.Message de HttpClient/JSON não carrega o header Authorization, então é seguro exibir.
-            return ProviderResult.Failed(Group, Loc.T("error.fetchFailed", ex.Message)) with { Auth = auth };
+            return ProviderResult.Failed(Group, Loc.T("error.fetchFailed", SecureHttp.Describe(ex))) with { Auth = auth };
         }
     }
 

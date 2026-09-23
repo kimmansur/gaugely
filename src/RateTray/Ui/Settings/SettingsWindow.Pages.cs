@@ -13,12 +13,12 @@ public sealed partial class SettingsWindow
         var (page, stack) = NewPage(Loc.T("settings.nav.tray"), Loc.T("settings.tray.subtitle"));
 
         var general = Section(stack, null);
-        Row(general, Loc.T("settings.tray.group"), Toggle("group", _draft.GroupByService, v => _draft.GroupByService = v),
+        Row(general, Loc.T("settings.tray.group"), Toggle(null, _draft.GroupByService, v => _draft.GroupByService = v),
             Loc.T("settings.tray.groupHint"));
-        Row(general, Loc.T("settings.tray.rich"), Toggle("rich", _draft.RichTooltips, v => _draft.RichTooltips = v),
+        Row(general, Loc.T("settings.tray.rich"), Toggle(null, _draft.RichTooltips, v => _draft.RichTooltips = v),
             Loc.T("settings.tray.richHint"));
 
-        var autostart = Toggle("autostart", AutoStart.IsEnabled, _ => { });
+        var autostart = Toggle(null, AutoStart.IsEnabled, _ => { });
         _commit.Add(() =>
         {
             if (autostart.Checked == AutoStart.IsEnabled) return;
@@ -31,7 +31,7 @@ public sealed partial class SettingsWindow
             _draft.Icons, () => _draft.Icons, ids => _draft.Icons = ids);
 
         var rediscover = Section(stack, null);
-        Row(rediscover, Loc.T("settings.tray.rediscover"), Toggle("rediscover", false, v =>
+        Row(rediscover, Loc.T("settings.tray.rediscover"), Toggle(null, false, v =>
         {
             if (v) _draft.IconsInitialized = false;
             else if (_draft.Icons.Count > 0) _draft.IconsInitialized = true;
@@ -90,6 +90,10 @@ public sealed partial class SettingsWindow
 
         _commit.Add(() =>
         {
+            // Página aberta sem mexer em nada não muda a configuração — em especial, a lista da
+            // faixa continua nula e seguindo a da bandeja.
+            if (toggles.All(t => t.Toggle.Checked == selected.Contains(t.Id, StringComparer.OrdinalIgnoreCase))) return;
+
             var on = toggles.Where(t => t.Toggle.Checked).Select(t => t.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var shown = toggles.Select(t => t.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var ordered = current().Where(id => on.Contains(id) || !shown.Contains(id)).ToList();
@@ -106,7 +110,7 @@ public sealed partial class SettingsWindow
         var w = _draft.Widget;
 
         var basics = Section(stack, null);
-        Row(basics, Loc.T("settings.widget.enabled"), Toggle("widget", w.Enabled, v => w.Enabled = v), Loc.T("settings.widget.enabledHint"));
+        Row(basics, Loc.T("settings.widget.enabled"), Toggle(null, w.Enabled, v => w.Enabled = v), Loc.T("settings.widget.enabledHint"));
 
         var mode = Choice(
             [(nameof(ModoApresentacao.Flutuante), Loc.T("settings.widget.mode.floating")), (nameof(ModoApresentacao.Notch), Loc.T("settings.widget.mode.notch"))],
@@ -166,7 +170,7 @@ public sealed partial class SettingsWindow
         }
 
         Row(basics, Loc.T("settings.widget.monitor"), Choice(monitors, w.Monitor ?? "", v => w.Monitor = v.Length == 0 ? null : v, 240));
-        Row(basics, Loc.T("settings.widget.handle"), Toggle("handle", w.MostrarAlca, v => w.MostrarAlca = v), Loc.T("settings.widget.handleHint"));
+        Row(basics, Loc.T("settings.widget.handle"), Toggle(null, w.MostrarAlca, v => w.MostrarAlca = v), Loc.T("settings.widget.handleHint"));
 
         ReadingChecklist(stack, Loc.T("settings.widget.items"), Loc.T("settings.widget.itemsHint"),
             _draft.WidgetIcons ?? _draft.Icons, () => _draft.WidgetIcons ?? _draft.Icons, ids => _draft.WidgetIcons = ids);
@@ -340,7 +344,7 @@ public sealed partial class SettingsWindow
         });
 
         var notify = Section(stack, Loc.T("settings.alerts.notifications"));
-        var enabled = Toggle("notify", _draft.Notifications.Enabled, v => _draft.Notifications.Enabled = v);
+        var enabled = Toggle(null, _draft.Notifications.Enabled, v => _draft.Notifications.Enabled = v);
         var at = Number(1, 100, _draft.Notifications.AtPercent, v => _draft.Notifications.AtPercent = (int)v);
         Row(notify, Loc.T("settings.notifyEnabled"), enabled, Loc.T("settings.notifyHint"));
         Row(notify, Loc.T("settings.notifyAt"), at);
@@ -359,7 +363,7 @@ public sealed partial class SettingsWindow
         var grid = Section(stack, null);
         var version = new Label { Text = AppInfo.Version, AutoSize = true, ForeColor = _theme.Text, Font = SettingsTheme.UiFont(9.5f, FontStyle.Bold) };
         Row(grid, Loc.T("settings.updates.current"), version);
-        Row(grid, Loc.T("about.autoCheck"), Toggle("autocheck", _draft.AutoUpdateCheck, v => _draft.AutoUpdateCheck = v),
+        Row(grid, Loc.T("about.autoCheck"), Toggle(null, _draft.AutoUpdateCheck, v => _draft.AutoUpdateCheck = v),
             Loc.T("settings.updates.autoHint"));
 
         var check = Styled.Secondary(new Button { Text = Loc.T("about.checkUpdates") }, _theme);
@@ -380,6 +384,7 @@ public sealed partial class SettingsWindow
             {
                 status.ForeColor = _theme.Bad;
                 status.Text = Loc.T("about.checkFailed");
+                Announce(check, status.Text);
                 return;
             }
 
@@ -388,6 +393,7 @@ public sealed partial class SettingsWindow
             status.Text = result.IsNewer
                 ? Loc.T("settings.updates.available", result.Latest.ToString(3))
                 : Loc.T("about.upToDate", result.Latest.ToString(3));
+            Announce(check, status.Text);
         };
 
         var about = Section(stack, null);
@@ -436,7 +442,7 @@ public sealed partial class SettingsWindow
         pathRow.Controls.Add(path);
         pathRow.Controls.Add(browse);
         Row(claude, Loc.T("settings.claude.credentials"), pathRow);
-        Row(claude, Loc.T("settings.claude.autoRefresh"), Toggle("autorefresh", _draft.Claude.AutoRefreshToken, v => _draft.Claude.AutoRefreshToken = v),
+        Row(claude, Loc.T("settings.claude.autoRefresh"), Toggle(null, _draft.Claude.AutoRefreshToken, v => _draft.Claude.AutoRefreshToken = v),
             Loc.T("settings.claude.autoRefreshHint"));
 
         var timing = Section(stack, Loc.T("settings.advanced.timing"), Loc.T("settings.advanced.timingHint"));
@@ -465,12 +471,14 @@ public sealed partial class SettingsWindow
         line.Controls.Add(new Label { Text = Loc.T("settings.advanced.timeout"), AutoSize = true, ForeColor = _theme.Muted, Margin = new Padding(0, 6, 4, 0) });
         var t = Number(5, 300, timeout, v => setTimeout((int)v));
         t.Width = Shapes.Scale(this, 72);
+        t.AccessibleName = $"{service} · {Loc.T("settings.advanced.timeout")}";
         line.Controls.Add(t);
         if (interval is { } value && setInterval is not null)
         {
             line.Controls.Add(new Label { Text = Loc.T("settings.advanced.interval"), AutoSize = true, ForeColor = _theme.Muted, Margin = new Padding(14, 6, 4, 0) });
             var i = Number(intervalMin, 86_400, value, v => setInterval((int)v), 30);
             i.Width = Shapes.Scale(this, 88);
+            i.AccessibleName = $"{service} · {Loc.T("settings.advanced.interval")}";
             line.Controls.Add(i);
         }
 

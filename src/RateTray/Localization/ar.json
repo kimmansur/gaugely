@@ -51,7 +51,7 @@
   "settings.tray.group": "أيقونة واحدة لكل خدمة",
   "settings.tray.groupHint": "تعرض الحد الأكثر استهلاكًا في كل خدمة. أوقف تشغيله للحصول على أيقونة لكل حد.",
   "settings.tray.rich": "بطاقة منبثقة مفصلة",
-  "settings.tray.richHint": "بطاقة تضم شعار الخدمة وكل حدودها. أوقف تشغيلها لاستخدام تلميح Windows العادي.",
+  "settings.tray.richHint": "بطاقة تضم شعار الخدمة وحدودها. أوقف تشغيلها لاستخدام تلميح Windows العادي.",
   "settings.tray.autostart": "البدء مع Windows",
   "settings.tray.icons": "أيقونات علبة النظام",
   "settings.tray.iconsHint": "اختر الحدود التي تظهر لها أيقونة. تأتي القائمة من حساباتك.",
@@ -116,16 +116,17 @@
   "settings.critical": "حرج ابتداءً من (%)",
   "settings.alerts.notifications": "الإعلامات",
   "settings.notifyEnabled": "الإعلام عند تجاوز حد",
-  "settings.notifyHint": "إعلام واحد لكل حد في كل دورة، وليس لكل قراءة.",
+  "settings.notifyHint": "مرة واحدة عندما يبلغ الحد هذا المستوى، ومرة أخرى فقط إذا انخفض عنه ثم عاد إليه.",
   "settings.notifyAt": "الإعلام ابتداءً من (%)",
 
   "settings.updates.subtitle": "لا يثبّت Gaugely أي شيء من تلقاء نفسه — التأكيد دائمًا بيدك.",
   "settings.updates.current": "الإصدار المثبت",
-  "settings.updates.autoHint": "مرة واحدة في اليوم على الأكثر، عند بدء التشغيل. لا يُجرى أي اتصال آخر بالشبكة إلا إذا طلبت ذلك.",
+  "settings.updates.autoHint": "يبحث عن إصدار جديد على GitHub مرة واحدة في اليوم على الأكثر، عند بدء التشغيل.",
   "settings.updates.now": "التحقق الآن",
   "settings.updates.nowHint": "للتثبيت، افتح «حول» من قائمة علبة النظام.",
   "settings.updates.available": "الإصدار {0} متاح. افتح «حول» من قائمة علبة النظام لتثبيته.",
   "settings.updates.issuesLink": "فتح مشكلة",
+  "settings.conflict": "تم تغيير settings.json خارج Gaugely أثناء فتح هذه النافذة.\n\nنعم: حفظ إعدادات هذه النافذة فوق الملف.\nلا: تجاهل تغييرات هذه النافذة والإبقاء على الملف.\nإلغاء: العودة إلى النافذة.",
 
   "settings.advanced.subtitle": "التوقيت وتفاصيل الملفات. كل ما هنا موجود أيضًا في settings.json.",
   "settings.advanced.polling": "القراءات",
@@ -297,5 +298,6 @@
   "error.api.rateLimited": "تم بلوغ حد معدل الطلبات في {0} — الانتظار قبل إعادة المحاولة",
   "error.api.timeout": "لم يستجب {0} خلال {1} ث",
   "error.api.http": "HTTP {0} من {1}",
-  "error.api.noData": "لم يُرجع {0} أي بيانات فوترة"
+  "error.api.noData": "لم يُرجع {0} أي بيانات فوترة",
+  "error.api.incomplete": "{0}: وصل التقرير غير مكتمل، لذا لا يُعرض الإجمالي"
 }

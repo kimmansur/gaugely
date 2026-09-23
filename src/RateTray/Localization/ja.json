@@ -51,7 +51,7 @@
   "settings.tray.group": "サービスごとに 1 つのアイコン",
   "settings.tray.groupHint": "各サービスで使用率が最も高い上限を表示します。オフにすると上限ごとにアイコンを 1 つずつ表示します。",
   "settings.tray.rich": "詳細なホバーカード",
-  "settings.tray.richHint": "サービスのロゴとすべての上限を表示するカードです。オフにすると Windows 標準のツールヒントになります。",
+  "settings.tray.richHint": "サービスのロゴと上限を表示するカードです。オフにすると Windows 標準のツールヒントになります。",
   "settings.tray.autostart": "Windows と同時に起動",
   "settings.tray.icons": "トレイアイコン",
   "settings.tray.iconsHint": "アイコンを表示する上限を選びます。一覧はアカウントから取得されます。",
@@ -116,16 +116,17 @@
   "settings.critical": "重大の開始 (%)",
   "settings.alerts.notifications": "通知",
   "settings.notifyEnabled": "しきい値を超えたら通知",
-  "settings.notifyHint": "通知は上限と周期ごとに 1 回だけで、読み取りのたびには通知しません。",
+  "settings.notifyHint": "上限がこの値に達したときに 1 回通知します。いったん下回ってから再び達した場合のみ、もう一度通知します。",
   "settings.notifyAt": "通知の開始 (%)",
 
   "settings.updates.subtitle": "Gaugely が勝手に何かをインストールすることはありません。必ず確認を求めます。",
   "settings.updates.current": "インストール済みのバージョン",
-  "settings.updates.autoHint": "起動時に、1 日 1 回まで確認します。求められない限り、ほかのネットワーク通信は行いません。",
+  "settings.updates.autoHint": "起動時に GitHub で新しいバージョンを確認します (1 日 1 回まで)。",
   "settings.updates.now": "今すぐ確認",
   "settings.updates.nowHint": "インストールするには、トレイメニューから「バージョン情報」を開いてください。",
   "settings.updates.available": "バージョン {0} が利用可能です。トレイメニューから「バージョン情報」を開いてインストールしてください。",
   "settings.updates.issuesLink": "問題を報告",
+  "settings.conflict": "このウィンドウを開いている間に、settings.json が Gaugely の外部で変更されました。\n\nはい: このウィンドウの設定でファイルを上書きします。\nいいえ: このウィンドウの変更を破棄し、ファイルを残します。\nキャンセル: ウィンドウに戻ります。",
 
   "settings.advanced.subtitle": "タイミングとファイルの詳細。ここの設定はすべて settings.json にもあります。",
   "settings.advanced.polling": "読み取り",
@@ -297,5 +298,6 @@
   "error.api.rateLimited": "{0} のレート制限に達しました。しばらく待ってから再試行します",
   "error.api.timeout": "{0} から {1} 秒以内に応答がありませんでした",
   "error.api.http": "{1} から HTTP {0} が返されました",
-  "error.api.noData": "{0} から請求データが返されませんでした"
+  "error.api.noData": "{0} から請求データが返されませんでした",
+  "error.api.incomplete": "{0}: レポートが不完全なため、合計は表示されません"
 }

@@ -23,7 +23,7 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
     /// cannot express through <c>HttpClient.Timeout</c>. Every call through it therefore has to
     /// pass that token — one that only carries the shutdown token can hang indefinitely.
     /// </summary>
-    private static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan };
+    private static readonly HttpClient Http = SecureHttp.Create();   // Fork: sem redirecionamento, com teto de tamanho
 
     public string Group => "Claude";
 
@@ -155,7 +155,7 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
         }
         catch (Exception ex)
         {
-            return ProviderResult.Failed(Group, Loc.T("error.fetchFailed", ex.Message)) with { Auth = auth };
+            return ProviderResult.Failed(Group, Loc.T("error.fetchFailed", SecureHttp.Describe(ex))) with { Auth = auth };
         }
     }
 

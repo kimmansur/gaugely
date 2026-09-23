@@ -155,8 +155,33 @@ public static class ConfigStore
         }
     }
 
-    public static void Save(AppConfig config)
+    /// <summary>
+    /// Fork: o arquivo em disco difere do que o app gravou por último — alguém o editou e a recarga
+    /// ainda não o absorveu (ou ele está inválido, ou preso por um editor no meio da gravação).
+    /// </summary>
+    internal static bool HasExternalEdit()
     {
+        if (LastWritten is null) return false;
+        try
+        {
+            return File.Exists(Path_) && File.ReadAllText(Path_) != LastWritten;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            return true;                                // preso por outro programa: tratar como em edição
+        }
+    }
+
+    /// <summary>
+    /// Grava a configuração. Fork: <b>não</b> grava por cima de uma edição externa ainda não
+    /// absorvida — a gravação automática do app (posição da faixa, limites descobertos) perderia
+    /// para o que o usuário escreveu à mão. Só a janela de ajustes passa
+    /// <paramref name="overwriteExternalEdit"/>, depois de perguntar. Devolve se gravou.
+    /// </summary>
+    public static bool Save(AppConfig config, bool overwriteExternalEdit = false)
+    {
+        if (!overwriteExternalEdit && HasExternalEdit()) return false;
+
         try
         {
             System.IO.Directory.CreateDirectory(Directory);
@@ -165,11 +190,13 @@ public static class ConfigStore
             File.WriteAllText(temp, json);
             File.Move(temp, Path_, overwrite: true);
             LastWritten = json;
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                                       or SecurityException or NotSupportedException)
         {
             // A read-only profile shouldn't take the tray down; the in-memory config still applies.
+            return false;
         }
     }
 

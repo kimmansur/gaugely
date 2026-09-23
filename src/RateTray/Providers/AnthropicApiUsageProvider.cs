@@ -39,8 +39,8 @@ public sealed class AnthropicApiUsageProvider(ApiProviderOptions options) : ApiK
         // limit=31 é o máximo com baldes diários; o padrão devolveria só 7 dias.
         var since = Uri.EscapeDataString(MonthStart(DateTimeOffset.UtcNow).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"));
         var pages = await Task.WhenAll(
-            FetchPagesAsync(get, $"/cost_report?starting_at={since}&bucket_width=1d&limit=31", Costs),
-            FetchPagesAsync(get, $"/usage_report/messages?starting_at={since}&bucket_width=1d&limit=31", Usage)).ConfigureAwait(false);
+            FetchPagesAsync(get, $"/cost_report?starting_at={since}&bucket_width=1d&limit=31", Costs, Vendor),
+            FetchPagesAsync(get, $"/usage_report/messages?starting_at={since}&bucket_width=1d&limit=31", Usage, Vendor)).ConfigureAwait(false);
         return pages.SelectMany(p => p).ToList();
     }
 
@@ -54,6 +54,7 @@ public sealed class AnthropicApiUsageProvider(ApiProviderOptions options) : ApiK
         foreach (var fetch in fetches)
         {
             if (ParseJson(fetch.Json) is not JsonObject body || body["data"] is not JsonArray buckets) continue;
+            if (fetch.Kind == Costs) monthCents ??= 0m;     // relatório válido e vazio = nada gasto no mês
 
             foreach (var bucket in buckets.OfType<JsonObject>())
             {

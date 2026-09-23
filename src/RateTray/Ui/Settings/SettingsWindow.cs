@@ -211,6 +211,20 @@ public sealed partial class SettingsWindow : Form
 
     private void SaveAndClose()
     {
+        // O settings.json mudou por fora com a janela aberta: perguntar antes de gravar por cima.
+        if (ConfigStore.HasExternalEdit())
+        {
+            switch (MessageBox.Show(this, Loc.T("settings.conflict"), "Gaugely", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning))
+            {
+                case DialogResult.No:                   // fica o arquivo; a recarga pendente o aplica
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                    return;
+                case DialogResult.Cancel:
+                    return;
+            }
+        }
+
         // O app continua consultando com a janela aberta e grava estado que não é ajuste do
         // usuário: limites descobertos, a última verificação de atualização, a posição da faixa
         // arrastada. A cópia é de quando a janela abriu; sem isto, salvar desfaria tudo isso.
@@ -226,7 +240,7 @@ public sealed partial class SettingsWindow : Form
         foreach (var commit in _commit) commit();
         _draft.Normalize();
         ConfigStore.CopyInto(_draft, _config);
-        ConfigStore.Save(_config);
+        ConfigStore.Save(_config, overwriteExternalEdit: true);
         DialogResult = DialogResult.OK;
         Close();
     }
@@ -235,13 +249,14 @@ public sealed partial class SettingsWindow : Form
     {
         try
         {
-            if (!File.Exists(ConfigStore.Path_)) ConfigStore.Save(_config);
+            // Nada é gravado por este botão; o app cria o arquivo ao iniciar.
+            if (!File.Exists(ConfigStore.Path_)) throw new FileNotFoundException(ConfigStore.Path_);
             Process.Start(new ProcessStartInfo(ConfigStore.Path_) { UseShellExecute = true });
         }
         catch (Exception ex) when (ex is Win32Exception or IOException
                                       or UnauthorizedAccessException or InvalidOperationException)
         {
-            MessageBox.Show(this, Loc.T("dialog.settingsFailed", ex.Message), "Gaugely",
+            MessageBox.Show(this, Loc.T("dialog.settingsFailed", ex is FileNotFoundException ? ConfigStore.Path_ : ex.Message), "Gaugely",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
@@ -378,11 +393,39 @@ public sealed partial class SettingsWindow : Form
             text.Controls.Add(desc);
         }
 
+        Label(control, label, description);
         control.Anchor = SettingsTheme.RightToLeft ? AnchorStyles.Left : AnchorStyles.Right;
         control.Margin = new Padding(6, 6, 0, 6);
         grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         grid.Controls.Add(text);
         grid.Controls.Add(control);
+    }
+
+    /// <summary>
+    /// O rótulo visível fica noutro painel; o leitor de tela precisa dele no próprio controle. Num
+    /// painel com vários controles, o nome vai no primeiro que recebe foco (a caixa de texto do
+    /// arquivo, os campos numéricos de tempo). Um controle que já tem nome próprio o mantém.
+    /// </summary>
+    internal static void Label(Control control, string label, string? description = null)
+    {
+        var target = control is ToggleSwitch or ChoiceBox or NumericUpDown or TextBoxBase or ButtonBase or LinkLabel
+            ? control
+            : control.Controls.Cast<Control>().FirstOrDefault(c => c.TabStop) ?? control;
+        if (string.IsNullOrEmpty(target.AccessibleName)) target.AccessibleName = label;
+        if (description is not null && string.IsNullOrEmpty(target.AccessibleDescription)) target.AccessibleDescription = description;
+    }
+
+    /// <summary>Anuncia ao leitor de tela o resultado de uma ação que só mudou um texto na tela.</summary>
+    internal static void Announce(Control control, string text)
+    {
+        try
+        {
+            control.AccessibilityObject.RaiseAutomationNotification(
+                System.Windows.Forms.Automation.AutomationNotificationKind.ActionCompleted,
+                System.Windows.Forms.Automation.AutomationNotificationProcessing.MostRecent,
+                text);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException) { }
     }
 
     /// <summary>Controle ocupando a linha inteira da seção (listas, prévia).</summary>
@@ -403,9 +446,10 @@ public sealed partial class SettingsWindow : Form
         Margin = new Padding(0, 4, 0, bottom),
     };
 
-    private ToggleSwitch Toggle(string name, bool value, Action<bool> commit)
+    /// <param name="name">Nome acessível para quando o controle não entra por <see cref="Row"/>.</param>
+    private ToggleSwitch Toggle(string? name, bool value, Action<bool> commit)
     {
-        var toggle = new ToggleSwitch(_theme, name) { Checked = value };
+        var toggle = new ToggleSwitch(_theme, name ?? "") { Checked = value };
         _commit.Add(() => commit(toggle.Checked));
         return toggle;
     }

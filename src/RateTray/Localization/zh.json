@@ -51,7 +51,7 @@
   "settings.tray.group": "每个服务一个图标",
   "settings.tray.groupHint": "显示每个服务中用量最高的限额。关闭后每个限额各显示一个图标。",
   "settings.tray.rich": "详细悬停卡片",
-  "settings.tray.richHint": "显示服务徽标和所有限额的卡片。关闭后改用普通的 Windows 工具提示。",
+  "settings.tray.richHint": "显示服务徽标及其限额的卡片。关闭后改用普通的 Windows 工具提示。",
   "settings.tray.autostart": "随 Windows 启动",
   "settings.tray.icons": "托盘图标",
   "settings.tray.iconsHint": "选择哪些限额显示图标。列表来自你的账户。",
@@ -116,16 +116,17 @@
   "settings.critical": "严重阈值 (%)",
   "settings.alerts.notifications": "通知",
   "settings.notifyEnabled": "超过阈值时通知",
-  "settings.notifyHint": "每个限额每个周期只通知一次，而不是每次读取都通知。",
+  "settings.notifyHint": "限额达到此水平时通知一次；只有降到此水平以下后再次达到时才会再通知。",
   "settings.notifyAt": "通知阈值 (%)",
 
   "settings.updates.subtitle": "Gaugely 从不自行安装任何内容，始终由你确认。",
   "settings.updates.current": "已安装版本",
-  "settings.updates.autoHint": "启动时检查，每天最多一次。除非你主动要求，否则不会发起其他网络请求。",
+  "settings.updates.autoHint": "启动时在 GitHub 上检查新版本，每天最多一次。",
   "settings.updates.now": "立即检查",
   "settings.updates.nowHint": "如需安装，请从托盘菜单打开“关于”。",
   "settings.updates.available": "新版本 {0} 可用。请从托盘菜单打开“关于”进行安装。",
   "settings.updates.issuesLink": "提交问题",
+  "settings.conflict": "此窗口打开期间，settings.json 在 Gaugely 之外被修改了。\n\n是：用此窗口的设置覆盖该文件。\n否：放弃此窗口的更改，保留该文件。\n取消：返回窗口。",
 
   "settings.advanced.subtitle": "时间和文件细节。这里的所有设置也都保存在 settings.json 中。",
   "settings.advanced.polling": "读取",
@@ -297,5 +298,6 @@
   "error.api.rateLimited": "已达到 {0} 速率限制，稍后将重试",
   "error.api.timeout": "{0} 在 {1} 秒内未响应",
   "error.api.http": "{1} 返回 HTTP {0}",
-  "error.api.noData": "{0} 未返回账单数据"
+  "error.api.noData": "{0} 未返回账单数据",
+  "error.api.incomplete": "{0}：报告不完整，因此不显示总额"
 }

@@ -201,7 +201,7 @@ public sealed partial class SettingsWindow
         }));
         title.Controls.Add(new Chip(_theme, Loc.T(info.AuthKey)) { Font = SettingsTheme.UiFont(8f), Margin = new Padding(0, 4, 0, 0) });
 
-        var toggle = Toggle(service.Group, info.GetEnabled(_draft), v => info.SetEnabled(_draft, v));
+        var toggle = Toggle($"{service.Group} · {track}", info.GetEnabled(_draft), v => info.SetEnabled(_draft, v));
         toggle.Anchor = AnchorStyles.Top;
         grid.Controls.Add(title, 0, 0);
         grid.Controls.Add(toggle, 1, 0);
@@ -304,11 +304,20 @@ public sealed partial class SettingsWindow
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
                 var provider = ProviderFactory.For(service.Group, _draft);
                 var result = provider is null ? null : await provider.ReadAsync(cts.Token);
-                if (!IsDisposed) ShowStatus(info, result, status, bar, detail, tested: true);
+                if (!IsDisposed)
+                {
+                    ShowStatus(info, result, status, bar, detail, tested: true);
+                    Announce(test, status.Text);
+                }
             }
             catch (OperationCanceledException)
             {
-                if (!IsDisposed) { status.ForeColor = _theme.Bad; status.Text = Loc.T("settings.keys.testTimeout"); }
+                if (!IsDisposed)
+                {
+                    status.ForeColor = _theme.Bad;
+                    status.Text = Loc.T("settings.keys.testTimeout");
+                    Announce(test, status.Text);
+                }
             }
             finally
             {

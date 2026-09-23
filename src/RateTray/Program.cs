@@ -31,8 +31,14 @@ internal static class Program
         // Fork: `--render-ui <pasta> [idioma] [tema]` desenha cada página dos ajustes em PNG, com dados
         // de exemplo — prova visual de layout e tradução sem abrir janela para ninguém.
         var render = Array.FindIndex(args, a => a.Equals("--render-ui", StringComparison.OrdinalIgnoreCase));
-        if (render >= 0 && render + 1 < args.Length)
+        if (render >= 0)
         {
+            if (render + 1 >= args.Length || args[render + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine("usage: Gaugely.exe --render-ui <folder> [language|all] [dark|light|auto]");
+                return 2;
+            }
+
             ApplicationConfiguration.Initialize();
             return Ui.Settings.SettingsRender.Run(args[render + 1],
                 render + 2 < args.Length ? args[render + 2] : null,

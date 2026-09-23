@@ -17,10 +17,8 @@ namespace RateTray.Providers;
 /// </summary>
 public abstract class ApiKeyProvider(ApiProviderOptions options) : IUsageProvider
 {
-    // Um cliente para todos os provedores de API: SocketsHttpHandler renova conexões (DNS) sem
-    // prender sockets, e o prazo de cada ciclo vem do CancellationToken, não do cliente.
-    private static readonly HttpClient Http =
-        new(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) }) { Timeout = Timeout.InfiniteTimeSpan };
+    // Um cliente para todos os provedores de API; sem redirecionamento e com teto de tamanho.
+    private static readonly HttpClient Http = SecureHttp.Create();
 
     internal const string Dollar = "US$";
 
@@ -122,21 +120,31 @@ public abstract class ApiKeyProvider(ApiProviderOptions options) : IUsageProvide
     /// <summary>
     /// Segue a paginação por cursor (<c>has_more</c> + <c>next_page</c>, formato comum a OpenAI e
     /// Anthropic) até acabar ou até <paramref name="maxPages"/>, marcando cada página com
-    /// <paramref name="kind"/>.
+    /// <paramref name="kind"/>. O cursor vai escapado dentro de <c>page=</c>: muda a página, nunca
+    /// o host nem o caminho.
+    ///
+    /// Um relatório só vale inteiro. Se uma página falha no meio, ou ainda há páginas depois do
+    /// teto, somar o que chegou mostraria um gasto menor que o real, como se estivesse completo.
+    /// Nesses casos o resultado é só a falha — e a bandeja segue com a última leitura boa.
     /// </summary>
-    protected static async Task<List<Fetch>> FetchPagesAsync(Func<string, Task<Fetch>> get, string path, string kind, int maxPages = 3)
+    protected static async Task<List<Fetch>> FetchPagesAsync(Func<string, Task<Fetch>> get, string path, string kind, string vendor, int maxPages = 5)
     {
         var pages = new List<Fetch>();
         var next = path;
         for (var i = 0; i < maxPages && next is not null; i++)
         {
             var fetch = (await get(next).ConfigureAwait(false)) with { Kind = kind };
+            if (fetch.Json is null || ParseJson(fetch.Json) is not JsonObject body)
+                return [fetch.Json is null ? fetch : new Fetch(null, fetch.Status, Loc.T("error.api.noData", vendor)) { Kind = kind }];
+
             pages.Add(fetch);
-            next = ParseJson(fetch.Json) is JsonObject body && Flag(body["has_more"]) &&
-                   Text(body["next_page"]) is { Length: > 0 } cursor
+            next = Flag(body["has_more"]) && Text(body["next_page"]) is { Length: > 0 } cursor
                 ? $"{path}&page={Uri.EscapeDataString(cursor)}"
                 : null;
         }
+
+        if (next is not null)
+            return [new Fetch(null, null, Loc.T("error.api.incomplete", vendor)) { Kind = kind }];
 
         return pages;
     }
@@ -187,7 +195,7 @@ public abstract class ApiKeyProvider(ApiProviderOptions options) : IUsageProvide
         }
         catch (Exception ex)
         {
-            return new Fetch(null, null, Loc.T("error.fetchFailed", ex.Message));
+            return new Fetch(null, null, Loc.T("error.fetchFailed", SecureHttp.Describe(ex)));
         }
     }
 

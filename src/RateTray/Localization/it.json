@@ -51,7 +51,7 @@
   "settings.tray.group": "Un'icona per servizio",
   "settings.tray.groupHint": "Mostra il limite più utilizzato di ogni servizio. Disattiva per avere un'icona per ogni limite.",
   "settings.tray.rich": "Scheda informativa estesa",
-  "settings.tray.richHint": "Una scheda con il logo del servizio e tutti i limiti. Disattiva per la semplice descrizione comando di Windows.",
+  "settings.tray.richHint": "Una scheda con il logo del servizio e i suoi limiti. Disattiva per la semplice descrizione comando di Windows.",
   "settings.tray.autostart": "Avvia con Windows",
   "settings.tray.icons": "Icone nell'area di notifica",
   "settings.tray.iconsHint": "Scegli quali limiti hanno un'icona. L'elenco proviene dai tuoi account.",
@@ -116,16 +116,17 @@
   "settings.critical": "Critico da (%)",
   "settings.alerts.notifications": "Notifiche",
   "settings.notifyEnabled": "Avvisa quando si supera un limite",
-  "settings.notifyHint": "Una notifica per limite e per ciclo, non una per ogni lettura.",
+  "settings.notifyHint": "Una volta quando un limite raggiunge questo livello; di nuovo solo se scende sotto e poi risale.",
   "settings.notifyAt": "Avvisa da (%)",
 
   "settings.updates.subtitle": "Gaugely non installa mai nulla da solo — confermi sempre tu.",
   "settings.updates.current": "Versione installata",
-  "settings.updates.autoHint": "Al massimo una volta al giorno, all'avvio. Nessun'altra connessione di rete senza una tua richiesta.",
+  "settings.updates.autoHint": "Cerca una nuova versione su GitHub al massimo una volta al giorno, all'avvio.",
   "settings.updates.now": "Controlla ora",
   "settings.updates.nowHint": "Per installare, apri «Informazioni su Gaugely» dal menu dell'area di notifica.",
   "settings.updates.available": "La versione {0} è disponibile. Apri «Informazioni su Gaugely» dal menu dell'area di notifica per installarla.",
   "settings.updates.issuesLink": "Segnala un problema",
+  "settings.conflict": "settings.json è stato modificato fuori da Gaugely mentre questa finestra era aperta.\n\nSì: salva le impostazioni di questa finestra sopra il file.\nNo: scarta le modifiche di questa finestra e mantieni il file.\nAnnulla: torna alla finestra.",
 
   "settings.advanced.subtitle": "Tempi e file. Tutto quello che c'è qui si trova anche in settings.json.",
   "settings.advanced.polling": "Letture",
@@ -297,5 +298,6 @@
   "error.api.rateLimited": "Limite di richieste di {0} raggiunto — nuovo tentativo dopo una pausa",
   "error.api.timeout": "{0} non ha risposto entro {1} s",
   "error.api.http": "HTTP {0} da {1}",
-  "error.api.noData": "{0} non ha restituito dati di fatturazione"
+  "error.api.noData": "{0} non ha restituito dati di fatturazione",
+  "error.api.incomplete": "{0}: il report è incompleto, quindi il totale non viene mostrato"
 }

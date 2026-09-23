@@ -91,11 +91,28 @@ public class ForkApiProvidersTests
     }
 
     [Fact]
-    public void OpenAI_mes_sem_gasto_mostra_zero_em_vez_de_sumir()
+    public void OpenAI_pagina_sem_resultados_nao_atrapalha_a_soma()
     {
         const string vazio = """{ "object": "page", "data": [ { "start_time": 1894665600, "results": [] } ], "has_more": false }""";
         var r = OpenAIApiUsageProvider.ParseForTest([vazio, OpenAICosts()], [], Now);
         Assert.Equal(2.00m, Id(r, "openaiapi.spend_month").Amount);
+    }
+
+    [Theory]
+    [InlineData("""{ "object": "page", "data": [], "has_more": false }""")]
+    [InlineData("""{ "object": "page", "data": [ { "start_time": 1894665600, "results": [] } ], "has_more": false }""")]
+    public void OpenAI_mes_sem_gasto_mostra_zero_em_vez_de_sumir(string vazio)
+    {
+        var r = OpenAIApiUsageProvider.ParseForTest([vazio], [], Now);
+        Assert.Equal(0m, Id(r, "openaiapi.spend_month").Amount);
+        Assert.Equal(0m, Id(r, "openaiapi.spend_today").Amount);
+    }
+
+    [Fact]
+    public void OpenAI_sem_relatorio_de_custos_valido_nao_inventa_zero()
+    {
+        Assert.Empty(OpenAIApiUsageProvider.ParseForTest(["""{ "error": "x" }"""], [], Now));
+        Assert.Empty(OpenAIApiUsageProvider.ParseForTest([], [OpenAIUsage], Now));
     }
 
     // ------------------------------------------------------------------ Anthropic
@@ -205,10 +222,41 @@ public class ForkApiProvidersTests
 
         var paginas = await PaginasDeTeste.FetchAsync(Get, "/costs?limit=31", maxPages: 3);
 
-        Assert.Equal(3, paginas.Count);
+        // Três pedidos e ainda has_more: o relatório passou do teto. Somar o que chegou mostraria
+        // um gasto menor que o real, então o resultado é só a falha.
+        Assert.Equal(3, pedidos.Count);
         Assert.Equal("/costs?limit=31", pedidos[0]);
         Assert.Equal("/costs?limit=31&page=page_xyz%3D%3D", pedidos[1]);
-        Assert.All(paginas, p => Assert.Equal("teste", p.Kind));
+        var unica = Assert.Single(paginas);
+        Assert.Null(unica.Json);
+        Assert.Equal("teste", unica.Kind);
+        Assert.Equal(Loc.T("error.api.incomplete", "teste"), unica.Error);
+    }
+
+    [Fact]
+    public async Task Paginacao_com_falha_no_meio_descarta_as_paginas_ja_lidas()
+    {
+        var chamadas = 0;
+        Task<ApiKeyProvider.Fetch> Get(string path) => Task.FromResult(++chamadas == 1
+            ? ApiKeyProvider.Fetch.Ok("""{ "data": [ {"x": 1} ], "has_more": true, "next_page": "p2" }""")
+            : new ApiKeyProvider.Fetch(null, System.Net.HttpStatusCode.TooManyRequests, "limite") { RateLimited = true });
+
+        var paginas = await PaginasDeTeste.FetchAsync(Get, "/costs", maxPages: 5);
+
+        var unica = Assert.Single(paginas);
+        Assert.Null(unica.Json);
+        Assert.True(unica.RateLimited);          // o motivo da falha chega inteiro, para o recuo
+        Assert.Equal(2, chamadas);
+    }
+
+    [Fact]
+    public async Task Paginacao_com_json_invalido_vira_sem_dados()
+    {
+        Task<ApiKeyProvider.Fetch> Get(string path) => Task.FromResult(ApiKeyProvider.Fetch.Ok("<html>proxy</html>"));
+
+        var unica = Assert.Single(await PaginasDeTeste.FetchAsync(Get, "/costs", maxPages: 5));
+        Assert.Null(unica.Json);
+        Assert.Equal(Loc.T("error.api.noData", "teste"), unica.Error);
     }
 
     [Fact]
@@ -229,7 +277,7 @@ public class ForkApiProvidersTests
     private sealed class PaginasDeTeste() : ApiKeyProvider(new ApiProviderOptions())
     {
         public static Task<List<Fetch>> FetchAsync(Func<string, Task<Fetch>> get, string path, int maxPages) =>
-            FetchPagesAsync(get, path, "teste", maxPages);
+            FetchPagesAsync(get, path, "teste", "teste", maxPages);
 
         public override string Group => "teste";
         protected override string VaultService => CredentialVault.DeepSeek;
@@ -291,5 +339,12 @@ public class ForkApiProvidersTests
             Assert.Null(CredentialVault.LegacyTargetFor(servico));
             Assert.Contains(servico, CredentialVault.Services);
         }
+    }
+
+    [Fact]
+    public void Anthropic_mes_sem_gasto_mostra_zero()
+    {
+        var r = AnthropicApiUsageProvider.ParseForTest([""" { "data": [], "has_more": false, "next_page": null } """], [], Now);
+        Assert.Equal(0m, Id(r, "anthropicapi.spend_month").Amount);
     }
 }

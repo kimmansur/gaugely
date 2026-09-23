@@ -25,7 +25,7 @@ public sealed class OpenRouterUsageProvider(OpenRouterOptions options) : IUsageP
     private const string Dollar = "US$";
 
     // Fork: SocketsHttpHandler previne exhaustion e DNS stale mantendo Timeout.InfiniteTimeSpan
-    private static readonly HttpClient Http = new(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) }) { Timeout = Timeout.InfiniteTimeSpan };
+    private static readonly HttpClient Http = SecureHttp.Create();   // Fork: sem redirecionamento, com teto de tamanho
 
     public string Group => GroupName;
 
@@ -143,7 +143,7 @@ public sealed class OpenRouterUsageProvider(OpenRouterOptions options) : IUsageP
         }
         catch (Exception ex)
         {
-            return new Fetch(null, null, Loc.T("error.fetchFailed", ex.Message));
+            return new Fetch(null, null, Loc.T("error.fetchFailed", SecureHttp.Describe(ex)));
         }
     }
 

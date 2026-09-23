@@ -51,7 +51,7 @@
   "settings.tray.group": "Une icône par service",
   "settings.tray.groupHint": "Affiche la limite la plus sollicitée de chaque service. Désactivez pour avoir une icône par limite.",
   "settings.tray.rich": "Carte de survol détaillée",
-  "settings.tray.richHint": "Une carte avec le logo du service et toutes ses limites. Désactivez pour l'info-bulle Windows simple.",
+  "settings.tray.richHint": "Une carte avec le logo du service et ses limites. Désactivez pour l'info-bulle Windows simple.",
   "settings.tray.autostart": "Lancer avec Windows",
   "settings.tray.icons": "Icônes de la zone de notification",
   "settings.tray.iconsHint": "Choisissez les limites qui ont une icône. La liste provient de vos comptes.",
@@ -116,16 +116,17 @@
   "settings.critical": "Critique dès (%)",
   "settings.alerts.notifications": "Notifications",
   "settings.notifyEnabled": "Avertir quand une limite est franchie",
-  "settings.notifyHint": "Une notification par limite et par cycle, pas une à chaque relevé.",
+  "settings.notifyHint": "Une fois quand une limite atteint ce niveau ; à nouveau seulement si elle redescend puis remonte.",
   "settings.notifyAt": "Avertir dès (%)",
 
   "settings.updates.subtitle": "Gaugely n'installe jamais rien de lui-même — vous confirmez toujours.",
   "settings.updates.current": "Version installée",
-  "settings.updates.autoHint": "Au plus une fois par jour, au démarrage. Aucun autre accès réseau sans votre demande.",
+  "settings.updates.autoHint": "Cherche une nouvelle version sur GitHub au plus une fois par jour, au démarrage.",
   "settings.updates.now": "Vérifier maintenant",
   "settings.updates.nowHint": "Pour installer, ouvrez « À propos » depuis le menu de la zone de notification.",
   "settings.updates.available": "La version {0} est disponible. Ouvrez « À propos » depuis le menu de la zone de notification pour l'installer.",
   "settings.updates.issuesLink": "Signaler un problème",
+  "settings.conflict": "settings.json a été modifié en dehors de Gaugely pendant que cette fenêtre était ouverte.\n\nOui : enregistrer les paramètres de cette fenêtre à la place du fichier.\nNon : abandonner les modifications de cette fenêtre et garder le fichier.\nAnnuler : revenir à la fenêtre.",
 
   "settings.advanced.subtitle": "Délais et fichiers. Tout ce qui figure ici se trouve aussi dans settings.json.",
   "settings.advanced.polling": "Relevés",
@@ -297,5 +298,6 @@
   "error.api.rateLimited": "Limite de requêtes {0} atteinte — nouvel essai après une pause",
   "error.api.timeout": "{0} n'a pas répondu en {1} s",
   "error.api.http": "HTTP {0} renvoyé par {1}",
-  "error.api.noData": "{0} n'a renvoyé aucune donnée de facturation"
+  "error.api.noData": "{0} n'a renvoyé aucune donnée de facturation",
+  "error.api.incomplete": "{0} : le rapport est incomplet, aucun total n'est donc affiché"
 }

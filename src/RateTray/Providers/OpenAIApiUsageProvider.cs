@@ -35,8 +35,8 @@ public sealed class OpenAIApiUsageProvider(ApiProviderOptions options) : ApiKeyP
         // limit=31: o padrão da API é 7 baldes, e um mês tem até 31 dias.
         var since = MonthStart(DateTimeOffset.UtcNow).ToUnixTimeSeconds();
         var pages = await Task.WhenAll(
-            FetchPagesAsync(get, $"/costs?start_time={since}&bucket_width=1d&limit=31", Costs),
-            FetchPagesAsync(get, $"/usage/completions?start_time={since}&bucket_width=1d&limit=31", Usage)).ConfigureAwait(false);
+            FetchPagesAsync(get, $"/costs?start_time={since}&bucket_width=1d&limit=31", Costs, Vendor),
+            FetchPagesAsync(get, $"/usage/completions?start_time={since}&bucket_width=1d&limit=31", Usage, Vendor)).ConfigureAwait(false);
         return pages.SelectMany(p => p).ToList();
     }
 
@@ -50,6 +50,7 @@ public sealed class OpenAIApiUsageProvider(ApiProviderOptions options) : ApiKeyP
         foreach (var fetch in fetches)
         {
             if (ParseJson(fetch.Json) is not JsonObject body || body["data"] is not JsonArray buckets) continue;
+            if (fetch.Kind == Costs) month ??= 0m;          // relatório válido e vazio = nada gasto no mês
 
             foreach (var bucket in buckets.OfType<JsonObject>())
             {

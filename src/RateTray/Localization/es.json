@@ -51,7 +51,7 @@
   "settings.tray.group": "Un icono por servicio",
   "settings.tray.groupHint": "Muestra el límite más consumido de cada servicio. Desactívalo para tener un icono por límite.",
   "settings.tray.rich": "Tarjeta emergente detallada",
-  "settings.tray.richHint": "Una tarjeta con el logotipo del servicio y todos sus límites. Desactívala para usar la información sobre herramientas normal de Windows.",
+  "settings.tray.richHint": "Una tarjeta con el logotipo del servicio y sus límites. Desactívala para usar la información sobre herramientas normal de Windows.",
   "settings.tray.autostart": "Iniciar con Windows",
   "settings.tray.icons": "Iconos de la bandeja",
   "settings.tray.iconsHint": "Elige qué límites tienen icono. La lista sale de tus cuentas.",
@@ -116,16 +116,17 @@
   "settings.critical": "Crítico desde (%)",
   "settings.alerts.notifications": "Notificaciones",
   "settings.notifyEnabled": "Avisar al superar un límite",
-  "settings.notifyHint": "Una notificación por límite y ciclo, no una por lectura.",
+  "settings.notifyHint": "Una vez cuando un límite llega a este nivel; otra vez solo si baja y vuelve a subir.",
   "settings.notifyAt": "Avisar desde (%)",
 
   "settings.updates.subtitle": "Gaugely nunca instala nada por su cuenta: siempre confirmas tú.",
   "settings.updates.current": "Versión instalada",
-  "settings.updates.autoHint": "Como máximo una vez al día, al iniciar. No se hace ninguna otra conexión de red salvo que la pidas.",
+  "settings.updates.autoHint": "Busca una versión nueva en GitHub como máximo una vez al día, al iniciar.",
   "settings.updates.now": "Buscar ahora",
   "settings.updates.nowHint": "Para instalar, abre Acerca de desde el menú de la bandeja.",
   "settings.updates.available": "La versión {0} está disponible. Abre Acerca de desde el menú de la bandeja para instalarla.",
   "settings.updates.issuesLink": "Abrir una incidencia",
+  "settings.conflict": "settings.json se cambió fuera de Gaugely mientras esta ventana estaba abierta.\n\nSí: guardar la configuración de esta ventana sobre el archivo.\nNo: descartar los cambios de esta ventana y quedarse con el archivo.\nCancelar: volver a la ventana.",
 
   "settings.advanced.subtitle": "Tiempos y detalles de archivos. Todo lo que hay aquí también está en settings.json.",
   "settings.advanced.polling": "Lecturas",
@@ -297,5 +298,6 @@
   "error.api.rateLimited": "Se alcanzó el límite de solicitudes de {0} — esperando para reintentar",
   "error.api.timeout": "{0} no respondió en {1} s",
   "error.api.http": "HTTP {0} de {1}",
-  "error.api.noData": "{0} no devolvió datos de facturación"
+  "error.api.noData": "{0} no devolvió datos de facturación",
+  "error.api.incomplete": "{0}: el informe llegó incompleto, así que no se muestra el total"
 }

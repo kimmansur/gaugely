@@ -45,7 +45,7 @@ internal sealed class ToggleSwitch : CheckBox
         AutoSize = false;
         Size = new Size(44, 22);
         Cursor = Cursors.Hand;
-        AccessibleName = accessibleName;
+        if (accessibleName.Length > 0) AccessibleName = accessibleName;
         Text = "";
         Margin = new Padding(3, 3, 3, 3);
     }
@@ -119,8 +119,14 @@ internal sealed class NavItem : Control
         get => _selected;
         set
         {
+            if (_selected == value) return;
             _selected = value;
             Invalidate();
+            if (IsHandleCreated)
+            {
+                AccessibilityNotifyClients(AccessibleEvents.StateChange, -1);
+                if (value) AccessibilityNotifyClients(AccessibleEvents.Selection, -1);
+            }
         }
     }
 

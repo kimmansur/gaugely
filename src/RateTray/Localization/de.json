@@ -51,7 +51,7 @@
   "settings.tray.group": "Ein Symbol pro Dienst",
   "settings.tray.groupHint": "Zeigt das am stärksten ausgelastete Limit jedes Dienstes. Ausschalten, um ein Symbol pro Limit zu erhalten.",
   "settings.tray.rich": "Ausführliche Infokarte",
-  "settings.tray.richHint": "Eine Karte mit dem Logo des Dienstes und allen Limits. Ausschalten für die einfache Windows-QuickInfo.",
+  "settings.tray.richHint": "Eine Karte mit dem Logo des Dienstes und seinen Limits. Ausschalten für die einfache Windows-QuickInfo.",
   "settings.tray.autostart": "Mit Windows starten",
   "settings.tray.icons": "Infobereich-Symbole",
   "settings.tray.iconsHint": "Festlegen, welche Limits ein Symbol erhalten. Die Liste ergibt sich aus den verbundenen Konten.",
@@ -116,16 +116,17 @@
   "settings.critical": "Kritisch ab (%)",
   "settings.alerts.notifications": "Benachrichtigungen",
   "settings.notifyEnabled": "Benachrichtigen, wenn ein Limit überschritten wird",
-  "settings.notifyHint": "Eine Benachrichtigung pro Limit und Zyklus, nicht bei jeder Abfrage.",
+  "settings.notifyHint": "Einmal, wenn ein Limit diesen Wert erreicht; erneut nur, wenn es darunter fällt und wieder steigt.",
   "settings.notifyAt": "Benachrichtigen ab (%)",
 
   "settings.updates.subtitle": "Gaugely installiert nie etwas von selbst — jede Installation muss bestätigt werden.",
   "settings.updates.current": "Installierte Version",
-  "settings.updates.autoHint": "Höchstens einmal täglich beim Start. Ohne ausdrückliche Anfrage gibt es keine weiteren Netzwerkzugriffe.",
+  "settings.updates.autoHint": "Sucht höchstens einmal täglich beim Start auf GitHub nach einer neuen Version.",
   "settings.updates.now": "Jetzt suchen",
   "settings.updates.nowHint": "Zum Installieren „Über Gaugely“ im Menü des Infobereichs öffnen.",
   "settings.updates.available": "Version {0} ist verfügbar. Zum Installieren „Über Gaugely“ im Menü des Infobereichs öffnen.",
   "settings.updates.issuesLink": "Problem melden",
+  "settings.conflict": "settings.json wurde außerhalb von Gaugely geändert, während dieses Fenster geöffnet war.\n\nJa: Die Einstellungen dieses Fensters über die Datei speichern.\nNein: Die Änderungen dieses Fensters verwerfen und die Datei behalten.\nAbbrechen: Zurück zum Fenster.",
 
   "settings.advanced.subtitle": "Zeitsteuerung und Dateien. Alles hier steht auch in settings.json.",
   "settings.advanced.polling": "Abfragen",
@@ -297,5 +298,6 @@
   "error.api.rateLimited": "Anfragelimit von {0} erreicht — neuer Versuch nach einer Pause",
   "error.api.timeout": "{0} hat nicht innerhalb von {1} s geantwortet",
   "error.api.http": "HTTP {0} von {1}",
-  "error.api.noData": "{0} hat keine Abrechnungsdaten geliefert"
+  "error.api.noData": "{0} hat keine Abrechnungsdaten geliefert",
+  "error.api.incomplete": "{0}: Der Bericht war unvollständig, daher wird keine Summe angezeigt"
 }

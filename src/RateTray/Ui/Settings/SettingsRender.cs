@@ -13,7 +13,20 @@ internal static class SettingsRender
 {
     public static int Run(string directory, string? onlyLanguage, string theme)
     {
+        if (onlyLanguage is not null && onlyLanguage != "all" && !Loc.Available.Contains(onlyLanguage, StringComparer.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine($"unknown language '{onlyLanguage}'; available: {string.Join(", ", Loc.Available)}, all");
+            return 2;
+        }
+
+        if (theme is not ("dark" or "light" or "auto"))
+        {
+            Console.Error.WriteLine($"unknown theme '{theme}'; use dark, light or auto");
+            return 2;
+        }
+
         Directory.CreateDirectory(directory);
+        var written = 0;
         foreach (var language in Loc.Available)
         {
             if (onlyLanguage is not null && onlyLanguage != "all" && !language.Equals(onlyLanguage, StringComparison.OrdinalIgnoreCase))
@@ -42,6 +55,7 @@ internal static class SettingsRender
                 {
                     form.DrawToBitmap(window, new Rectangle(Point.Empty, form.Size));
                     window.Save(Path.Combine(directory, $"{language}-{page}-janela.png"));
+                    written++;
                 }
 
                 if (form.CurrentContent is { Width: > 0, Height: > 0 } content)
@@ -49,13 +63,15 @@ internal static class SettingsRender
                     using var full = new Bitmap(content.Width, content.Height);
                     content.DrawToBitmap(full, new Rectangle(Point.Empty, content.Size));
                     full.Save(Path.Combine(directory, $"{language}-{page}-pagina.png"));
+                    written++;
                 }
             }
 
             form.Close();
         }
 
-        return 0;
+        Console.WriteLine($"{written} PNG files in {Path.GetFullPath(directory)}");
+        return written > 0 ? 0 : 1;
     }
 
     private static void Pump()
