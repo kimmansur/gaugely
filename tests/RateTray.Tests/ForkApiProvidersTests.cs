@@ -250,6 +250,30 @@ public class ForkApiProvidersTests
     }
 
     [Fact]
+    public async Task Pagina_com_objeto_de_erro_no_meio_nao_vira_pagina_vazia()
+    {
+        var chamadas = 0;
+        Task<ApiKeyProvider.Fetch> Get(string path) => Task.FromResult(ApiKeyProvider.Fetch.Ok(++chamadas == 1
+            ? """{ "data": [ {"x": 1} ], "has_more": true, "next_page": "p2" }"""
+            : """{ "error": "upstream" }"""));
+
+        var unica = Assert.Single(await PaginasDeTeste.FetchAsync(Get, "/costs", maxPages: 5));
+        Assert.Null(unica.Json);
+        Assert.Equal(Loc.T("error.api.noData", "teste"), unica.Error);
+    }
+
+    [Fact]
+    public async Task Mais_paginas_sem_cursor_e_relatorio_incompleto()
+    {
+        Task<ApiKeyProvider.Fetch> Get(string path) =>
+            Task.FromResult(ApiKeyProvider.Fetch.Ok("""{ "data": [], "has_more": true, "next_page": null }"""));
+
+        var unica = Assert.Single(await PaginasDeTeste.FetchAsync(Get, "/costs", maxPages: 5));
+        Assert.Null(unica.Json);
+        Assert.Equal(Loc.T("error.api.incomplete", "teste"), unica.Error);
+    }
+
+    [Fact]
     public async Task Paginacao_com_json_invalido_vira_sem_dados()
     {
         Task<ApiKeyProvider.Fetch> Get(string path) => Task.FromResult(ApiKeyProvider.Fetch.Ok("<html>proxy</html>"));

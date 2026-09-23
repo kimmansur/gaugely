@@ -202,6 +202,8 @@
 
   "dialog.autostartFailed": "تعذر تغيير إعداد بدء التشغيل:\n{0}",
   "dialog.settingsFailed": "تعذر فتح الإعدادات:\n{0}",
+  "dialog.saveFailed": "تعذر حفظ الإعدادات في:\n{0}\n\nلا تزال تغييراتك في النافذة.",
+  "notice.saveBlocked": "لم يُحفظ أحد التغييرات: تم تعديل settings.json خارج Gaugely (أو أنه غير صالح)، والأولوية لإصدار الملف.",
   "toast.title": "{0}: تم استخدام {1}%",
 
   "details.auth": "تسجيل الدخول: {0}",

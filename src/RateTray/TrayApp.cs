@@ -1101,6 +1101,7 @@ public sealed class TrayApp : ApplicationContext
     private void WatchConfigFile()
     {
         var ui = SynchronizationContext.Current;
+        ConfigStore.SaveBlocked += () => ui?.Post(_ => NotifySaveBlocked(), null);
         _reloadTimer.Tick += (_, _) => { _reloadTimer.Stop(); ReloadConfigFromDisk(); };
 
         try
@@ -1121,6 +1122,28 @@ public sealed class TrayApp : ApplicationContext
         {
             _configWatcher?.Dispose();
             _configWatcher = null;              // sem recarga automática; a janela de ajustes continua valendo
+        }
+    }
+
+    private DateTime _saveBlockedShown = DateTime.MinValue;
+
+    /// <summary>Um aviso por rajada: a mesma edição pendente recusa várias gravações seguidas.</summary>
+    private void NotifySaveBlocked()
+    {
+        if (DateTime.UtcNow - _saveBlockedShown < TimeSpan.FromSeconds(30)) return;
+        _saveBlockedShown = DateTime.UtcNow;
+
+        var text = Loc.T("notice.saveBlocked");
+        if (_icons.Values.FirstOrDefault(i => i.Visible) is { } anchor)
+        {
+            anchor.BalloonTipTitle = "Gaugely";
+            anchor.BalloonTipText = text;
+            anchor.BalloonTipIcon = ToolTipIcon.Warning;
+            anchor.ShowBalloonTip(10_000);
+        }
+        else if (_neutralIcon is { Visible: true } neutral)
+        {
+            neutral.ShowBalloonTip(10_000, "Gaugely", text, ToolTipIcon.Warning);
         }
     }
 

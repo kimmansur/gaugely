@@ -202,6 +202,8 @@
 
   "dialog.autostartFailed": "Die Autostart-Einstellung konnte nicht geändert werden:\n{0}",
   "dialog.settingsFailed": "Die Einstellungen konnten nicht geöffnet werden:\n{0}",
+  "dialog.saveFailed": "Die Einstellungen konnten nicht gespeichert werden in:\n{0}\n\nIhre Änderungen sind weiterhin im Fenster.",
+  "notice.saveBlocked": "Eine Änderung wurde nicht gespeichert: settings.json wurde außerhalb von Gaugely bearbeitet (oder ist ungültig), und die Version der Datei hat Vorrang.",
   "toast.title": "{0}: {1} % verbraucht",
 
   "details.auth": "Anmeldung: {0}",

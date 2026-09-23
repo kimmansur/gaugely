@@ -134,19 +134,25 @@ public abstract class ApiKeyProvider(ApiProviderOptions options) : IUsageProvide
         for (var i = 0; i < maxPages && next is not null; i++)
         {
             var fetch = (await get(next).ConfigureAwait(false)) with { Kind = kind };
-            if (fetch.Json is null || ParseJson(fetch.Json) is not JsonObject body)
-                return [fetch.Json is null ? fetch : new Fetch(null, fetch.Status, Loc.T("error.api.noData", vendor)) { Kind = kind }];
+            if (fetch.Json is null) return [fetch];
+
+            // Página só vale com a forma de página: objeto com a lista "data". Um {"error": ...}
+            // com 200, ou HTML de proxy, é falha — não uma página vazia que some da soma.
+            if (ParseJson(fetch.Json) is not JsonObject body || body["data"] is not JsonArray)
+                return [new Fetch(null, fetch.Status, Loc.T("error.api.noData", vendor)) { Kind = kind }];
 
             pages.Add(fetch);
-            next = Flag(body["has_more"]) && Text(body["next_page"]) is { Length: > 0 } cursor
-                ? $"{path}&page={Uri.EscapeDataString(cursor)}"
-                : null;
+            if (!Flag(body["has_more"])) return pages;
+
+            // Mais páginas declaradas e nenhum cursor para buscá-las: o relatório está incompleto.
+            if (Text(body["next_page"]) is not { Length: > 0 } cursor)
+                return [new Fetch(null, fetch.Status, Loc.T("error.api.incomplete", vendor)) { Kind = kind }];
+
+            next = $"{path}&page={Uri.EscapeDataString(cursor)}";
         }
 
-        if (next is not null)
-            return [new Fetch(null, null, Loc.T("error.api.incomplete", vendor)) { Kind = kind }];
-
-        return pages;
+        // O laço só termina aqui quando o teto foi atingido com páginas ainda por vir.
+        return [new Fetch(null, null, Loc.T("error.api.incomplete", vendor)) { Kind = kind }];
     }
 
     internal static bool Flag(JsonNode? node) =>

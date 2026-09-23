@@ -202,6 +202,8 @@
 
   "dialog.autostartFailed": "Impossible de modifier le lancement avec Windows :\n{0}",
   "dialog.settingsFailed": "Impossible d'ouvrir les paramètres :\n{0}",
+  "dialog.saveFailed": "Impossible d'enregistrer les paramètres dans :\n{0}\n\nVos modifications sont toujours dans la fenêtre.",
+  "notice.saveBlocked": "Une modification n'a pas été enregistrée : settings.json a été modifié en dehors de Gaugely (ou n'est pas valide), et la version du fichier est prioritaire.",
   "toast.title": "{0} : {1} % utilisés",
 
   "details.auth": "Connexion : {0}",

@@ -202,6 +202,8 @@
 
   "dialog.autostartFailed": "スタートアップの設定を変更できませんでした：\n{0}",
   "dialog.settingsFailed": "設定を開けませんでした：\n{0}",
+  "dialog.saveFailed": "設定を保存できませんでした:\n{0}\n\n変更内容はウィンドウに残っています。",
+  "notice.saveBlocked": "変更を保存できませんでした。settings.json が Gaugely の外部で編集された (または無効な) ため、ファイルの内容が優先されます。",
   "toast.title": "{0}：{1}% 使用",
 
   "details.auth": "サインイン：{0}",

@@ -114,6 +114,10 @@ public static class ConfigStore
             LastWritten = json;
             return config;
         }
+        catch (FileNotFoundException)
+        {
+            return null;                                // apagado: a próxima gravação o recria
+        }
         catch (IOException)
         {
             busy = true;
@@ -159,18 +163,30 @@ public static class ConfigStore
     /// Fork: o arquivo em disco difere do que o app gravou por último — alguém o editou e a recarga
     /// ainda não o absorveu (ou ele está inválido, ou preso por um editor no meio da gravação).
     /// </summary>
-    internal static bool HasExternalEdit()
+    /// <param name="countDeletion">
+    /// Arquivo apagado conta como edição? Para a janela de ajustes, sim (pergunta antes de
+    /// recriar). Para a gravação automática, não: o app recria o arquivo, como faz ao iniciar.
+    /// </param>
+    internal static bool HasExternalEdit(bool countDeletion = false)
     {
         if (LastWritten is null) return false;
         try
         {
-            return File.Exists(Path_) && File.ReadAllText(Path_) != LastWritten;
+            if (!File.Exists(Path_)) return countDeletion;
+            return File.ReadAllText(Path_) != LastWritten;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
             return true;                                // preso por outro programa: tratar como em edição
         }
     }
+
+    /// <summary>
+    /// Fork: uma gravação foi recusada porque o arquivo tem edição externa ainda não aplicada. A
+    /// bandeja avisa o usuário — a mudança feita (no menu, arrastando a faixa) vale só até a
+    /// recarga aplicar o arquivo, e perdê-la em silêncio não é aceitável.
+    /// </summary>
+    internal static event Action? SaveBlocked;
 
     /// <summary>
     /// Grava a configuração. Fork: <b>não</b> grava por cima de uma edição externa ainda não
@@ -180,7 +196,11 @@ public static class ConfigStore
     /// </summary>
     public static bool Save(AppConfig config, bool overwriteExternalEdit = false)
     {
-        if (!overwriteExternalEdit && HasExternalEdit()) return false;
+        if (!overwriteExternalEdit && HasExternalEdit())
+        {
+            SaveBlocked?.Invoke();
+            return false;
+        }
 
         try
         {

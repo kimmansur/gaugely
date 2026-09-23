@@ -212,7 +212,7 @@ public sealed partial class SettingsWindow : Form
     private void SaveAndClose()
     {
         // O settings.json mudou por fora com a janela aberta: perguntar antes de gravar por cima.
-        if (ConfigStore.HasExternalEdit())
+        if (ConfigStore.HasExternalEdit(countDeletion: true))
         {
             switch (MessageBox.Show(this, Loc.T("settings.conflict"), "Gaugely", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning))
             {
@@ -239,8 +239,17 @@ public sealed partial class SettingsWindow : Form
         // Só então as páginas abertas aplicam o que o usuário mudou (listas de ícones incluídas).
         foreach (var commit in _commit) commit();
         _draft.Normalize();
+        // Grava antes de mexer no que está valendo: se o disco recusar, nada muda e a janela fica
+        // aberta com as alterações, em vez de fechar como se tivesse salvo.
+        var saved = ConfigStore.Clone(_config);
+        ConfigStore.CopyInto(_draft, saved);
+        if (!ConfigStore.Save(saved, overwriteExternalEdit: true))
+        {
+            MessageBox.Show(this, Loc.T("dialog.saveFailed", ConfigStore.Path_), "Gaugely", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
         ConfigStore.CopyInto(_draft, _config);
-        ConfigStore.Save(_config, overwriteExternalEdit: true);
         DialogResult = DialogResult.OK;
         Close();
     }

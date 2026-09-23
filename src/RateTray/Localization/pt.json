@@ -202,6 +202,8 @@
 
   "dialog.autostartFailed": "Não foi possível mudar a inicialização com o Windows:\n{0}",
   "dialog.settingsFailed": "Não foi possível abrir as configurações:\n{0}",
+  "dialog.saveFailed": "Não foi possível salvar as configurações em:\n{0}\n\nAs alterações continuam na janela.",
+  "notice.saveBlocked": "Uma mudança não foi salva: o settings.json foi editado fora do Gaugely (ou está inválido), e a versão do arquivo tem prioridade.",
   "toast.title": "{0}: {1} % usado",
 
   "details.auth": "Login: {0}",
