@@ -192,6 +192,12 @@ public static class ConfigStore
     internal static event Action? SaveFailed;
 
     /// <summary>
+    /// Fork: a última gravação falhou e ninguém ouviu — a da inicialização acontece antes de a
+    /// bandeja assinar <see cref="SaveFailed"/>. A bandeja consulta isto ao assinar.
+    /// </summary>
+    internal static bool LastSaveFailed { get; private set; }
+
+    /// <summary>
     /// Grava a configuração. Fork: <b>não</b> grava por cima de uma edição externa ainda não
     /// absorvida — a gravação automática do app (posição da faixa, limites descobertos) perderia
     /// para o que o usuário escreveu à mão. Só a janela de ajustes passa
@@ -213,6 +219,7 @@ public static class ConfigStore
             File.WriteAllText(temp, json);
             File.Move(temp, Path_, overwrite: true);
             LastWritten = json;
+            LastSaveFailed = false;
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
@@ -220,6 +227,7 @@ public static class ConfigStore
         {
             // A read-only profile shouldn't take the tray down; the in-memory config still applies.
             // Fork: mas o usuário é avisado — a mudança vale só até fechar o app.
+            LastSaveFailed = true;
             SaveFailed?.Invoke();
             return false;
         }

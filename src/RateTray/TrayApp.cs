@@ -1103,6 +1103,10 @@ public sealed class TrayApp : ApplicationContext
         var ui = SynchronizationContext.Current;
         ConfigStore.SaveBlocked += () => ui?.Post(_ => ShowNotice(Loc.T("notice.saveBlocked"), ref _saveBlockedShown), null);
         ConfigStore.SaveFailed += () => ui?.Post(_ => ShowNotice(Loc.T("notice.saveFailed", ConfigStore.Path_), ref _saveFailedShown), null);
+
+        // A gravação da inicialização (arquivo novo ou normalizado) roda antes desta assinatura.
+        if (ConfigStore.LastSaveFailed)
+            ui?.Post(_ => ShowNotice(Loc.T("notice.saveFailed", ConfigStore.Path_), ref _saveFailedShown), null);
         _reloadTimer.Tick += (_, _) => { _reloadTimer.Stop(); ReloadConfigFromDisk(); };
 
         try
