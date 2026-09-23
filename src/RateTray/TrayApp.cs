@@ -1101,7 +1101,8 @@ public sealed class TrayApp : ApplicationContext
     private void WatchConfigFile()
     {
         var ui = SynchronizationContext.Current;
-        ConfigStore.SaveBlocked += () => ui?.Post(_ => NotifySaveBlocked(), null);
+        ConfigStore.SaveBlocked += () => ui?.Post(_ => ShowNotice(Loc.T("notice.saveBlocked"), ref _saveBlockedShown), null);
+        ConfigStore.SaveFailed += () => ui?.Post(_ => ShowNotice(Loc.T("notice.saveFailed", ConfigStore.Path_), ref _saveFailedShown), null);
         _reloadTimer.Tick += (_, _) => { _reloadTimer.Stop(); ReloadConfigFromDisk(); };
 
         try
@@ -1126,25 +1127,43 @@ public sealed class TrayApp : ApplicationContext
     }
 
     private DateTime _saveBlockedShown = DateTime.MinValue;
+    private DateTime _saveFailedShown = DateTime.MinValue;
 
-    /// <summary>Um aviso por rajada: a mesma edição pendente recusa várias gravações seguidas.</summary>
-    private void NotifySaveBlocked()
+    /// <summary>
+    /// Fork: aviso do Windows sobre a configuração. Um por rajada (a mesma causa recusa várias
+    /// gravações seguidas). Precisa de um ícone na bandeja para ancorar o balão; no modo só-faixa
+    /// não há nenhum, e um ícone do app aparece só pelo tempo do aviso.
+    /// </summary>
+    private void ShowNotice(string text, ref DateTime lastShown)
     {
-        if (DateTime.UtcNow - _saveBlockedShown < TimeSpan.FromSeconds(30)) return;
-        _saveBlockedShown = DateTime.UtcNow;
+        if (DateTime.UtcNow - lastShown < TimeSpan.FromSeconds(30)) return;
+        lastShown = DateTime.UtcNow;
 
-        var text = Loc.T("notice.saveBlocked");
         if (_icons.Values.FirstOrDefault(i => i.Visible) is { } anchor)
         {
             anchor.BalloonTipTitle = "Gaugely";
             anchor.BalloonTipText = text;
             anchor.BalloonTipIcon = ToolTipIcon.Warning;
             anchor.ShowBalloonTip(10_000);
+            return;
         }
-        else if (_neutralIcon is { Visible: true } neutral)
+
+        if (_neutralIcon is { Visible: true } neutral)
         {
             neutral.ShowBalloonTip(10_000, "Gaugely", text, ToolTipIcon.Warning);
+            return;
         }
+
+        var temporary = new NotifyIcon { Icon = AppIcon.Value ?? SystemIcons.Application, Text = "Gaugely", Visible = true };
+        var timer = new System.Windows.Forms.Timer { Interval = 15_000 };
+        timer.Tick += (_, _) =>
+        {
+            timer.Dispose();
+            temporary.Visible = false;
+            temporary.Dispose();
+        };
+        temporary.ShowBalloonTip(10_000, "Gaugely", text, ToolTipIcon.Warning);
+        timer.Start();
     }
 
     private void ReloadConfigFromDisk()

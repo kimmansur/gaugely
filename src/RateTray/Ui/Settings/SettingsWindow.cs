@@ -35,6 +35,12 @@ public sealed partial class SettingsWindow : Form
     /// <summary>Ações que copiam o estado dos controles para a cópia antes de salvar.</summary>
     private readonly List<Action> _commit = [];
 
+    /// <summary>
+    /// Efeitos fora do settings.json (a entrada de inicialização no registro): só rodam depois que
+    /// o arquivo foi gravado, para uma gravação recusada não deixar metade aplicada.
+    /// </summary>
+    private readonly List<Action> _afterSave = [];
+
     public SettingsWindow(AppConfig config, IReadOnlyList<LimitReading> known, IReadOnlyList<ProviderResult> results,
                           Action<UpdateCheck.Result>? onUpdateChecked = null)
     {
@@ -250,6 +256,7 @@ public sealed partial class SettingsWindow : Form
         }
 
         ConfigStore.CopyInto(_draft, _config);
+        foreach (var effect in _afterSave) effect();
         DialogResult = DialogResult.OK;
         Close();
     }

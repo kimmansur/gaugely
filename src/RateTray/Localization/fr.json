@@ -204,6 +204,7 @@
   "dialog.settingsFailed": "Impossible d'ouvrir les paramètres :\n{0}",
   "dialog.saveFailed": "Impossible d'enregistrer les paramètres dans :\n{0}\n\nVos modifications sont toujours dans la fenêtre.",
   "notice.saveBlocked": "Une modification n'a pas été enregistrée : settings.json a été modifié en dehors de Gaugely (ou n'est pas valide), et la version du fichier est prioritaire.",
+  "notice.saveFailed": "Une modification n'a pas pu être enregistrée dans {0}. Elle s'applique jusqu'à la fermeture de Gaugely.",
   "toast.title": "{0} : {1} % utilisés",
 
   "details.auth": "Connexion : {0}",

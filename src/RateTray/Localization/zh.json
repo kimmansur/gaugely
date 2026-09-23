@@ -204,6 +204,7 @@
   "dialog.settingsFailed": "无法打开设置：\n{0}",
   "dialog.saveFailed": "无法将设置保存到：\n{0}\n\n你的更改仍保留在窗口中。",
   "notice.saveBlocked": "有一项更改未保存：settings.json 在 Gaugely 之外被编辑（或无效），以文件中的版本为准。",
+  "notice.saveFailed": "无法将更改保存到 {0}。在 Gaugely 关闭前，该更改仍然有效。",
   "toast.title": "{0}：已使用 {1}%",
 
   "details.auth": "登录：{0}",

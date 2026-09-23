@@ -19,7 +19,7 @@ public sealed partial class SettingsWindow
             Loc.T("settings.tray.richHint"));
 
         var autostart = Toggle(null, AutoStart.IsEnabled, _ => { });
-        _commit.Add(() =>
+        _afterSave.Add(() =>
         {
             if (autostart.Checked == AutoStart.IsEnabled) return;
             if (!AutoStart.TrySet(autostart.Checked, out var error))

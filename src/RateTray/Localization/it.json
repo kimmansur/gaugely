@@ -204,6 +204,7 @@
   "dialog.settingsFailed": "Impossibile aprire le impostazioni:\n{0}",
   "dialog.saveFailed": "Impossibile salvare le impostazioni in:\n{0}\n\nLe modifiche sono ancora nella finestra.",
   "notice.saveBlocked": "Una modifica non è stata salvata: settings.json è stato modificato fuori da Gaugely (o non è valido) e la versione del file ha la precedenza.",
+  "notice.saveFailed": "Non è stato possibile salvare una modifica in {0}. Resta valida fino alla chiusura di Gaugely.",
   "toast.title": "{0}: {1}% utilizzato",
 
   "details.auth": "Accesso: {0}",

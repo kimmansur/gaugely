@@ -188,6 +188,9 @@ public static class ConfigStore
     /// </summary>
     internal static event Action? SaveBlocked;
 
+    /// <summary>Fork: o disco recusou a gravação (permissão, disco cheio, perfil só leitura).</summary>
+    internal static event Action? SaveFailed;
+
     /// <summary>
     /// Grava a configuração. Fork: <b>não</b> grava por cima de uma edição externa ainda não
     /// absorvida — a gravação automática do app (posição da faixa, limites descobertos) perderia
@@ -216,6 +219,8 @@ public static class ConfigStore
                                       or SecurityException or NotSupportedException)
         {
             // A read-only profile shouldn't take the tray down; the in-memory config still applies.
+            // Fork: mas o usuário é avisado — a mudança vale só até fechar o app.
+            SaveFailed?.Invoke();
             return false;
         }
     }

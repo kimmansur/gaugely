@@ -204,6 +204,7 @@
   "dialog.settingsFailed": "설정을 열 수 없습니다:\n{0}",
   "dialog.saveFailed": "설정을 저장할 수 없습니다:\n{0}\n\n변경 내용은 창에 그대로 있습니다.",
   "notice.saveBlocked": "변경 내용이 저장되지 않았습니다. settings.json이 Gaugely 외부에서 편집되었거나 잘못되었으며, 파일의 내용이 우선합니다.",
+  "notice.saveFailed": "변경 내용을 {0}에 저장할 수 없습니다. Gaugely를 닫을 때까지는 적용됩니다.",
   "toast.title": "{0}: {1}% 사용됨",
 
   "details.auth": "로그인: {0}",
