@@ -17,37 +17,51 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # Fork: ações presas ao commit, não à tag móvel — quem dominar o repositório de uma action
-      # move a tag e passa a rodar dentro deste build, que tem contents: write.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68   # v6
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Derive version from the tag
+      # Fork: a tag é resolvida e validada ANTES do checkout. Ela entra por variável de ambiente,
+      # nunca interpolada no script — interpolada, uma tag com aspa simples fecha a string e o resto
+      # vira comando dentro de um job com contents: write.
+      - name: Resolve the tag
         id: version
         shell: pwsh
-        # Fork: a tag entra por variável de ambiente, nunca interpolada no script. Interpolada, uma
-        # tag com aspa simples fecha a string e o resto vira comando dentro de um job com
-        # contents: write — injeção clássica de PowerShell pelo nome da referência.
         env:
           INPUT_TAG: ${{ github.event.inputs.tag }}
           REF_NAME: ${{ github.ref_name }}
         run: |
           $tag = $env:INPUT_TAG
           if (-not $tag) { $tag = $env:REF_NAME }
-          $version = $tag.TrimStart('v')
-          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "tag '$tag' is not vMAJOR.MINOR.PATCH" }
-          "tag=$tag"         | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          if ($tag -notmatch '^v\d+\.\d+\.\d+$') { throw "tag '$tag' is not vMAJOR.MINOR.PATCH" }
+          "tag=$tag"                     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$($tag.Substring(1))" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Test
+      # Fork: ações presas ao commit, não à tag móvel — quem dominar o repositório de uma action
+      # move a tag e passa a rodar dentro deste build. E o checkout é da TAG, não de uma ref
+      # qualquer: o binário publicado como vX.Y.Z tem de ser o do commit dessa tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7
+        with:
+          ref: refs/tags/${{ steps.version.outputs.tag }}
+
+      - name: Verify the checkout is the tag
+        shell: pwsh
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          dotnet test tests/RateTray.Tests/RateTray.Tests.csproj --configuration Release
-          dotnet test tests/RateTray.E2E/RateTray.E2E.csproj --configuration Release
+          git fetch --no-tags --depth=1 origin "+refs/tags/${env:TAG}:refs/tags/${env:TAG}"
+          $want = git rev-parse "refs/tags/${env:TAG}^{commit}"
+          $have = git rev-parse HEAD
+          if (-not $want -or $want -ne $have) { throw "HEAD $have is not the commit of tag $env:TAG ($want)" }
+          "building $env:TAG at $have"
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68   # v6
+        with:
+          dotnet-version: '9.0.x'
+
+      # Fork: uma suíte por passo. No mesmo passo, o PowerShell termina com o código do ÚLTIMO
+      # comando — unitários falhando e E2E passando publicariam a release mesmo assim.
+      - name: Unit tests
+        run: dotnet test tests/RateTray.Tests/RateTray.Tests.csproj --configuration Release
+
+      - name: End-to-end tests
+        run: dotnet test tests/RateTray.E2E/RateTray.E2E.csproj --configuration Release
 
       # Framework-dependent: a self-contained build would be ~70 MB, and the .NET 9 Desktop
       # Runtime is already present on most machines that run either CLI.

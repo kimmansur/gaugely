@@ -63,17 +63,55 @@ public static class AutoStart
 
     /// <summary>
     /// Fork: quem tinha início automático sob o nome antigo continua com ele, agora apontando para
-    /// este executável. Sem entrada antiga, não faz nada — não liga o que o usuário não ligou.
+    /// este executável. Só migra uma entrada que aponte de fato para o app anterior
+    /// (<c>RateTray.exe</c>) — entrada com o mesmo nome apontando para outro programa não é nossa e
+    /// fica onde está. E nunca sobrescreve uma entrada nova já existente.
     /// </summary>
     public static void MigrateLegacy()
     {
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
-            if (key?.GetValue(LegacyValueName) is not string { Length: > 0 }) return;
-            TrySet(true, out _);
+            if (key is null || !IsLegacyEntry(key.GetValue(LegacyValueName) as string)) return;
+
+            if (key.GetValue(ValueName) is string { Length: > 0 })
+                key.DeleteValue(LegacyValueName, throwOnMissingValue: false);
+            else
+                TrySet(true, out _);
         }
         catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException) { }
+    }
+
+    /// <summary>
+    /// Entrada Run que aponta para o executável do app anterior: o programa iniciado — entre aspas,
+    /// ou até o primeiro ".exe" seguido de espaço ou do fim — tem de ser um caminho absoluto cujo
+    /// arquivo é <c>RateTray.exe</c>. "cmd.exe /c …\\RateTray.exe" ou "…\\RateTray.exe.bat" não servem.
+    /// </summary>
+    internal static bool IsLegacyEntry(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+
+        var path = LaunchedProgram(value.Trim());
+        return Path.IsPathRooted(path) &&
+               string.Equals(Path.GetFileName(path), "RateTray.exe", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string LaunchedProgram(string text)
+    {
+        if (text.StartsWith('"'))
+        {
+            var end = text.IndexOf('"', 1);
+            return end > 0 ? text[1..end] : text[1..];
+        }
+
+        for (var at = text.IndexOf(".exe", StringComparison.OrdinalIgnoreCase); at >= 0;
+             at = text.IndexOf(".exe", at + 1, StringComparison.OrdinalIgnoreCase))
+        {
+            var after = at + 4;
+            if (after == text.Length || text[after] == ' ') return text[..after];
+        }
+
+        return text;
     }
 
     /// <summary>

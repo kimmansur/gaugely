@@ -146,6 +146,7 @@ public class ForkAutoUpdateTests
 
             Assert.NotEqual(a, b);
             Assert.Equal(dir, Path.GetDirectoryName(a));
+            Assert.StartsWith(UpdateInstaller.StagingPrefix, Path.GetFileName(a));
             Assert.EndsWith(".new", a);
             Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(a));
         }
@@ -208,6 +209,27 @@ public class ForkAutoUpdateTests
     }
 
     [Fact]
+    public void Limpeza_nao_apaga_arquivo_alheio_que_so_termina_em_new()
+    {
+        var dir = PastaTemporaria();
+        try
+        {
+            var atual = Path.Combine(dir, "Gaugely.exe");
+            File.WriteAllText(atual, "v1");
+            var alheio = Path.Combine(dir, ".config.new");
+            var alheio2 = Path.Combine(dir, "backup.new");
+            File.WriteAllText(alheio, "de outro programa");
+            File.WriteAllText(alheio2, "de outro programa");
+
+            UpdateInstaller.CleanupOld(atual);
+
+            Assert.True(File.Exists(alheio));
+            Assert.True(File.Exists(alheio2));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public void Limpeza_apaga_old_e_downloads_interrompidos_sem_tocar_no_executavel()
     {
         var dir = PastaTemporaria();
@@ -251,6 +273,20 @@ public class ForkAutoUpdateTests
     }
 
     // ------------------------------------------------------------------ nome antigo
+
+    [Theory]
+    [InlineData("\"C:\\ProgramData\\App\\RateTray.exe\"", true)]
+    [InlineData("C:\\ProgramData\\App\\RateTray.exe", true)]
+    [InlineData("C:\\Program Files\\App\\RateTray.exe", true)]
+    [InlineData("\"C:\\Apps\\ratetray.EXE\" --minimized", true)]
+    [InlineData("\"C:\\Temp\\outro.exe\"", false)]
+    [InlineData("C:\\Temp\\RateTray.exe.bat", false)]
+    [InlineData("cmd.exe /c C:\\Temp\\RateTray.exe", false)]
+    [InlineData("C:\\Tools\\outro.exe C:\\App\\RateTray.exe", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void Migracao_do_inicio_automatico_so_aceita_o_executavel_antigo(string? valor, bool esperado) =>
+        Assert.Equal(esperado, RateTray.Ui.AutoStart.IsLegacyEntry(valor));
 
     [Fact]
     public void Ajustes_da_pasta_antiga_sao_copiados_uma_vez_sem_sobrescrever()

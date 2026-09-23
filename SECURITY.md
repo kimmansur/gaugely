@@ -17,6 +17,9 @@ out.
 | `%APPDATA%\Gaugely\cache.json` | Last readings, so a restart shows numbers at once | Yes |
 | `%APPDATA%\RateTray\settings.json` | Copied once into the folder above on first start, if present | Never |
 
+The copied file goes through the same `Normalize()` as any other settings file, so FORK-1 and
+FORK-2 apply to it. Opt-ins that were on before — `autoRefreshToken`, for instance — stay on.
+
 `cache.json` holds only values — limit ids, percentages, reset times, plan names. No token or
 credential ever reaches it.
 
@@ -24,8 +27,13 @@ credential ever reaches it.
 
 The Kimi Code and OpenRouter API keys are stored there, under `Gaugely/kimi` and
 `Gaugely/openrouter`, never in `settings.json`. Keys saved by earlier builds under
-`RateTray-Nox/…` are read once and copied to the new names; removing a key in Settings removes
-both.
+`RateTray-Nox/…` are read once and copied to the new names; the old entry is left in place so
+the earlier build keeps working. Removing a key in Settings removes both, and a failed removal is
+reported instead of passing silently. If an earlier build writes the old entry again, it is picked
+up again.
+
+A **Start with Windows** entry from RateTray is moved over only when it launches `RateTray.exe` by
+absolute path, and never replaces an existing Gaugely entry.
 
 **Network** — every destination is a constant in the code, not a setting:
 
@@ -81,7 +89,8 @@ The installer then:
    inside the file equals the release tag — so an old binary cannot be republished under a new
    number;
 4. swaps it in with a single `ReplaceFile` call, keeping the previous version as `.old` until the
-   new one starts.
+   new one starts. The executable's metadata — its ACL included — is carried over, and a failure to
+   carry it over aborts the swap instead of being ignored.
 
 **Limit, stated plainly:** the checksum is published in the same release as the binary. It proves
 the file was not altered on the way, not who published it. Someone in control of this GitHub

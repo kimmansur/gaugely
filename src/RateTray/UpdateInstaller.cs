@@ -28,6 +28,12 @@ public static class UpdateInstaller
     public const string ExecutableAsset = "Gaugely.exe";
     public const string ChecksumAsset = "SHA256SUMS.txt";
 
+    /// <summary>
+    /// Prefixo dos arquivos de espera. Só o que começa com ele é tratado como resto de download
+    /// interrompido — outro arquivo na pasta, mesmo terminando em <c>.new</c>, não é nosso.
+    /// </summary>
+    internal const string StagingPrefix = ".gaugely-";
+
     /// <summary>Teto de download. O binário publicado tem menos de 1 MB; 200 MB cobre até um build autocontido.</summary>
     internal const long MaxDownloadBytes = 200L * 1024 * 1024;
 
@@ -183,7 +189,7 @@ public static class UpdateInstaller
     internal static string WriteStaged(byte[] bytes, string currentExecutable)
     {
         var dir = Path.GetDirectoryName(Path.GetFullPath(currentExecutable)) ?? ".";
-        var staged = Path.Combine(dir, "." + Path.GetRandomFileName() + ".new");
+        var staged = Path.Combine(dir, StagingPrefix + Path.GetRandomFileName() + ".new");
         using (var stream = new FileStream(staged, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             stream.Write(bytes);
         return staged;
@@ -194,6 +200,8 @@ public static class UpdateInstaller
     /// programa em execução (testado) e guarda o anterior como <c>.old</c>. Na falha documentada em
     /// que o substituído já saiu do lugar e o novo não entrou, o anterior volta na hora — nunca fica
     /// o caminho vazio. Queda de energia no meio da própria chamada é o único caso não coberto.
+    /// Erro ao copiar os metadados do executável atual — inclusive a ACL — <b>falha</b> a troca em
+    /// vez de ser ignorado: um binário novo não pode entrar com permissões mais frouxas que o velho.
     /// </summary>
     internal static void Apply(string staged, string currentExecutable)
     {
@@ -208,7 +216,7 @@ public static class UpdateInstaller
 
         try
         {
-            File.Replace(staged, currentExecutable, old, ignoreMetadataErrors: true);
+            File.Replace(staged, currentExecutable, old, ignoreMetadataErrors: false);
         }
         catch (IOException)
         {
@@ -218,8 +226,9 @@ public static class UpdateInstaller
     }
 
     /// <summary>
-    /// Remove restos de trocas anteriores: o <c>.old</c> e qualquer <c>.*.new</c> de um download
-    /// interrompido. Chamado na inicialização, quando o app já provou que sobe.
+    /// Remove restos de trocas anteriores: o <c>.old</c> e os arquivos de espera deste app
+    /// (<see cref="StagingPrefix"/>) deixados por um download interrompido. Chamado na
+    /// inicialização, quando o app já provou que sobe.
     /// </summary>
     public static void CleanupOld(string currentExecutable)
     {
@@ -229,7 +238,7 @@ public static class UpdateInstaller
         if (dir is null) return;
         try
         {
-            foreach (var leftover in Directory.EnumerateFiles(dir, ".*.new")) TryDelete(leftover);
+            foreach (var leftover in Directory.EnumerateFiles(dir, StagingPrefix + "*.new")) TryDelete(leftover);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
