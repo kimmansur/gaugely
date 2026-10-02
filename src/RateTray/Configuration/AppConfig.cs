@@ -299,7 +299,7 @@ public sealed class NotificationOptions
 public sealed class ClaudeOptions
 {
     internal const string UsageUrlDefault = "https://api.anthropic.com/api/oauth/usage";
-    internal const string TokenUrlDefault = "https://console.anthropic.com/v1/oauth/token";
+    internal const string TokenUrlDefault = "https://platform.claude.com/v1/oauth/token";   // o mesmo do Claude Code 2.1.x
     internal const string ClientIdDefault = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 
     public bool Enabled { get; set; } = true;

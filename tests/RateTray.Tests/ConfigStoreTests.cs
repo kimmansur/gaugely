@@ -96,7 +96,7 @@ public class ConfigStoreTests
         var config = ConfigStore.FromJson("""{ "claude": { "usageUrl": "", "tokenUrl": null, "clientId": "  " } }""");
 
         Assert.Equal("https://api.anthropic.com/api/oauth/usage", config.Claude.UsageUrl);
-        Assert.StartsWith("https://console.anthropic.com/", config.Claude.TokenUrl);
+        Assert.StartsWith("https://platform.claude.com/", config.Claude.TokenUrl);
         Assert.NotEmpty(config.Claude.ClientId);
     }
 

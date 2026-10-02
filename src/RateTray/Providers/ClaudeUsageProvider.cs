@@ -106,7 +106,7 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
                 if (!Endpoint.IsSecure(options.TokenUrl))
                     return ProviderResult.Failed(Group, Loc.T("error.claude.insecureUrl", options.TokenUrl)) with { Auth = auth };
 
-                var refreshed = await TryRefreshAsync(creds, deadline.Token).ConfigureAwait(false);
+                var refreshed = await RenewAsync(deadline.Token).ConfigureAwait(false);
                 if (refreshed is null)
                     return ProviderResult.Failed(Group, Loc.T("error.claude.refreshFailed")) with { Auth = auth };
 
@@ -313,6 +313,33 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
     }
 
     /// <summary>
+    /// Fork: renova sob a mesma trava que o Claude Code usa para o mesmo arquivo. Ele trava o
+    /// diretório das credenciais com proper-lockfile (<c>&lt;dir&gt;.lock</c>) antes de trocar o
+    /// refresh token; sem respeitar essa trava, os dois podem gastar o mesmo refresh token ao
+    /// mesmo tempo e um deles fica com um token que o servidor já não aceita. Dentro da trava o
+    /// arquivo é relido: se o Claude Code já renovou, usa-se o token dele e nada vai à rede.
+    /// Trava ocupada além da espera devolve null — a próxima rodada lê o que o outro gravou.
+    /// </summary>
+    private async Task<Credentials?> RenewAsync(CancellationToken ct)
+    {
+        var directory = Path.GetDirectoryName(Path.GetFullPath(CredentialsPath));
+        if (directory is null) return null;
+
+        using var held = await RefreshLock.AcquireAsync(directory, ct).ConfigureAwait(false);
+        if (held is null) return null;
+
+        var current = ReadCredentials();
+        if (!current.IsExpired) return current;
+        if (!current.CanRenew) return null;
+
+        // Se a trava for tomada no meio do pedido (renovação acima de 10 s com o temporizador
+        // atrasado), o resultado é gravado mesmo assim: o servidor já trocou o refresh token, e
+        // descartar a resposta perderia o único token válido. O Claude Code, ao reler o arquivo
+        // sob a trava dele, passa a usar o nosso.
+        return await TryRefreshAsync(current, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Exchanges the refresh token and writes the result back, preserving every other field
     /// in the file so Claude Code keeps working. Returns null on any failure; a cancelled
     /// <paramref name="ct"/> — shutdown or the poll deadline — is thrown on for the caller
@@ -333,15 +360,12 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
 
             if (!response.IsSuccessStatusCode) return null;
 
-            var payload = JsonNode.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false))?.AsObject();
-            if (payload?["access_token"]?.GetValue<string>() is not { Length: > 0 } access) return null;
+            var renewed = FromTokenResponse(
+                await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false), creds, DateTimeOffset.UtcNow);
+            if (renewed is null) return null;
 
-            var newRefresh = payload["refresh_token"]?.GetValue<string>() ?? refreshToken;
-            var expiresIn = payload["expires_in"]?.GetValue<long>() ?? 3600;
-            var expiresAt = DateTimeOffset.UtcNow.AddSeconds(expiresIn).ToUnixTimeMilliseconds();
-
-            WriteCredentials(access, newRefresh, expiresAt);
-            return new Credentials(access, newRefresh, expiresAt);
+            WriteCredentials(CredentialsPath, renewed);
+            return renewed;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -355,22 +379,49 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
         }
     }
 
-    private void WriteCredentials(string accessToken, string refreshToken, long expiresAt)
+    /// <summary>
+    /// Fork: lê a resposta do endpoint de token. O <c>refresh_token_expires_in</c> dá a validade
+    /// do refresh token novo; o Claude Code a grava em <c>refreshTokenExpiresAt</c>, e sem ela o
+    /// arquivo ficava com a data do refresh token anterior — passada essa data,
+    /// <see cref="Credentials.CanRenew"/> dava falso e a renovação parava com um token ainda bom.
+    /// Sem o campo, mantém a data anterior, como o Claude Code faz.
+    /// </summary>
+    internal static Credentials? FromTokenResponse(string json, Credentials previous, DateTimeOffset now)
     {
-        var path = CredentialsPath;
+        var payload = JsonNode.Parse(json)?.AsObject();
+        if (payload?["access_token"]?.GetValue<string>() is not { Length: > 0 } access) return null;
+
+        var refresh = payload["refresh_token"]?.GetValue<string>() is { Length: > 0 } r ? r : previous.RefreshToken;
+        var expiresIn = ReadNumber(payload["expires_in"]) is { } seconds and > 0 ? seconds : 3600;
+        var refreshExpiresAt = ReadNumber(payload["refresh_token_expires_in"]) is { } refreshSeconds and > 0
+            ? now.AddSeconds(refreshSeconds).ToUnixTimeMilliseconds()
+            : previous.RefreshExpiresAtUnixMs;
+
+        return previous with
+        {
+            AccessToken = access,
+            RefreshToken = refresh,
+            ExpiresAtUnixMs = now.AddSeconds(expiresIn).ToUnixTimeMilliseconds(),
+            RefreshExpiresAtUnixMs = refreshExpiresAt,
+        };
+    }
+
+    internal static void WriteCredentials(string path, Credentials creds)
+    {
         var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
         var oauth = root["claudeAiOauth"]!.AsObject();
 
-        oauth["accessToken"] = accessToken;
-        oauth["refreshToken"] = refreshToken;
-        oauth["expiresAt"] = expiresAt;
+        oauth["accessToken"] = creds.AccessToken;
+        oauth["refreshToken"] = creds.RefreshToken;
+        oauth["expiresAt"] = creds.ExpiresAtUnixMs;
+        if (creds.RefreshExpiresAtUnixMs > 0) oauth["refreshTokenExpiresAt"] = creds.RefreshExpiresAtUnixMs;
 
         var temp = path + ".tmp";
         File.WriteAllText(temp, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         File.Move(temp, path, overwrite: true);
     }
 
-    private sealed record Credentials(string AccessToken, string? RefreshToken, long ExpiresAtUnixMs)
+    internal sealed record Credentials(string AccessToken, string? RefreshToken, long ExpiresAtUnixMs)
     {
         public long RefreshExpiresAtUnixMs { get; init; }
 

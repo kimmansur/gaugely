@@ -7,6 +7,20 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-02
+
+### Fixed
+- Claude token renewal (`claude.autoRefreshToken`) now records the new refresh token's validity
+  (`refresh_token_expires_in` → `refreshTokenExpiresAt`), as Claude Code does. Before, the file
+  kept the old date and renewal stopped once it passed, even with a good refresh token.
+- Renewal takes the same lock Claude Code uses (the `.claude.lock` directory next to the
+  credentials folder) and re-reads the file under it, so the two never spend the same refresh
+  token; if Claude Code already renewed, its token is used and nothing is sent.
+
+### Changed
+- The token endpoint is now `https://platform.claude.com/v1/oauth/token`, the one current Claude
+  Code uses. A saved `console.anthropic.com` URL is moved to it by FORK-1.
+
 ## [0.7.0] - 2026-09-23
 
 ### Added

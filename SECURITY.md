@@ -51,7 +51,7 @@ official one:
 | Destination | When | What is sent |
 |---|---|---|
 | `https://api.anthropic.com/api/oauth/usage` | Claude enabled | The Claude OAuth token |
-| `https://console.anthropic.com/v1/oauth/token` | Only with `autoRefreshToken`, when the token has expired | The refresh token |
+| `https://platform.claude.com/v1/oauth/token` | Only with `autoRefreshToken`, when the token has expired | The refresh token |
 | `https://api.kimi.com/coding/v1/usages` | A Kimi key is saved | The Kimi key |
 | `https://openrouter.ai/api/v1/credits`, `/key` | An OpenRouter key is saved | The OpenRouter key |
 | `https://api.anthropic.com/v1/organizations/cost_report`, `/usage_report/messages` | An Anthropic Admin key is saved | The Anthropic Admin key |
@@ -93,7 +93,8 @@ every loaded configuration passes through:
 - **FORK-3** — `claude.autoRefreshToken` is available as an opt-in, because people who use the
   Claude desktop app rather than the CLI have nothing else keeping the token fresh. The refresh
   only runs with an expired token, writes the file atomically, and — through FORK-1 — can only go
-  to the official host.
+  to the official host. It runs under the lock Claude Code itself takes (`<credentials folder>.lock`)
+  and re-reads the file first, so the two programs never exchange the same refresh token.
 
 ## Updates
 
