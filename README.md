@@ -54,6 +54,19 @@ work come from there. Credit and thanks go to the original project.
 
 ## Install
 
+Website: **[kimmansur.github.io/gaugely](https://kimmansur.github.io/gaugely/)**
+
+With Scoop:
+
+```powershell
+scoop bucket add gaugely https://github.com/kimmansur/gaugely
+scoop install gaugely/gaugely
+```
+
+With winget, once the package is approved in the catalog: `winget install kimmansur.Gaugely`.
+
+Or by hand:
+
 1. Install the [.NET 9 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) if you
    do not have it.
 2. Download `Gaugely.exe` and `SHA256SUMS.txt` from the
