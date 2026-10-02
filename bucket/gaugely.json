@@ -1,0 +1,36 @@
+{
+    "version": "0.7.1",
+    "description": "Live usage limits and API spending for your AI tools, in the Windows tray.",
+    "homepage": "https://kimmansur.github.io/gaugely/",
+    "license": "MIT",
+    "notes": [
+        "Gaugely needs the .NET 9 Desktop Runtime. If it is missing:",
+        "  scoop bucket add versions; scoop install versions/windowsdesktop-runtime-9.0"
+    ],
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/kimmansur/gaugely/releases/download/v0.7.1/Gaugely.exe",
+            "hash": "9f30b53283a299b85d04dfbb7c0e90c1b52847d05da824a641f2bcaf45085836"
+        }
+    },
+    "bin": "Gaugely.exe",
+    "shortcuts": [
+        [
+            "Gaugely.exe",
+            "Gaugely"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/kimmansur/gaugely"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/kimmansur/gaugely/releases/download/v$version/Gaugely.exe"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/SHA256SUMS.txt"
+        }
+    }
+}

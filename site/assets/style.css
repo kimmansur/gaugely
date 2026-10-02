@@ -1,0 +1,117 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #16181d;
+  --muted: #5b6270;
+  --line: #e2e5ea;
+  --accent: #2aa8e6;
+  --accent-ink: #ffffff;
+  --code-bg: #eef1f5;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171b;
+    --surface: #1e2126;
+    --text: #e9ebef;
+    --muted: #a3a9b5;
+    --line: #2d3138;
+    --accent: #45b8f2;
+    --accent-ink: #0b1620;
+    --code-bg: #262a31;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font: 16px/1.6 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a { color: var(--accent); }
+a:focus-visible, .button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+header.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; color: var(--text); text-decoration: none; }
+.brand img { width: 32px; height: 32px; border-radius: 8px; }
+
+nav.lang a { color: var(--muted); text-decoration: none; margin-left: 12px; font-size: .95rem; }
+nav.lang a[aria-current="page"] { color: var(--text); font-weight: 600; }
+
+.hero { padding: 40px 0 24px; text-align: center; }
+.hero h1 { font-size: clamp(2rem, 5vw, 3.1rem); line-height: 1.15; margin: 0 0 14px; letter-spacing: -.02em; }
+.hero p.lead { font-size: 1.15rem; color: var(--muted); max-width: 680px; margin: 0 auto 26px; }
+
+.actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+.button {
+  display: inline-block;
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: var(--surface);
+}
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+.fine { color: var(--muted); font-size: .9rem; margin-top: 14px; }
+
+.shot { margin: 34px auto 0; max-width: 992px; }
+.shot img, figure img { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.18); display: block; }
+
+section { padding: 44px 0 8px; }
+section h2 { font-size: 1.6rem; margin: 0 0 18px; letter-spacing: -.01em; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.card h3 { margin: 0 0 6px; font-size: 1.05rem; }
+.card p { margin: 0; color: var(--muted); }
+
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: .9rem; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+
+figure { margin: 0; }
+figcaption { color: var(--muted); font-size: .9rem; margin-top: 8px; }
+
+pre, code { font-family: "Cascadia Code", Consolas, "SFMono-Regular", monospace; font-size: .92rem; }
+pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 8px 0 14px; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 5px; }
+pre code { background: none; padding: 0; }
+
+ul.checks { padding-left: 1.2rem; }
+ul.checks li { margin: 6px 0; }
+
+.note { border-left: 4px solid var(--accent); background: var(--surface); padding: 12px 16px; border-radius: 0 10px 10px 0; color: var(--muted); }
+
+footer { border-top: 1px solid var(--line); margin-top: 56px; padding: 24px 0 40px; color: var(--muted); font-size: .9rem; }
+footer a { color: var(--muted); }
+
+/* Grid and flex children default to min-width: auto, so one long code line would widen the page on a phone. */
+.two > *, .grid > * { min-width: 0; }
+.table-wrap { overflow-x: auto; }
+img { max-width: 100%; }
+@media (max-width: 520px) {
+  th, td { padding: 8px 10px; font-size: .92rem; }
+  .button { width: 100%; text-align: center; }
+}

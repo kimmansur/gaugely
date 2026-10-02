@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gaugely — AI usage limits and API spending in the Windows tray</title>
+  <meta name="description" content="Gaugely shows how much is left of your Claude Code, Codex, Kimi Code and Antigravity limits, and what you spend on the Anthropic, OpenAI, Kimi, OpenRouter and DeepSeek APIs, right in the Windows tray. Free and open source.">
+  <link rel="canonical" href="https://kimmansur.github.io/gaugely/">
+  <link rel="alternate" hreflang="en" href="https://kimmansur.github.io/gaugely/">
+  <link rel="alternate" hreflang="pt-BR" href="https://kimmansur.github.io/gaugely/pt/">
+  <link rel="icon" href="assets/img/icon.png">
+  <link rel="apple-touch-icon" href="assets/img/icon.png">
+  <meta property="og:title" content="Gaugely">
+  <meta property="og:description" content="AI usage limits and API spending in the Windows tray. Free and open source.">
+  <meta property="og:image" content="https://kimmansur.github.io/gaugely/assets/img/services.en.png">
+  <meta property="og:url" content="https://kimmansur.github.io/gaugely/">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="./"><img src="assets/img/icon.png" alt="" width="32" height="32">Gaugely</a>
+      <nav class="lang" aria-label="Language">
+        <a href="./" aria-current="page" lang="en">English</a>
+        <a href="pt/" lang="pt-BR">Português</a>
+      </nav>
+    </header>
+
+    <main>
+      <div class="hero">
+        <h1>Your AI limits, in the Windows tray.</h1>
+        <p class="lead">Gaugely shows how much is left of each AI subscription and what the APIs are costing you, as tray icons and an optional floating strip, so you see a limit coming before it stops you mid-task.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/kimmansur/gaugely/releases/latest/download/Gaugely.exe">Download for Windows</a>
+          <a class="button" href="https://github.com/kimmansur/gaugely">Source on GitHub</a>
+        </div>
+        <p class="fine">Free and open source (MIT) · Windows 10 and 11, x64 · needs the <a href="https://dotnet.microsoft.com/download/dotnet/9.0">.NET 9 Desktop Runtime</a> · <a href="https://github.com/kimmansur/gaugely/releases/latest/download/SHA256SUMS.txt">checksum (SHA256SUMS.txt)</a></p>
+        <div class="shot">
+          <img src="assets/img/services.en.png" width="992" height="713" alt="Gaugely settings window, Services page: Claude and OpenAI cards, each with a subscription track and an API track">
+        </div>
+      </div>
+
+      <section aria-labelledby="what">
+        <h2 id="what">What it shows</h2>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Provider</th><th scope="col">Subscription</th><th scope="col">API</th></tr></thead>
+          <tbody>
+            <tr><td>Claude</td><td>Claude Code: 5-hour and weekly windows</td><td>Anthropic Admin API: spend this month and today</td></tr>
+            <tr><td>OpenAI</td><td>Codex</td><td>OpenAI Admin API: spend this month and today</td></tr>
+            <tr><td>Google</td><td>AI Pro quotas, from the Antigravity CLI</td><td>—</td></tr>
+            <tr><td>Kimi</td><td>Kimi Code: 5-hour and weekly windows</td><td>Kimi platform balance</td></tr>
+            <tr><td>OpenRouter</td><td>—</td><td>Credit balance, spend today, this week and this month</td></tr>
+            <tr><td>DeepSeek</td><td>—</td><td>Balance</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="features">
+        <h2 id="features">How it works for you</h2>
+        <div class="grid">
+          <div class="card"><h3>One icon per service</h3><p>Each tray icon shows the limit that will run out first. Hover for that service's limits; click for the full details.</p></div>
+          <div class="card"><h3>Floating strip</h3><p>A small gauge per service, always on top, horizontal or vertical — or docked flush against a screen edge.</p></div>
+          <div class="card"><h3>Alerts</h3><p>A notification when a limit crosses the level you choose.</p></div>
+          <div class="card"><h3>Settings for everything</h3><p>Light and dark themes, 11 languages, and a plain <code>settings.json</code> for those who prefer a file.</p></div>
+        </div>
+        <div class="two" style="margin-top:24px">
+          <figure>
+            <img src="assets/img/details.png" width="840" height="507" alt="Details window with Claude session and weekly limits and the Codex weekly limit as bars with percentages and reset times" loading="lazy">
+            <figcaption>The details window: every limit, when it resets, and how long the sign-in lasts.</figcaption>
+          </figure>
+          <figure>
+            <img src="assets/img/widget.en.png" width="992" height="713" alt="Settings window, Floating widget page, with style, corner, orientation and dial options" loading="lazy">
+            <figcaption>The floating strip: pick the corner, the orientation and the dial.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section aria-labelledby="privacy">
+        <h2 id="privacy">Private by design</h2>
+        <ul class="checks">
+          <li><strong>Runs only on your PC.</strong> No account, no telemetry, no server of ours in between.</li>
+          <li><strong>Keys stay in Windows.</strong> API keys you paste go to the Windows Credential Manager, never to a file.</li>
+          <li><strong>Only the official services.</strong> Every address is fixed in the code, and requests that carry a key never follow redirects.</li>
+          <li><strong>Updates are your call.</strong> Checking is off by default; when you install one, its origin, checksum and version are verified first.</li>
+        </ul>
+        <p>The full list of what is read and sent, and where, is in the <a href="https://github.com/kimmansur/gaugely/blob/main/SECURITY.md">security notes</a>.</p>
+      </section>
+
+      <section aria-labelledby="install">
+        <h2 id="install">Install</h2>
+        <div class="two">
+          <div>
+            <h3>Download</h3>
+            <ol>
+              <li>Install the <a href="https://dotnet.microsoft.com/download/dotnet/9.0">.NET 9 Desktop Runtime</a> if you do not have it.</li>
+              <li>Download <code>Gaugely.exe</code> and <code>SHA256SUMS.txt</code> from the <a href="https://github.com/kimmansur/gaugely/releases/latest">latest release</a>.</li>
+              <li>Check the hash — it must match the <code>Gaugely.exe</code> line of <code>SHA256SUMS.txt</code>:
+                <pre><code>Get-FileHash Gaugely.exe -Algorithm SHA256</code></pre></li>
+              <li>Put it in a folder of its own and start it. Tick <em>Start with Windows</em> in the tray menu if you want it at logon.</li>
+            </ol>
+          </div>
+          <div>
+            <h3>Scoop</h3>
+            <pre><code>scoop bucket add gaugely https://github.com/kimmansur/gaugely
+scoop install gaugely/gaugely</code></pre>
+            <h3>winget</h3>
+            <pre><code>winget install kimmansur.Gaugely</code></pre>
+            <p class="fine">Submitted to the winget catalog; the command works once the package is approved. winget installs it without a Start menu shortcut: run <code>gaugely</code> once, then tick <em>Start with Windows</em> in the tray menu.</p>
+          </div>
+        </div>
+        <p class="note">Gaugely.exe is not code-signed, so the first time you run it Windows SmartScreen may say it protected your PC. Check the hash as above, then choose <em>More info → Run anyway</em>.</p>
+      </section>
+
+      <section aria-labelledby="credits">
+        <h2 id="credits">Credits</h2>
+        <p>Gaugely is a fork of <a href="https://github.com/nowrap/rate-tray">RateTray</a> by nowrap. The polling engine, the tray icons, the details window and much of what makes it work come from there.</p>
+        <p class="fine">Claude, Codex, Kimi, Gemini, Antigravity, OpenRouter, DeepSeek and the other names here are trademarks of their owners. Gaugely is an independent project and is not affiliated with or endorsed by any of them.</p>
+      </section>
+    </main>
+
+    <footer>
+      <a href="https://github.com/kimmansur/gaugely">GitHub</a> ·
+      <a href="https://github.com/kimmansur/gaugely/releases">Releases</a> ·
+      <a href="https://github.com/kimmansur/gaugely/blob/main/CHANGELOG.md">Changelog</a> ·
+      <a href="https://github.com/kimmansur/gaugely/blob/main/SECURITY.md">Security</a> ·
+      <a href="https://github.com/kimmansur/gaugely/issues">Issues</a> ·
+      MIT license
+    </footer>
+  </div>
+</body>
+</html>
