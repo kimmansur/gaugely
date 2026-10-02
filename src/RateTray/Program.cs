@@ -57,6 +57,24 @@ internal static class Program
                 render + 4 < args.Length ? args[render + 4] : null);
         }
 
+        // Fork: `--render-widget <arquivo.png> [notch|floating] [borda] [tema] [mostrador] [escala]` desenha
+        // a faixa com os mesmos dados de exemplo, encostada numa borda simulada — imagem do site.
+        var widget = Array.FindIndex(args, a => a.Equals("--render-widget", StringComparison.OrdinalIgnoreCase));
+        if (widget >= 0)
+        {
+            string Arg(int i, string fallback) => widget + i < args.Length ? args[widget + i].ToLowerInvariant() : fallback;
+            if (widget + 1 >= args.Length || args[widget + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                Console.Error.WriteLine("usage: Gaugely.exe --render-widget <file.png> [notch|floating] [left|right|top|bottom] [dark|light] [gauge|semicircle|segmented] [scale]");
+                return 2;
+            }
+
+            ApplicationConfiguration.Initialize();
+            return Ui.WidgetRender.Run(args[widget + 1], Arg(2, "notch"), Arg(3, "right"), Arg(4, "dark"),
+                widget + 5 < args.Length ? args[widget + 5] : null,
+                double.TryParse(Arg(6, "2"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 2);
+        }
+
         // A second instance would add duplicate tray icons for the same limits.
         using var single = new Mutex(initiallyOwned: true, @"Local\Gaugely.SingleInstance", out var isFirst);
         if (!isFirst) return 0;

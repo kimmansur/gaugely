@@ -92,7 +92,7 @@ internal static class SettingsRender
         }
     }
 
-    private static List<ProviderResult> Sample()
+    internal static List<ProviderResult> Sample()
     {
         var now = DateTimeOffset.Now;
         LimitReading Quota(string id, string group, string label, double percent, double hours, int variant = 0, int count = 1) => new()

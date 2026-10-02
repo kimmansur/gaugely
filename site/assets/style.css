@@ -115,3 +115,10 @@ img { max-width: 100%; }
   th, td { padding: 8px 10px; font-size: .92rem; }
   .button { width: 100%; text-align: center; }
 }
+
+.notch { display: grid; grid-template-columns: minmax(0, 300px) 1fr; gap: 28px; align-items: center; margin-top: 28px; }
+/* The right side of the picture is the screen edge: square, with a bezel, not a rounded card. */
+.notch img { width: 100%; height: auto; border-radius: 12px 0 0 12px; border: 1px solid var(--line); border-right: 6px solid #0d0f13; display: block; }
+.notch h3 { margin-top: 0; }
+kbd { font-family: inherit; font-size: .85em; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--surface); }
+@media (max-width: 640px) { .notch { grid-template-columns: 1fr; } .notch picture { max-width: 260px; margin: 0 auto; } }
