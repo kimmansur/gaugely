@@ -121,6 +121,7 @@ internal static class SettingsRender
             ProviderResult.Failed("OpenAI API", Loc.T("error.api.noKey", "OpenAI")),
             ProviderResult.Success("Antigravity", [Quota("antigravity.pro", "Antigravity", "Gemini 3 Pro", 7, 20)]),
             ProviderResult.Success("Kimi", [Quota("kimi.session", "Kimi", Loc.T("label.kimi.session"), 33, 4)]),
+            ProviderResult.Success("Z.ai", [Quota("zai.5h", "Z.ai", LimitReading.FormatWindow(TimeSpan.FromHours(5)), 12, 3)]),
             ProviderResult.Success("OpenRouter",
             [
                 Money("openrouter.balance", "OpenRouter", Loc.T("label.openrouter.balance"), 12.40m),

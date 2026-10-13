@@ -65,37 +65,10 @@ public sealed class ZaiUsageProvider(ZaiOptions options) : IUsageProvider
 
             using var response = await Http.SendAsync(request, deadline.Token).ConfigureAwait(false);
 
-            if (response.StatusCode == HttpStatusCode.Unauthorized)
-                return ProviderResult.Failed(Group, Loc.T("error.api.rejected", GroupName)) with { Auth = auth with { IsValid = false } };
-
-            if (response.StatusCode == HttpStatusCode.TooManyRequests)
-            {
-                return ProviderResult.Failed(Group, Loc.T("error.api.rateLimited", GroupName)) with
-                {
-                    Auth = auth,
-                    RetryAfter = ClaudeUsageProvider.RetryAfterOf(response),
-                    RateLimited = true,
-                };
-            }
-
-            if (!response.IsSuccessStatusCode)
-                return ProviderResult.Failed(Group, Loc.T("error.api.http", (int)response.StatusCode, GroupName)) with { Auth = auth };
-
-            var json = await response.Content.ReadAsStringAsync(deadline.Token).ConfigureAwait(false);
-            var readings = Parse(json, out var plan, out var refusal);
-
-            if (refusal is { } code)
-            {
-                return AuthCodes.Contains(code)
-                    ? ProviderResult.Failed(Group, Loc.T("error.api.rejected", GroupName)) with { Auth = auth with { IsValid = false } }
-                    : ProviderResult.Failed(Group, Loc.T("error.zai.refused", code)) with { Auth = auth };
-            }
-
-            auth = auth with { Detail = plan is { Length: > 0 } ? $"GLM Coding Plan · {plan}" : "GLM Coding Plan" };
-
-            return readings.Count == 0
-                ? ProviderResult.Failed(Group, Loc.T("error.zai.noLimits")) with { Auth = auth }
-                : ProviderResult.Success(Group, readings) with { Auth = auth };
+            var json = response.IsSuccessStatusCode
+                ? await response.Content.ReadAsStringAsync(deadline.Token).ConfigureAwait(false)
+                : null;
+            return Interpret(response, json, auth);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -112,16 +85,58 @@ public sealed class ZaiUsageProvider(ZaiOptions options) : IUsageProvider
     }
 
     /// <summary>
+    /// Decide o resultado de uma resposta já recebida. Separado da rede para os testes cobrirem o
+    /// que este medidor tem de peculiar: a recusa da chave chega com HTTP 200, no corpo.
+    /// </summary>
+    internal static ProviderResult Interpret(HttpResponseMessage response, string? json, AuthStatus auth)
+    {
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            return ProviderResult.Failed(GroupName, Loc.T("error.api.rejected", GroupName)) with { Auth = auth with { IsValid = false } };
+
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            return ProviderResult.Failed(GroupName, Loc.T("error.api.rateLimited", GroupName)) with
+            {
+                Auth = auth,
+                RetryAfter = ClaudeUsageProvider.RetryAfterOf(response),
+                RateLimited = true,
+            };
+        }
+
+        if (!response.IsSuccessStatusCode || json is null)
+            return ProviderResult.Failed(GroupName, Loc.T("error.api.http", (int)response.StatusCode, GroupName)) with { Auth = auth };
+
+        var readings = Parse(json, out var plan, out var refusal);
+
+        if (refusal is { } code)
+        {
+            return int.TryParse(code, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) && AuthCodes.Contains(number)
+                ? ProviderResult.Failed(GroupName, Loc.T("error.api.rejected", GroupName)) with { Auth = auth with { IsValid = false } }
+                : ProviderResult.Failed(GroupName, Loc.T("error.zai.refused", code)) with { Auth = auth };
+        }
+
+        auth = auth with { Detail = plan is { Length: > 0 } ? $"GLM Coding Plan · {plan}" : "GLM Coding Plan" };
+
+        return readings.Count == 0
+            ? ProviderResult.Failed(GroupName, Loc.T("error.zai.noLimits")) with { Auth = auth }
+            : ProviderResult.Success(GroupName, readings) with { Auth = auth };
+    }
+
+    /// <summary>
     /// Monta as leituras a partir de <c>data.limits</c>. Cada limite traz o teto (<c>usage</c>), o
     /// consumido (<c>currentValue</c>), o percentual arredondado, o próximo reset em epoch ms e a
     /// janela como <c>unit</c> + <c>number</c> (3 = horas, 6 = semanas; 5 h e 1 semana no plano Lite).
     ///
-    /// Só entram a primeira janela de até um dia e a primeira de uma semana ou mais, com id fixo:
-    /// um "zai.5h" que trocasse de sentido conforme a ordem do array quebraria a lista de ícones.
-    /// Limites de outro tipo (a cota mensal de ferramentas MCP dos planos antigos) ficam de fora.
+    /// Só entram as duas janelas que o plano anuncia, cada uma com id fixo: exatamente 5 h
+    /// ("zai.5h") e exatamente 1 semana ("zai.week"). Outra duração fica de fora até ganhar id
+    /// próprio — um id salvo na lista de ícones não pode passar a significar outra cota. Limites
+    /// de outro tipo (a cota mensal de ferramentas MCP dos planos antigos) também ficam de fora.
     /// </summary>
-    /// <param name="refusal">Código do corpo quando <c>success</c> é falso; null quando a resposta é válida.</param>
-    internal static List<LimitReading> Parse(string json, out string? plan, out int? refusal)
+    /// <param name="refusal">
+    /// Código do corpo, como texto, quando <c>success</c> não é o booleano <c>true</c> ("?" se o
+    /// corpo não traz código); null quando a resposta é válida.
+    /// </param>
+    internal static List<LimitReading> Parse(string json, out string? plan, out string? refusal)
     {
         plan = null;
         refusal = null;
@@ -139,9 +154,13 @@ public sealed class ZaiUsageProvider(ZaiOptions options) : IUsageProvider
 
         if (root is null) return readings;
 
-        if (root["success"] is JsonValue ok && ok.GetValueKind() == JsonValueKind.False)
+        // Só o booleano true é sucesso: "false" em texto, null ou outro tipo também é recusa,
+        // senão uma recusa em formato inesperado viraria "sem limites" com a chave dada por boa.
+        if (root["success"] is not JsonValue ok || ok.GetValueKind() != JsonValueKind.True)
         {
-            refusal = (int?)KimiUsageProvider.Number(root["code"]) ?? 0;
+            refusal = KimiUsageProvider.Number(root["code"]) is { } code && code == Math.Floor(code) && Math.Abs(code) < 1e9
+                ? ((long)code).ToString(CultureInfo.InvariantCulture)
+                : "?";
             return readings;
         }
 
@@ -157,7 +176,7 @@ public sealed class ZaiUsageProvider(ZaiOptions options) : IUsageProvider
             if (Text(limit["type"]) is not ("CREDIT_LIMIT" or "TOKENS_LIMIT")) continue;
             if (WindowOf(limit) is not { } window || PercentOf(limit) is not { } percent) continue;
 
-            if (window <= TimeSpan.FromDays(1) && shortWindow is null)
+            if (window == ShortWindow && shortWindow is null)
             {
                 shortWindow = new LimitReading
                 {
@@ -170,12 +189,12 @@ public sealed class ZaiUsageProvider(ZaiOptions options) : IUsageProvider
                     IsActive = true,
                 };
             }
-            else if (window >= TimeSpan.FromDays(7) && week is null)
+            else if (window == Week && week is null)
             {
                 week = new LimitReading
                 {
                     Id = "zai.week",
-                    Label = window == TimeSpan.FromDays(7) ? Loc.T("window.week") : LimitReading.FormatWindow(window),
+                    Label = Loc.T("window.week"),
                     Group = GroupName,
                     Percent = percent,
                     ResetsAt = ResetOf(limit),
@@ -191,6 +210,9 @@ public sealed class ZaiUsageProvider(ZaiOptions options) : IUsageProvider
             .Select((reading, index) => reading with { Variant = index, VariantCount = readings.Count })
             .ToList();
     }
+
+    private static readonly TimeSpan ShortWindow = TimeSpan.FromHours(5);
+    private static readonly TimeSpan Week = TimeSpan.FromDays(7);
 
     /// <summary>"lite" → "Lite". Nível desconhecido aparece com a mesma regra, para não esconder um plano novo.</summary>
     private static string? PlanName(JsonNode? node) =>
@@ -218,7 +240,9 @@ public sealed class ZaiUsageProvider(ZaiOptions options) : IUsageProvider
     /// <summary>Unidades vistas no medidor: 1 = dias, 3 = horas, 5 = minutos, 6 = semanas. Outra unidade não vira janela.</summary>
     private static TimeSpan? WindowOf(JsonObject limit)
     {
-        if (KimiUsageProvider.Number(limit["number"]) is not { } n || n <= 0) return null;
+        // Teto de um ano em qualquer unidade: além disso não é janela de cota, e TimeSpan.From*
+        // lança com número enorme — o que derrubaria as leituras boas da mesma resposta.
+        if (KimiUsageProvider.Number(limit["number"]) is not { } n || n <= 0 || n > 366) return null;
 
         return KimiUsageProvider.Number(limit["unit"]) switch
         {
@@ -235,10 +259,12 @@ public sealed class ZaiUsageProvider(ZaiOptions options) : IUsageProvider
         if (KimiUsageProvider.Number(limit["nextResetTime"]) is not { } epoch || epoch <= 0) return null;
 
         // Epoch em milissegundos; um valor pequeno demais para isso só pode estar em segundos.
-        return epoch > 1e11
-            ? DateTimeOffset.FromUnixTimeMilliseconds((long)epoch)
-            : DateTimeOffset.FromUnixTimeSeconds((long)epoch);
+        // Fora do que o DateTimeOffset representa (depois de 9999) vira "sem reset", não exceção.
+        var ms = epoch > 1e11 ? epoch : epoch * 1000;
+        return ms <= MaxEpochMs ? DateTimeOffset.FromUnixTimeMilliseconds((long)ms) : null;
     }
+
+    private static readonly double MaxEpochMs = DateTimeOffset.MaxValue.ToUnixTimeMilliseconds();
 
     private static string? Text(JsonNode? node) =>
         node is JsonValue value && value.GetValueKind() == JsonValueKind.String && value.TryGetValue<string>(out var text)

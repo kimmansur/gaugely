@@ -1,4 +1,6 @@
+using System.Net;
 using RateTray.Localization;
+using RateTray.Model;
 using RateTray.Providers;
 
 namespace RateTray.Tests;
@@ -83,32 +85,118 @@ public class ForkZaiTests
     }
 
     [Fact]
-    public void Cota_de_ferramentas_e_unidade_desconhecida_ficam_de_fora()
+    public void So_entram_5h_e_1_semana_outras_janelas_e_tipos_ficam_de_fora()
+    {
+        // Um id salvo na lista de ícones não pode mudar de sentido: 1 dia, 30 dias, 4 h, a cota
+        // de ferramentas e unidade desconhecida não viram "zai.5h" nem "zai.week".
+        var json = """
+        { "success": true, "data": { "limits": [
+          { "type": "TIME_LIMIT", "unit": 3, "number": 5, "usage": 100, "currentValue": 99 },
+          { "type": "CREDIT_LIMIT", "unit": 9, "number": 5, "usage": 100, "currentValue": 50 },
+          { "type": "CREDIT_LIMIT", "unit": 1, "number": 30, "usage": 100, "currentValue": 0 },
+          { "type": "CREDIT_LIMIT", "unit": 1, "number": 1, "usage": 100, "currentValue": 0 },
+          { "type": "CREDIT_LIMIT", "unit": 3, "number": 4, "usage": 100, "currentValue": 0 } ] } }
+        """;
+
+        Assert.Empty(ZaiUsageProvider.Parse(json, out _, out var recusa));
+        Assert.Null(recusa);
+    }
+
+    [Fact]
+    public void Numero_absurdo_nao_derruba_as_leituras_boas()
     {
         var json = """
         { "success": true, "data": { "limits": [
-          { "type": "TIME_LIMIT", "unit": 5, "number": 1, "usage": 100, "currentValue": 99 },
-          { "type": "CREDIT_LIMIT", "unit": 9, "number": 1, "usage": 100, "currentValue": 50 },
-          { "type": "CREDIT_LIMIT", "unit": 1, "number": 30, "usage": 100, "currentValue": 0 } ] } }
+          { "type": "CREDIT_LIMIT", "unit": 3, "number": "1e300", "usage": 100, "currentValue": 1 },
+          { "type": "CREDIT_LIMIT", "unit": 3, "number": 5, "usage": 2000, "currentValue": 200, "nextResetTime": 1e300 },
+          { "type": "CREDIT_LIMIT", "unit": 6, "number": 1, "usage": 10000, "currentValue": 100, "nextResetTime": "9e18" } ] } }
         """;
 
         var leituras = ZaiUsageProvider.Parse(json, out _, out _);
 
-        var mes = Assert.Single(leituras);                    // 30 dias entra como a janela longa
-        Assert.Equal("zai.week", mes.Id);
-        Assert.Equal(TimeSpan.FromDays(30), mes.Window);
-        Assert.NotEqual("Week", mes.Label);
+        Assert.Equal(["zai.5h", "zai.week"], leituras.Select(r => r.Id));
+        Assert.Equal(10, leituras[0].Percent, 3);
+        Assert.All(leituras, r => Assert.Null(r.ResetsAt));
     }
 
     [Theory]
-    [InlineData("""{ "code": 1000, "msg": "Authentication Failed", "success": false }""", 1000)]
-    [InlineData("""{ "code": 1001, "msg": "Authentication parameter not received in Header", "success": false }""", 1001)]
-    [InlineData("""{ "code": 1302, "msg": "x", "success": false }""", 1302)]
-    public void Recusa_no_corpo_volta_o_codigo(string json, int codigo)
+    [InlineData("""{ "code": 1000, "msg": "Authentication Failed", "success": false }""", "1000")]
+    [InlineData("""{ "code": 1001, "msg": "Authentication parameter not received in Header", "success": false }""", "1001")]
+    [InlineData("""{ "code": 1302, "msg": "x", "success": false }""", "1302")]
+    [InlineData("""{ "code": 1000, "success": "false" }""", "1000")]
+    [InlineData("""{ "msg": "x", "success": null }""", "?")]
+    [InlineData("""{ "code": "abc", "data": { "limits": [] } }""", "?")]
+    public void Recusa_no_corpo_volta_o_codigo(string json, string codigo)
     {
         Assert.Empty(ZaiUsageProvider.Parse(json, out var plano, out var recusa));
         Assert.Equal(codigo, recusa);
         Assert.Null(plano);
+    }
+
+    // ------------------------------------------------------------- resposta inteira (sem rede)
+
+    private static readonly AuthStatus Valida = new() { Group = "Z.ai", IsValid = true, Detail = "GLM Coding Plan" };
+
+    private static ProviderResult Com(HttpStatusCode status, string? corpo)
+    {
+        using var resposta = new HttpResponseMessage(status);
+        return ZaiUsageProvider.Interpret(resposta, corpo, Valida);
+    }
+
+    [Fact]
+    public void Chave_recusada_com_http_200_marca_a_chave_como_invalida()
+    {
+        var r = Com(HttpStatusCode.OK, """{ "code": 1000, "msg": "Authentication Failed", "success": false }""");
+
+        Assert.False(r.Ok);
+        Assert.False(r.Auth!.IsValid);
+        Assert.Equal("Z.ai rejected the key", r.Error);
+    }
+
+    [Fact]
+    public void Outra_recusa_no_corpo_nao_condena_a_chave()
+    {
+        var r = Com(HttpStatusCode.OK, """{ "code": 1302, "msg": "x", "success": false }""");
+
+        Assert.False(r.Ok);
+        Assert.True(r.Auth!.IsValid);
+        Assert.Equal("Z.ai refused the request (code 1302)", r.Error);
+    }
+
+    [Fact]
+    public void Http_401_marca_a_chave_e_429_pede_espera()
+    {
+        Assert.False(Com(HttpStatusCode.Unauthorized, null).Auth!.IsValid);
+
+        var limitado = Com(HttpStatusCode.TooManyRequests, null);
+        Assert.True(limitado.RateLimited);
+        Assert.True(limitado.Auth!.IsValid);
+    }
+
+    [Fact]
+    public void Erro_do_servidor_e_redirecionamento_viram_falha_http()
+    {
+        Assert.Equal("HTTP 502 from Z.ai", Com(HttpStatusCode.BadGateway, null).Error);
+        Assert.Equal("HTTP 302 from Z.ai", Com(HttpStatusCode.Found, null).Error);
+    }
+
+    [Fact]
+    public void Resposta_boa_traz_as_leituras_e_o_plano()
+    {
+        var r = Com(HttpStatusCode.OK, Lite);
+
+        Assert.True(r.Ok);
+        Assert.Equal(2, r.Readings.Count);
+        Assert.Equal("GLM Coding Plan · Lite", r.Auth!.Detail);
+    }
+
+    [Fact]
+    public void Sem_janelas_conhecidas_avisa_em_vez_de_ficar_em_branco()
+    {
+        var r = Com(HttpStatusCode.OK, """{ "success": true, "data": { "limits": [] } }""");
+
+        Assert.False(r.Ok);
+        Assert.Equal("Z.ai reported no limits", r.Error);
     }
 
     [Theory]
