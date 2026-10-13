@@ -293,6 +293,8 @@
   "error.kimi.timeout": "Kimi 用量 API 在 {0} 秒内未响应",
   "error.kimi.http": "Kimi 用量 API 返回 HTTP {0}",
   "error.kimi.noLimits": "Kimi 未报告任何限额",
+  "error.zai.refused": "Z.ai 拒绝了请求（代码 {0}）",
+  "error.zai.noLimits": "Z.ai 未返回任何限额",
   "error.openrouter.noKey": "没有 OpenRouter 密钥，请在“设置 → 服务”中添加",
   "error.openrouter.rejected": "OpenRouter 拒绝了该密钥",
   "error.openrouter.forbidden": "OpenRouter：此密钥没有权限",

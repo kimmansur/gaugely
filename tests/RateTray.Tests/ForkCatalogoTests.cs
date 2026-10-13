@@ -13,6 +13,7 @@ public class ForkCatalogoTests
     [InlineData("kimi.", "Kimi")]
     [InlineData("openrouter.", "OpenRouter")]
     [InlineData("antigravity.", "Antigravity")]
+    [InlineData("zai.", "Z.ai")]
     public void Prefixo_LevaAoGrupoCerto(string prefixo, string grupoEsperado)
     {
         // Fork: testa se cada prefixo retorna o grupo correto
@@ -42,12 +43,12 @@ public class ForkCatalogoTests
     [Fact]
     public void Grupos_de_assinatura_e_de_api_estao_catalogados_sem_repeticao()
     {
-        // Fork: cinco serviços de assinatura/crédito originais e quatro do trilho de API.
+        // Fork: seis serviços de assinatura/crédito (Z.ai desde a 0.8.0) e quatro do trilho de API.
         var grupos = ServiceCatalog.Services.Select(s => s.Group).ToList();
-        Assert.Equal(9, grupos.Count);
+        Assert.Equal(10, grupos.Count);
         Assert.Equal(grupos.Count, grupos.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         foreach (var g in new[] { "Claude", "Codex", "Kimi", "OpenRouter", "Antigravity",
-                                  "Anthropic API", "OpenAI API", "Kimi API", "DeepSeek" })
+                                  "Anthropic API", "OpenAI API", "Kimi API", "DeepSeek", "Z.ai" })
             Assert.Contains(g, grupos);
     }
 }

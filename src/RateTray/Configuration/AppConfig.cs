@@ -91,6 +91,9 @@ public sealed class AppConfig
     /// <summary>Fork: cota do Kimi Code. A chave mora no Gerenciador de Credenciais, não aqui.</summary>
     public KimiOptions Kimi { get; set; } = new();
 
+    /// <summary>Fork: cota do GLM Coding Plan da Z.ai. A chave mora no Gerenciador de Credenciais, não aqui.</summary>
+    public ZaiOptions Zai { get; set; } = new();
+
     /// <summary>Fork: cota do Google AI Pro lida pelo agy local. Sem caminho configurável.</summary>
     public AntigravityOptions Antigravity { get; set; } = new();
 
@@ -155,6 +158,7 @@ public sealed class AppConfig
         Claude = (Claude ?? new()).Normalize();
         Codex = (Codex ?? new()).Normalize();
         Kimi = (Kimi ?? new()).Normalize();
+        Zai = (Zai ?? new()).Normalize();
         Antigravity = (Antigravity ?? new()).Normalize();
         OpenRouter = (OpenRouter ?? new()).Normalize();
         OpenAIApi = (OpenAIApi ?? new()).Normalize();
@@ -207,6 +211,7 @@ public sealed class ColorOptions
     internal const string AnthropicApiDefault = "#C15F3C";
     internal const string KimiApiDefault = "#8FA3FF";
     internal const string DeepSeekDefault = "#4D6BFE";
+    internal const string ZaiDefault = "#2FB5A6";
     internal const double ShadeSpreadDefault = 0.15;
 
     /// <summary>Claude's terracotta accent.</summary>
@@ -228,6 +233,8 @@ public sealed class ColorOptions
     public string KimiApi { get; set; } = KimiApiDefault;
 
     public string DeepSeek { get; set; } = DeepSeekDefault;
+
+    public string Zai { get; set; } = ZaiDefault;
 
     /// <summary>
     /// Hue of the warning colour in degrees (48 = amber). The colour itself is built from this
@@ -269,6 +276,7 @@ public sealed class ColorOptions
         AnthropicApi = Sane.Text(AnthropicApi, AnthropicApiDefault);
         KimiApi = Sane.Text(KimiApi, KimiApiDefault);
         DeepSeek = Sane.Text(DeepSeek, DeepSeekDefault);
+        Zai = Sane.Text(Zai, ZaiDefault);
         WarnHue = Math.Clamp(WarnHue, 0, 359);
         CriticalHue = Math.Clamp(CriticalHue, 0, 359);
 
@@ -540,6 +548,27 @@ public sealed class KimiOptions
     public int MinIntervalSeconds { get; set; } = 300;
 
     internal KimiOptions Normalize()
+    {
+        TimeoutSeconds = Math.Clamp(TimeoutSeconds, 5, 300);
+        MinIntervalSeconds = Math.Clamp(MinIntervalSeconds, 0, 3_600);
+        return this;
+    }
+}
+
+/// <summary>
+/// Fork: GLM Coding Plan da Z.ai. Mesmas regras do <see cref="KimiOptions"/>: URL fixa no
+/// provedor, chave só no cofre.
+/// </summary>
+public sealed class ZaiOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    public int TimeoutSeconds { get; set; } = 20;
+
+    /// <summary>A cota anda em horas, como a do Kimi.</summary>
+    public int MinIntervalSeconds { get; set; } = 300;
+
+    internal ZaiOptions Normalize()
     {
         TimeoutSeconds = Math.Clamp(TimeoutSeconds, 5, 300);
         MinIntervalSeconds = Math.Clamp(MinIntervalSeconds, 0, 3_600);

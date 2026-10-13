@@ -2,8 +2,8 @@
 
 Nutzungslimits und API-Ausgaben deiner KI-Werkzeuge, live im Windows-Infobereich.
 
-Gaugely zeigt, wie viel von jedem Abo übrig ist — Claude Code, Codex, Kimi Code und Google
-Antigravity — und was du für die APIs von Anthropic, OpenAI, Kimi, OpenRouter und DeepSeek
+Gaugely zeigt, wie viel von jedem Abo übrig ist — Claude Code, Codex, Kimi Code, dem GLM Coding
+Plan von Z.ai und Google Antigravity — und was du für die APIs von Anthropic, OpenAI, Kimi, OpenRouter und DeepSeek
 ausgibst, als Symbole im Infobereich und auf Wunsch als schwebende Leiste mit Anzeigen. So siehst
 du ein Limit kommen, bevor es dich mitten in der Arbeit stoppt.
 
@@ -26,6 +26,7 @@ ausmacht, stammen von dort. Dank und Anerkennung gehen an das ursprüngliche Pro
   | OpenAI | Codex | OpenAI Admin API: Ausgaben diesen Monat und heute, Tokens und Anfragen — ein offizielles Prepaid-Guthaben gibt es nicht |
   | Google | AI-Pro-Kontingente, gelesen über die lokale `agy`-CLI (Antigravity) | nicht verfügbar: Google meldet Ausgaben nur über Cloud Billing |
   | Kimi | Kimi Code (5-Stunden- und Wochenfenster) | Guthaben der Kimi-Plattform (ein Plattform-Schlüssel, nicht der von Kimi Code) |
+  | Z.ai | GLM Coding Plan (5-Stunden- und Wochenfenster) | — |
   | OpenRouter | — | Guthaben, Ausgaben heute, diese Woche und diesen Monat |
   | DeepSeek | — | Guthaben |
 

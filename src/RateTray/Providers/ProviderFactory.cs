@@ -14,6 +14,7 @@ public static class ProviderFactory
         new ClaudeUsageProvider(config.Claude),
         new CodexUsageProvider(config.Codex),
         new KimiUsageProvider(config.Kimi),
+        new ZaiUsageProvider(config.Zai),
         new OpenRouterUsageProvider(config.OpenRouter),
         new AntigravityUsageProvider(config.Antigravity),
         new AnthropicApiUsageProvider(config.AnthropicApi),

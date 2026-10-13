@@ -65,6 +65,7 @@ public class ForkServiceGroupTests
     [InlineData("grupo.claude", "Claude")]
     [InlineData("grupo.kimi", "Kimi")]
     [InlineData("grupo.openrouter", "OpenRouter")]
+    [InlineData("grupo.z.ai", "Z.ai")]
     public void Id_do_grupo_volta_ao_nome_do_servico(string id, string grupo)
     {
         Assert.True(ServiceGroup.IsGroupId(id));
@@ -131,6 +132,8 @@ public class ForkServiceGroupTests
     [Theory]
     [InlineData("kimi.5h", "Kimi")]
     [InlineData("kimi.week", "Kimi")]
+    [InlineData("zai.5h", "Z.ai")]
+    [InlineData("zai.week", "Z.ai")]
     [InlineData("openrouter.balance", "OpenRouter")]
     [InlineData("codex.primary", "Codex")]
     [InlineData("claude.session", "Claude")]

@@ -243,6 +243,7 @@ public sealed partial class SettingsWindow
             ["Antigravity"] = (c, v) => c.Antigravity = v,
             ["Kimi"] = (c, v) => c.Kimi = v,
             ["Kimi API"] = (c, v) => c.KimiApi = v,
+            ["Z.ai"] = (c, v) => c.Zai = v,
             ["OpenRouter"] = (c, v) => c.OpenRouter = v,
             ["DeepSeek"] = (c, v) => c.DeepSeek = v,
         };
@@ -508,6 +509,7 @@ public sealed partial class SettingsWindow
         TimingRow(timing, "Antigravity", _draft.Antigravity.TimeoutSeconds, v => _draft.Antigravity.TimeoutSeconds = v, _draft.Antigravity.MinIntervalSeconds, v => _draft.Antigravity.MinIntervalSeconds = v, 0);
         TimingRow(timing, "Kimi", _draft.Kimi.TimeoutSeconds, v => _draft.Kimi.TimeoutSeconds = v, _draft.Kimi.MinIntervalSeconds, v => _draft.Kimi.MinIntervalSeconds = v, 0);
         TimingRow(timing, "Kimi API", _draft.KimiApi.TimeoutSeconds, v => _draft.KimiApi.TimeoutSeconds = v, _draft.KimiApi.MinIntervalSeconds, v => _draft.KimiApi.MinIntervalSeconds = v, 60);
+        TimingRow(timing, "Z.ai", _draft.Zai.TimeoutSeconds, v => _draft.Zai.TimeoutSeconds = v, _draft.Zai.MinIntervalSeconds, v => _draft.Zai.MinIntervalSeconds = v, 0);
         TimingRow(timing, "OpenRouter", _draft.OpenRouter.TimeoutSeconds, v => _draft.OpenRouter.TimeoutSeconds = v, _draft.OpenRouter.MinIntervalSeconds, v => _draft.OpenRouter.MinIntervalSeconds = v, 0);
         TimingRow(timing, "DeepSeek", _draft.DeepSeek.TimeoutSeconds, v => _draft.DeepSeek.TimeoutSeconds = v, _draft.DeepSeek.MinIntervalSeconds, v => _draft.DeepSeek.MinIntervalSeconds = v, 60);
 

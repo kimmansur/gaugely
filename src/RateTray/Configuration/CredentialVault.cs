@@ -26,10 +26,11 @@ public static class CredentialVault
     public const string AnthropicAdmin = "anthropic-admin";
     public const string KimiPlatform = "kimi-platform";
     public const string DeepSeek = "deepseek";
+    public const string Zai = "zai";
 
     /// <summary>Todos os serviços com chave no cofre, na ordem em que aparecem nos ajustes.</summary>
     public static readonly IReadOnlyList<string> Services =
-        [Kimi, KimiPlatform, OpenRouter, OpenAIAdmin, AnthropicAdmin, DeepSeek];
+        [Kimi, KimiPlatform, Zai, OpenRouter, OpenAIAdmin, AnthropicAdmin, DeepSeek];
 
     private const uint CredTypeGeneric = 1;
 
@@ -90,6 +91,7 @@ public static class CredentialVault
         AnthropicAdmin => "Gaugely/anthropic-admin",
         KimiPlatform => "Gaugely/kimi-platform",
         DeepSeek => "Gaugely/deepseek",
+        Zai => "Gaugely/zai",
         _ => throw new ArgumentOutOfRangeException(nameof(service), service, "serviço sem alvo no cofre"),
     };
 

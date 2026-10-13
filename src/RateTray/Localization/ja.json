@@ -293,6 +293,8 @@
   "error.kimi.timeout": "Kimi の使用量 API から {0} 秒以内に応答がありませんでした",
   "error.kimi.http": "Kimi の使用量 API から HTTP {0} が返されました",
   "error.kimi.noLimits": "Kimi から上限が報告されませんでした",
+  "error.zai.refused": "Z.ai がリクエストを拒否しました (コード {0})",
+  "error.zai.noLimits": "Z.ai から制限の情報がありません",
   "error.openrouter.noKey": "OpenRouter のキーがありません。「設定 → サービス」で追加してください",
   "error.openrouter.rejected": "OpenRouter がキーを拒否しました",
   "error.openrouter.forbidden": "OpenRouter：このキーには権限がありません",

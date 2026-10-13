@@ -293,6 +293,8 @@
   "error.kimi.timeout": "API использования Kimi не ответил за {0} с",
   "error.kimi.http": "HTTP {0} от API использования Kimi",
   "error.kimi.noLimits": "Kimi: лимиты не получены",
+  "error.zai.refused": "Z.ai отклонил запрос (код {0})",
+  "error.zai.noLimits": "Z.ai не сообщил лимиты",
   "error.openrouter.noKey": "Нет ключа OpenRouter — добавьте его в разделе Параметры → Сервисы",
   "error.openrouter.rejected": "OpenRouter: ключ отклонен",
   "error.openrouter.forbidden": "OpenRouter: у этого ключа нет прав",

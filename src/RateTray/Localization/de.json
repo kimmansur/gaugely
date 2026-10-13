@@ -293,6 +293,8 @@
   "error.kimi.timeout": "Die Nutzungs-API von Kimi hat nicht innerhalb von {0} s geantwortet",
   "error.kimi.http": "HTTP {0} von der Nutzungs-API von Kimi",
   "error.kimi.noLimits": "Kimi hat keine Limits gemeldet",
+  "error.zai.refused": "Z.ai hat die Anfrage abgelehnt (Code {0})",
+  "error.zai.noLimits": "Z.ai hat keine Limits gemeldet",
   "error.openrouter.noKey": "Kein OpenRouter-Schlüssel — unter Einstellungen → Dienste hinzufügen",
   "error.openrouter.rejected": "OpenRouter hat den Schlüssel abgelehnt",
   "error.openrouter.forbidden": "OpenRouter: Dieser Schlüssel hat keine Berechtigung",

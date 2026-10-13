@@ -37,13 +37,14 @@ public static class ServiceCatalog
         new("Antigravity", "antigravity.", "antigravity", false, c => c.Antigravity, Color.FromArgb(66, 133, 244), Vendors.Google, ServiceTrack.Subscription),
         new("Kimi", "kimi.", "kimi", true, c => c.Kimi, Color.FromArgb(96, 125, 255), Vendors.Kimi, ServiceTrack.Subscription),
         new("Kimi API", "kimiapi.", "kimi", true, c => c.KimiApi, Color.FromArgb(143, 163, 255), Vendors.Kimi, ServiceTrack.Api),
+        new("Z.ai", "zai.", "zai", true, c => c.Zai, Color.FromArgb(47, 181, 166), Vendors.Zai, ServiceTrack.Subscription),
         new("OpenRouter", "openrouter.", "openrouter", true, c => c.OpenRouter, Color.FromArgb(160, 118, 250), Vendors.OpenRouter, ServiceTrack.Api),
         new("DeepSeek", "deepseek.", "deepseek", false, c => c.DeepSeek, Color.FromArgb(77, 107, 254), Vendors.DeepSeek, ServiceTrack.Api),
     ];
 
     /// <summary>Fornecedores, na ordem dos cartões nos ajustes.</summary>
     public static IReadOnlyList<string> VendorOrder { get; } =
-        [Vendors.Anthropic, Vendors.OpenAI, Vendors.Google, Vendors.Kimi, Vendors.OpenRouter, Vendors.DeepSeek];
+        [Vendors.Anthropic, Vendors.OpenAI, Vendors.Google, Vendors.Kimi, Vendors.Zai, Vendors.OpenRouter, Vendors.DeepSeek];
 
     /// <summary>Os serviços de um fornecedor, assinatura primeiro.</summary>
     public static IEnumerable<ServiceRecord> OfVendor(string vendor) =>
@@ -72,4 +73,5 @@ public static class Vendors
     public const string Kimi = "Kimi";
     public const string OpenRouter = "OpenRouter";
     public const string DeepSeek = "DeepSeek";
+    public const string Zai = "Z.ai";
 }

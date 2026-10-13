@@ -357,7 +357,7 @@ public class ForkApiProvidersTests
     [Fact]
     public void Chaves_novas_tem_alvo_proprio_e_nenhum_nome_antigo()
     {
-        foreach (var servico in new[] { CredentialVault.OpenAIAdmin, CredentialVault.AnthropicAdmin, CredentialVault.KimiPlatform, CredentialVault.DeepSeek })
+        foreach (var servico in new[] { CredentialVault.OpenAIAdmin, CredentialVault.AnthropicAdmin, CredentialVault.KimiPlatform, CredentialVault.DeepSeek, CredentialVault.Zai })
         {
             Assert.StartsWith("Gaugely/", CredentialVault.TargetFor(servico));
             Assert.Null(CredentialVault.LegacyTargetFor(servico));

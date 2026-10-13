@@ -293,6 +293,8 @@
   "error.kimi.timeout": "لم تستجب واجهة API لاستخدام Kimi خلال {0} ث",
   "error.kimi.http": "HTTP {0} من واجهة API لاستخدام Kimi",
   "error.kimi.noLimits": "لم يُبلغ Kimi عن أي حدود",
+  "error.zai.refused": "رفضت Z.ai الطلب (الرمز {0})",
+  "error.zai.noLimits": "لم تُرسل Z.ai أي حدود",
   "error.openrouter.noKey": "لا يوجد مفتاح OpenRouter — أضف مفتاحًا من الإعدادات ← الخدمات",
   "error.openrouter.rejected": "رفض OpenRouter المفتاح",
   "error.openrouter.forbidden": "OpenRouter: هذا المفتاح لا يملك صلاحية",
