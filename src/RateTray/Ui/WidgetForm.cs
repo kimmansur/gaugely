@@ -171,12 +171,15 @@ public sealed class WidgetForm : Form
         _layoutSignature = sig;
 
         // Fork: reserva que não vale mais (opção desligada, outro modo, outra borda ou monitor) sai
-        // antes do layout; a área útil volta sem ela, mesmo que o Windows ainda não a tenha
-        // devolvido. A assinatura fica com a área de antes: quando o Windows atualizar, um relayout
-        // a mais dá o mesmo resultado.
+        // antes do layout, e a área útil é relida do Windows na hora (o cache de Screen ainda tem a
+        // reserva). Nada sintetizado: outra AppBar na mesma borda continua descontada. A assinatura
+        // fica com a área do cache: quando ele atualizar, um relayout a mais dá o mesmo resultado.
         var querReserva = IsNotch && _config.Widget.ReservarEspaco;
         if (_appBar.Registered && !AppBarMath.MantemReserva(_appBar.Atual, querReserva, _config.Widget.Borda, screen.Bounds))
-            area = AppBarMath.AreaSemReserva(ScreenOfChoice().WorkingArea, screen.Bounds, _appBar.Remove());
+        {
+            _appBar.Remove();
+            area = AppBarMath.AreaAposRemover(AppBar.AreaUtilAgora(screen.Bounds), area, screen.Bounds);
+        }
 
         _dpi = dpi;
         BuildFonts();
@@ -783,6 +786,7 @@ public sealed class WidgetForm : Form
 
     private const int WmActivate = 0x0006;
     private const int WmWindowPosChanged = 0x0047;
+    private const int WmDisplayChange = 0x007E;
 
     protected override void WndProc(ref Message m)
     {
@@ -792,8 +796,9 @@ public sealed class WidgetForm : Form
             {
                 case AppBar.AbnPosChanged:
                     // Barra de tarefas ou outra AppBar mudou: pede o espaço de novo e reposiciona.
-                    // O aviso provocado pelo próprio ABM_SETPOS é ignorado; e o Reserve só repete o
-                    // SETPOS se o retângulo mudou, então os avisos não viram ciclo.
+                    // O aviso provocado pelo próprio ABM_SETPOS é ignorado; e o Reserve não repete
+                    // pedido já feito e para em SetPosGuarda.Maximo SETPOS por janela até um evento
+                    // real (SetPosGuarda), então os avisos não viram ciclo.
                     if (_appBar.Ajustando) break;
                     _appBar.Invalidate();
                     RefazerReserva();
@@ -811,6 +816,11 @@ public sealed class WidgetForm : Form
                 _appBar.Lost();
                 RefazerReserva();
             }
+        }
+        else if (m.Msg == WmDisplayChange)
+        {
+            // Resolução ou monitores mudaram: evento real, o limite de SETPOS recomeça.
+            _appBar.Liberar();
         }
         else if (m.Msg == WmWindowPosChanged)
         {
@@ -834,8 +844,9 @@ public sealed class WidgetForm : Form
     protected override void OnHandleDestroyed(EventArgs e)
     {
         // Sem isto a borda ficaria reservada depois de a faixa sumir. A assinatura cai junto: depois
-        // de um RecreateHandle o próximo relayout tem de registrar a janela nova.
-        _appBar.Remove();
+        // de um RecreateHandle o próximo relayout tem de registrar a janela nova. O estado de tela
+        // cheia fica no AppBar e volta a valer no novo registro (o shell não repete o aviso).
+        _appBar.Remove(manterTelaCheia: true);
         _layoutSignature = "";
         base.OnHandleDestroyed(e);
     }
