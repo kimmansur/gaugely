@@ -48,11 +48,14 @@ internal static class AppBarMath
     /// espaço reservado — usá-la direto poria a faixa para fora da reserva, colada nas janelas
     /// maximizadas. Aqui o lado da borda volta para a face externa da reserva; os outros três
     /// continuam os da área útil. Dá o mesmo resultado antes e depois de o Windows atualizar a área
-    /// útil, então não importa quando ela é lida.
+    /// útil, então não importa quando ela é lida. Vale também para a reserva de espessura zero
+    /// (faixa fora do canto, ver <see cref="EspessuraReserva"/>): a face externa dela é a borda que o
+    /// shell devolveu, e a área ainda com a reserva antiga (cache de Screen, logo depois de sair do
+    /// canto) volta a encostar ali. Só a reserva vazia (sem concessão) devolve a área útil como está.
     /// </summary>
     public static Rectangle LayoutArea(Rectangle areaUtil, BordaTela borda, Rectangle reservado)
     {
-        if (reservado.Width <= 0 || reservado.Height <= 0) return areaUtil;
+        if (reservado.Width <= 0 && reservado.Height <= 0) return areaUtil;
 
         return borda switch
         {
@@ -89,11 +92,30 @@ internal static class AppBarMath
     }
 
     /// <summary>
-    /// A reserva atual sobrevive a este relayout? Só se ainda é querida e continua na mesma borda do
-    /// mesmo monitor; senão sai antes de a área útil ser lida.
+    /// Espessura pedida ao shell com a opção ligada: a da faixa no canto, zero fora dele. A faixa
+    /// continua registrada como AppBar nos dois casos, para receber ABN_FULLSCREENAPP; o retângulo de
+    /// espessura zero, colado na borda e degenerado (borda superior: top = bottom = topo do monitor),
+    /// não tira nada da área útil — o shell a calcula subtraindo os retângulos das AppBars.
     /// </summary>
-    public static bool MantemReserva(AppBarReserva? atual, bool querReserva, BordaTela borda, Rectangle monitor) =>
-        querReserva && atual is { } a && a.Borda == borda && a.Monitor == monitor;
+    public static int EspessuraReserva(bool noCanto, int espessuraFaixa) => noCanto ? Math.Max(0, espessuraFaixa) : 0;
+
+    /// <summary>
+    /// O registro atual sobrevive a este relayout? Só se a opção continua ligada e ele está na mesma
+    /// borda do mesmo monitor; senão sai antes de a área útil ser lida. Canto ou meio da borda não
+    /// entram: a troca só muda a espessura pedida, sem tirar o registro.
+    /// </summary>
+    public static bool MantemReserva(AppBarReserva? atual, bool opcaoReserva, BordaTela borda, Rectangle monitor) =>
+        opcaoReserva && atual is { } a && a.Borda == borda && a.Monitor == monitor;
+
+    /// <summary>
+    /// O que fazer com o registro no início de um relayout. Desligar (opção desligada ou fora do modo
+    /// Notch) tira o registro e devolve a faixa para cima; Refazer (outra borda ou monitor) tira o
+    /// registro guardando o estado de tela cheia, que o novo registro reaplica.
+    /// </summary>
+    public static AcaoRegistro AcaoAoRelayout(bool registrado, AppBarReserva? atual, bool opcaoReserva, BordaTela borda, Rectangle monitor) =>
+        !registrado || MantemReserva(atual, opcaoReserva, borda, monitor) ? AcaoRegistro.Manter
+        : opcaoReserva ? AcaoRegistro.Refazer
+        : AcaoRegistro.Desligar;
 
     /// <summary>
     /// Área útil depois do ABM_REMOVE. O shell recalcula a área útil dentro do próprio ABM_REMOVE;
@@ -115,17 +137,22 @@ internal static class AppBarMath
     public static readonly IntPtr HwndTopMost = new(-1);
     public static readonly IntPtr HwndBottom = new(1);
 
-    /// <summary>
-    /// A janela em primeiro plano está em tela cheia neste monitor? Cobre o monitor inteiro — o
-    /// mesmo critério do shell para ABN_FULLSCREENAPP. Serve só quando a faixa está sem registro
-    /// (fora do canto) e o shell não avisa mais nada.
-    /// </summary>
-    public static bool CobreMonitor(Rectangle janela, Rectangle monitor) =>
-        monitor.Width > 0 && monitor.Height > 0 && janela.Contains(monitor);
-
     /// <summary>Espessura da faixa perpendicular à borda — o quanto reservar.</summary>
     public static int Thickness(Rectangle faixa, BordaTela borda) =>
         borda is BordaTela.Topo or BordaTela.Base ? faixa.Height : faixa.Width;
+}
+
+/// <summary>Fork: o registro da faixa no começo de um relayout (ver <see cref="AppBarMath.AcaoAoRelayout"/>).</summary>
+internal enum AcaoRegistro
+{
+    /// <summary>Sem registro, ou registro na mesma borda e monitor: fica como está.</summary>
+    Manter,
+
+    /// <summary>Outra borda ou monitor com a opção ligada: ABM_REMOVE guardando a tela cheia.</summary>
+    Refazer,
+
+    /// <summary>Opção desligada ou fora do modo Notch: ABM_REMOVE e a faixa volta para cima.</summary>
+    Desligar,
 }
 
 /// <summary>Fork: o que o shell concedeu — borda, monitor e retângulo reservado.</summary>
@@ -251,26 +278,13 @@ internal sealed class EstadoTelaCheia
     public IntPtr? AoRegistrar() => Aberto ? AppBarMath.HwndBottom : null;
 
     /// <summary>
-    /// Reserva desligada de vez: sem registro ninguém avisaria o fim da tela cheia, então a faixa
-    /// volta para cima já e o estado é esquecido.
+    /// Reserva desligada de vez (opção desligada, fora do modo Notch, ou shell recusou o registro):
+    /// sem registro ninguém avisaria o fim da tela cheia, então a faixa volta para cima já e o estado
+    /// é esquecido — como antes da 0.9.0, sem gestão de tela cheia.
     /// </summary>
     public IntPtr? AoDesligar()
     {
         if (!Aberto) return null;
-        Aberto = false;
-        return AppBarMath.HwndTopMost;
-    }
-
-    /// <summary>
-    /// Sem registro por um tempo (faixa fora do canto, ou shell recusou): o estado não é esquecido,
-    /// porque a faixa pode voltar ao canto com o app ainda em tela cheia e o novo registro tem de
-    /// mandá-la ao fundo. Como o shell não avisa mais o fim da tela cheia, quem chama confere a janela
-    /// em primeiro plano (<paramref name="telaCheiaAgora"/>) agora e periodicamente: enquanto ela
-    /// cobre o monitor, nada muda; quando deixa de cobrir, a faixa volta para cima e o estado acaba.
-    /// </summary>
-    public IntPtr? SemRegistro(bool telaCheiaAgora)
-    {
-        if (!Aberto || telaCheiaAgora) return null;
         Aberto = false;
         return AppBarMath.HwndTopMost;
     }
@@ -279,6 +293,10 @@ internal sealed class EstadoTelaCheia
 /// <summary>
 /// Fork: registra a faixa do modo Notch como AppBar (SHAppBarMessage), para que janelas maximizadas
 /// parem antes dela em vez de ficarem por baixo. Uma instância por janela.
+///
+/// Com a opção ligada, a faixa fica registrada o tempo todo, no canto ou no meio da borda: fora do
+/// canto o pedido tem espessura zero (<see cref="AppBarMath.EspessuraReserva"/>) e não reserva nada,
+/// mas o shell continua mandando ABN_FULLSCREENAPP — sem registro não haveria aviso de tela cheia.
 ///
 /// O registro some quando o Explorer reinicia (o shell novo não conhece a janela): a faixa recebe
 /// "TaskbarCreated", chama <see cref="Lost"/> e registra de novo no próximo
@@ -354,16 +372,16 @@ internal sealed class AppBar : IDisposable
             _base = null;
             _atual = null;
             _guarda.Liberar();
-            // Handle recriado, ou volta ao canto, com um app ainda em tela cheia: o aviso não se
-            // repete. Registrado, o shell volta a avisar o fim dela; a vigia sem registro para.
-            PararVigiaTelaCheia();
+            // Handle recriado, borda ou monitor novos, ou Explorer reiniciado, com um app ainda em
+            // tela cheia: o aviso não se repete, então o novo registro manda a faixa ao fundo.
             if (_telaCheia.AoRegistrar() is { } z) ZOrder(z);
         }
 
         var pedido = (borda, monitor, espessura);
         if (_pedido == pedido && _atual is { } igual) return igual.Reservado;
 
-        // Borda, monitor ou espessura novos são mudança real: o limite de SETPOS recomeça.
+        // Borda, monitor ou espessura novos são mudança real: o limite de SETPOS recomeça. A troca
+        // canto ↔ meio da borda muda a espessura (normal ↔ zero), então também.
         if (_base != pedido) _guarda.Liberar();
         _base = pedido;
 
@@ -425,8 +443,6 @@ internal sealed class AppBar : IDisposable
     {
         _reconciliacao?.Dispose();
         _reconciliacao = null;
-        _vigiaTelaCheia?.Dispose();
-        _vigiaTelaCheia = null;
     }
 
     /// <summary>O Explorer reiniciou e esqueceu o registro; não adianta mandar ABM_REMOVE.</summary>
@@ -447,11 +463,7 @@ internal sealed class AppBar : IDisposable
     /// </summary>
     public AppBarReserva? Remove(bool manterTelaCheia = false)
     {
-        if (!manterTelaCheia)
-        {
-            PararVigiaTelaCheia();
-            if (_telaCheia.AoDesligar() is { } z) ZOrder(z);
-        }
+        if (!manterTelaCheia && _telaCheia.AoDesligar() is { } z) ZOrder(z);
         PararReconciliacao();
         if (!Registered) return null;
         var removida = _atual;
@@ -463,66 +475,6 @@ internal sealed class AppBar : IDisposable
         _atual = null;
         _guarda.Liberar();
         return removida;
-    }
-
-    /// <summary>
-    /// A reserva continua ligada, mas a faixa saiu do canto (ou o shell recusou o registro): tira o
-    /// registro sem esquecer a tela cheia (ver <see cref="EstadoTelaCheia.SemRegistro"/>) e sem
-    /// forçar topmost enquanto um app cobre o monitor. Sem registro não chega ABN_FULLSCREENAPP, então
-    /// a janela em primeiro plano é conferida já e a cada <see cref="VigiaTelaCheiaMs"/> ms até a tela
-    /// cheia fechar (faixa volta para cima) ou a faixa voltar ao canto (o novo registro reaplica o
-    /// fundo e o shell volta a avisar).
-    /// </summary>
-    public AppBarReserva? SairDoCanto(IntPtr hwnd, Rectangle monitor)
-    {
-        var removida = Remove(manterTelaCheia: true);
-        _hwnd = hwnd;   // handle recriado fora do canto: o z-order vai para a janela nova
-        _monitorVigia = monitor;
-        VerificarTelaCheia();
-        return removida;
-    }
-
-    public const int VigiaTelaCheiaMs = 1000;
-
-    private Rectangle _monitorVigia;
-    private System.Windows.Forms.Timer? _vigiaTelaCheia;
-
-    private void VerificarTelaCheia()
-    {
-        if (Registered || !_telaCheia.Aberto)
-        {
-            PararVigiaTelaCheia();
-            return;
-        }
-        if (_telaCheia.SemRegistro(TelaCheiaAgora(_monitorVigia, _hwnd)) is { } z) ZOrder(z);
-        if (!_telaCheia.Aberto)
-        {
-            PararVigiaTelaCheia();
-            return;
-        }
-        if (_vigiaTelaCheia is null)
-        {
-            _vigiaTelaCheia = new System.Windows.Forms.Timer { Interval = VigiaTelaCheiaMs };
-            _vigiaTelaCheia.Tick += (_, _) => VerificarTelaCheia();
-        }
-        _vigiaTelaCheia.Start();
-    }
-
-    private void PararVigiaTelaCheia() => _vigiaTelaCheia?.Stop();
-
-    /// <summary>
-    /// Há app em tela cheia no monitor: a janela em primeiro plano cobre o monitor inteiro. Ficam de
-    /// fora a própria faixa e a área de trabalho (Progman/WorkerW e a janela do shell), que também
-    /// cobrem o monitor e manteriam a faixa no fundo à toa.
-    /// </summary>
-    private static bool TelaCheiaAgora(Rectangle monitor, IntPtr propria)
-    {
-        var fg = GetForegroundWindow();
-        if (fg == IntPtr.Zero || fg == propria || fg == GetShellWindow() || fg == GetDesktopWindow()) return false;
-        var classe = new System.Text.StringBuilder(64);
-        GetClassName(fg, classe, classe.Capacity);
-        if (classe.ToString() is "Progman" or "WorkerW") return false;
-        return GetWindowRect(fg, out var rc) && AppBarMath.CobreMonitor(rc.ToRectangle(), monitor);
     }
 
     /// <summary>
@@ -616,22 +568,6 @@ internal sealed class AppBar : IDisposable
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetShellWindow();
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetDesktopWindow();
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromRect(ref RECT rect, uint flags);
