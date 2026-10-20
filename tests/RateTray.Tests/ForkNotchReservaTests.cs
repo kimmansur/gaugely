@@ -213,28 +213,107 @@ public class ForkNotchReservaTests
     }
 
     [Fact]
-    public void Guarda_OscilacaoParaNoLimiteEEsperaEventoReal()
+    public void Guarda_OscilacaoParaNoLimiteEResfria()
     {
         // Outra AppBar disputando a borda: o QUERYPOS alterna entre dois retângulos. No máximo
-        // Maximo SETPOS na janela; depois, nada — nem passada a janela — até Liberar.
+        // Maximo SETPOS na janela; depois, resfriamento sem SETPOS (antes a trava era permanente
+        // até Liberar; agora acaba sozinha — ver Guarda_QuatroMudancasReaisReconciliamNoFim).
         var g = new SetPosGuarda();
         var a = Aprovado;
         var b = Rectangle.FromLTRB(0, 900, 1920, 966);
         var setpos = 0;
-        for (var aviso = 0; aviso < 40; aviso++)
+        for (var aviso = 0; aviso < 20; aviso++)
         {
-            var t = aviso * 100L;   // 4 s de avisos
+            var t = aviso * 100L;   // 2 s de avisos
             var r = aviso % 2 == 0 ? a : b;
             var d = g.Decidir(r, t);
             if (d == SetPosDecisao.Enviar) { setpos++; g.Registrar(r, r, t); }
         }
         Assert.Equal(SetPosGuarda.Maximo, setpos);
-        Assert.True(g.Travado);
-        Assert.Equal(SetPosDecisao.Travado, g.Decidir(a == g.UltimoPedido ? b : a, 60_000));
+        Assert.True(g.Pendente);
+        Assert.NotNull(g.ResfriamentoAte);
 
-        g.Liberar();   // mudança de tela, de borda ou Explorer reiniciado
-        Assert.False(g.Travado);
-        Assert.Equal(SetPosDecisao.Enviar, g.Decidir(a, 60_100));
+        g.Liberar();   // mudança de tela, de borda ou Explorer reiniciado: zera na hora
+        Assert.False(g.Pendente);
+        Assert.Null(g.ResfriamentoAte);
+        Assert.Equal(SetPosDecisao.Enviar, g.Decidir(a == g.UltimoPedido ? b : a, 2_100));
+    }
+
+    [Fact]
+    public void Guarda_QuatroMudancasReaisReconciliamNoFim()
+    {
+        // Outra AppBar sendo redimensionada: quatro posições legítimas em menos de 2 s, depois para.
+        // A quarta é adiada (não trava de vez) e, no fim do resfriamento, uma reconciliação leva a
+        // reserva para a posição final — sem esperar mudança de tela nem novo registro.
+        var g = new SetPosGuarda();
+        Rectangle Pos(int i) => Rectangle.FromLTRB(0, 966 - 10 * i, 1920, 1032 - 10 * i);
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.Equal(SetPosDecisao.Enviar, g.Decidir(Pos(i), i * 100));
+            g.Registrar(Pos(i), Pos(i), i * 100);
+        }
+        Assert.Equal(SetPosDecisao.Adiado, g.Decidir(Pos(3), 300));
+        Assert.True(g.Pendente);
+        Assert.Equal(Pos(2), g.UltimoConcedido);   // a concessão anterior continua valendo
+
+        var fim = g.ResfriamentoAte!.Value;
+        Assert.Equal(300 + SetPosGuarda.JanelaMs, fim);
+        Assert.Equal(SetPosDecisao.Adiado, g.Decidir(Pos(3), fim - 1));   // aviso no meio: segue adiado
+
+        // Timer do fim do resfriamento: QUERYPOS devolve a posição estável e ela vai ao shell.
+        Assert.Equal(SetPosDecisao.Enviar, g.Decidir(Pos(3), fim));
+        g.Registrar(Pos(3), Pos(3), fim);
+        Assert.False(g.Pendente);
+        Assert.Null(g.ResfriamentoAte);
+        Assert.Equal(Pos(3), g.UltimoConcedido);
+
+        // Estável: os avisos seguintes não repetem o pedido.
+        Assert.Equal(SetPosDecisao.Reusar, g.Decidir(Pos(3), fim + 10));
+        Assert.Equal(SetPosDecisao.Reusar, g.Decidir(Pos(3), fim + 60_000));
+    }
+
+    [Fact]
+    public void Guarda_ReconciliacaoSemMudancaNaoManda()
+    {
+        // Adiado e, no fim do resfriamento, o shell voltou ao que já estava pedido: nada vai ao shell.
+        var g = new SetPosGuarda();
+        var b = Rectangle.FromLTRB(0, 900, 1920, 966);
+        for (var i = 0; i < 3; i++) { var r = i % 2 == 0 ? Aprovado : b; g.Decidir(r, i); g.Registrar(r, r, i); }
+        Assert.Equal(SetPosDecisao.Adiado, g.Decidir(b, 5));
+        var fim = g.ResfriamentoAte!.Value;
+        Assert.Equal(SetPosDecisao.Reusar, g.Decidir(Aprovado, fim));
+        Assert.False(g.Pendente);
+    }
+
+    [Fact]
+    public void Guarda_ShellQueNuncaEstabilizaTemSetPosLimitadoPorJanela()
+    {
+        // Shell que devolve um retângulo diferente a cada QUERYPOS (e concede outro ainda), com aviso
+        // a cada 10 ms por 60 s — o timer de reconciliação cai num desses avisos. Os SETPOS ficam em
+        // no máximo Maximo por janela, reconciliação incluída; o total segue o tempo, não os avisos.
+        var g = new SetPosGuarda();
+        var envios = new List<long>();
+        var n = 0;
+        Rectangle Proximo() { n++; return Rectangle.FromLTRB(0, 966 - n % 500, 1920, 1032 - n % 500); }
+
+        for (long t = 0; t < 60_000; t += 10)
+        {
+            var r = Proximo();
+            if (g.Decidir(r, t) == SetPosDecisao.Enviar)
+            {
+                envios.Add(t);
+                g.Registrar(r, Rectangle.FromLTRB(r.Left, r.Top + 1, r.Right, r.Bottom), t);   // concede diferente
+            }
+        }
+
+        // Nenhuma janela deslizante de JanelaMs tem mais que Maximo SETPOS.
+        for (var i = 0; i < envios.Count; i++)
+            Assert.True(envios.Count(e => e >= envios[i] && e < envios[i] + SetPosGuarda.JanelaMs) <= SetPosGuarda.Maximo);
+
+        // 6.000 avisos, no máximo Maximo SETPOS a cada JanelaMs: ~90, não 6.000.
+        var janelas = 60_000 / SetPosGuarda.JanelaMs + 1;
+        Assert.InRange(envios.Count, SetPosGuarda.Maximo, SetPosGuarda.Maximo * janelas);
     }
 
     [Fact]
@@ -250,7 +329,7 @@ public class ForkNotchReservaTests
             Assert.Equal(SetPosDecisao.Enviar, g.Decidir(r, t));
             g.Registrar(r, r, t);
         }
-        Assert.False(g.Travado);
+        Assert.False(g.Pendente);
     }
 
     [Fact]

@@ -107,8 +107,11 @@ internal enum SetPosDecisao
     /// <summary>Já pedido (ou já concedido): fica a concessão anterior, sem SETPOS.</summary>
     Reusar,
 
-    /// <summary>Limite de SETPOS estourado: fica a concessão anterior até um evento real.</summary>
-    Travado,
+    /// <summary>
+    /// Limite de SETPOS estourado: fica a concessão anterior durante o resfriamento, e o pedido
+    /// novo vira uma reconciliação pendente para o fim dele.
+    /// </summary>
+    Adiado,
 }
 
 /// <summary>
@@ -119,9 +122,16 @@ internal enum SetPosDecisao
 ///
 /// 1. o retângulo é comparado com o último <em>pedido</em> (e com o último concedido), não só com
 ///    o concedido — pedido repetido não volta ao shell, por mais que ele o devolva diferente;
-/// 2. no máximo <see cref="Maximo"/> SETPOS em <see cref="JanelaMs"/> ms; passou disso, nenhum
-///    SETPOS até <see cref="Liberar"/>, chamado só por evento real (borda, monitor ou espessura
-///    novos, mudança de tela, Explorer reiniciado, novo registro).
+/// 2. no máximo <see cref="Maximo"/> SETPOS em <see cref="JanelaMs"/> ms; passou disso, um
+///    resfriamento de <see cref="JanelaMs"/> ms sem SETPOS algum. A trava é temporária: o pedido
+///    adiado fica <see cref="Pendente"/>, e quem chama refaz o QUERYPOS em
+///    <see cref="ResfriamentoAte"/> (timer ou próximo aviso) — uma reconciliação, que só manda
+///    SETPOS se o retângulo diferir do último pedido e do último concedido. Assim a reserva sempre
+///    chega à posição estável, e no pior caso (shell que nunca estabiliza) são <see cref="Maximo"/>
+///    SETPOS a cada janela mais resfriamento, nunca um ciclo livre.
+///
+/// <see cref="Liberar"/> (evento real: borda, monitor ou espessura novos, mudança de tela, Explorer
+/// reiniciado, novo registro) zera tudo na hora.
 /// </summary>
 internal sealed class SetPosGuarda
 {
@@ -132,18 +142,38 @@ internal sealed class SetPosGuarda
 
     public Rectangle? UltimoPedido { get; private set; }
     public Rectangle? UltimoConcedido { get; private set; }
-    public bool Travado { get; private set; }
+
+    /// <summary>Fim do resfriamento em curso (relógio de <see cref="Decidir"/>), ou null sem resfriamento.</summary>
+    public long? ResfriamentoAte { get; private set; }
+
+    /// <summary>Um pedido diferente foi adiado: refazer o QUERYPOS em <see cref="ResfriamentoAte"/>.</summary>
+    public bool Pendente { get; private set; }
 
     public SetPosDecisao Decidir(Rectangle ajustado, long agoraMs)
     {
         if (UltimoConcedido is not null && (ajustado == UltimoPedido || ajustado == UltimoConcedido))
+        {
+            Pendente = false;   // o shell voltou ao que já está pedido: nada a reconciliar
             return SetPosDecisao.Reusar;
+        }
+
+        if (ResfriamentoAte is { } fim)
+        {
+            if (agoraMs < fim)
+            {
+                Pendente = true;
+                return SetPosDecisao.Adiado;
+            }
+            ResfriamentoAte = null;   // fim do resfriamento: esta é a reconciliação
+            Pendente = false;
+        }
 
         while (_envios.Count > 0 && agoraMs - _envios.Peek() >= JanelaMs) _envios.Dequeue();
-        if (Travado || _envios.Count >= Maximo)
+        if (_envios.Count >= Maximo && UltimoConcedido is not null)   // sem concessão não há o que manter
         {
-            Travado = UltimoConcedido is not null;   // sem concessão alguma não há o que manter
-            if (Travado) return SetPosDecisao.Travado;
+            ResfriamentoAte = agoraMs + JanelaMs;
+            Pendente = true;
+            return SetPosDecisao.Adiado;
         }
         return SetPosDecisao.Enviar;
     }
@@ -160,7 +190,8 @@ internal sealed class SetPosGuarda
     public void Liberar()
     {
         _envios.Clear();
-        Travado = false;
+        ResfriamentoAte = null;
+        Pendente = false;
         UltimoPedido = null;
         UltimoConcedido = null;
     }
@@ -207,7 +238,7 @@ internal sealed class EstadoTelaCheia
 /// <see cref="Reserve"/>. Trocar de borda ou de monitor tira o registro e refaz, para não deixar
 /// a reserva antiga para trás.
 /// </summary>
-internal sealed class AppBar
+internal sealed class AppBar : IDisposable
 {
     public const int AbnPosChanged = 1;
     public const int AbnFullScreenApp = 2;
@@ -231,6 +262,18 @@ internal sealed class AppBar
     private AppBarReserva? _atual;
     private readonly SetPosGuarda _guarda = new();
     private readonly EstadoTelaCheia _telaCheia = new();
+
+    /// <summary>
+    /// Fim do resfriamento da <see cref="SetPosGuarda"/> com pedido adiado: dispara
+    /// <see cref="Reconciliar"/> na thread de UI. Criado só quando preciso.
+    /// </summary>
+    private System.Windows.Forms.Timer? _reconciliacao;
+
+    /// <summary>
+    /// Resfriamento acabou com um pedido adiado: refazer a reserva (Invalidate + Reserve) uma vez,
+    /// para chegar à posição estável sem esperar outro aviso do shell.
+    /// </summary>
+    public event Action? Reconciliar;
 
     public bool Registered { get; private set; }
 
@@ -291,8 +334,10 @@ internal sealed class AppBar
             _guarda.Registrar(ajustado, dados.rc.ToRectangle(), agora);
         }
 
-        // Reusar ou Travado: fica o que o shell concedeu da última vez (Decidir só não manda Enviar
-        // quando há concessão).
+        // Reusar ou Adiado: fica o que o shell concedeu da última vez (Decidir só não manda Enviar
+        // quando há concessão). Adiado deixa a reconciliação marcada para o fim do resfriamento.
+        if (_guarda.Pendente && _guarda.ResfriamentoAte is { } fim) AgendarReconciliacao(fim - agora);
+        else PararReconciliacao();
         _atual = new AppBarReserva(borda, monitor, _guarda.UltimoConcedido!.Value);
         _pedido = pedido;
         return _atual.Value.Reservado;
@@ -305,7 +350,32 @@ internal sealed class AppBar
     public void Liberar()
     {
         _guarda.Liberar();
+        PararReconciliacao();
         _pedido = null;
+    }
+
+    private void AgendarReconciliacao(long emMs)
+    {
+        if (_reconciliacao is null)
+        {
+            _reconciliacao = new System.Windows.Forms.Timer();
+            _reconciliacao.Tick += (_, _) =>
+            {
+                PararReconciliacao();
+                if (Registered && _guarda.Pendente) Reconciliar?.Invoke();
+            };
+        }
+        _reconciliacao.Stop();
+        _reconciliacao.Interval = (int)Math.Clamp(emMs, 1, SetPosGuarda.JanelaMs);
+        _reconciliacao.Start();
+    }
+
+    private void PararReconciliacao() => _reconciliacao?.Stop();
+
+    public void Dispose()
+    {
+        _reconciliacao?.Dispose();
+        _reconciliacao = null;
     }
 
     /// <summary>O Explorer reiniciou e esqueceu o registro; não adianta mandar ABM_REMOVE.</summary>
@@ -316,6 +386,7 @@ internal sealed class AppBar
         _base = null;
         _atual = null;
         _guarda.Liberar();
+        PararReconciliacao();
     }
 
     /// <summary>
@@ -326,6 +397,7 @@ internal sealed class AppBar
     public AppBarReserva? Remove(bool manterTelaCheia = false)
     {
         if (!manterTelaCheia && _telaCheia.AoDesligar() is { } z) ZOrder(z);
+        PararReconciliacao();
         if (!Registered) return null;
         var removida = _atual;
         var dados = Data(_hwnd);
