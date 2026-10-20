@@ -98,6 +98,13 @@ public sealed class WidgetForm : Form
             Invalidate();
             HoverChanged?.Invoke(this, new WidgetHoverEventArgs { Group = null });
         };
+        // Fork: fim do resfriamento da reserva com pedido adiado — uma reconciliação com o shell.
+        _appBar.Reconciliar += () =>
+        {
+            if (!IsHandleCreated || IsDisposed) return;
+            _appBar.Invalidate();
+            RefazerReserva();
+        };
     }
 
     /// <summary>Clique simples na faixa — o app abre o cartão completo.</summary>
@@ -797,8 +804,9 @@ public sealed class WidgetForm : Form
                 case AppBar.AbnPosChanged:
                     // Barra de tarefas ou outra AppBar mudou: pede o espaço de novo e reposiciona.
                     // O aviso provocado pelo próprio ABM_SETPOS é ignorado; e o Reserve não repete
-                    // pedido já feito e para em SetPosGuarda.Maximo SETPOS por janela até um evento
-                    // real (SetPosGuarda), então os avisos não viram ciclo.
+                    // pedido já feito e, passado de SetPosGuarda.Maximo SETPOS por janela, segura
+                    // novos SETPOS por um resfriamento e reconcilia uma vez no fim (SetPosGuarda),
+                    // então os avisos não viram ciclo e a reserva não fica presa na posição velha.
                     if (_appBar.Ajustando) break;
                     _appBar.Invalidate();
                     RefazerReserva();
@@ -866,6 +874,7 @@ public sealed class WidgetForm : Form
             _valueFont?.Dispose();
             Region?.Dispose();
             HideDragOverlay();
+            _appBar.Dispose();
         }
 
         base.Dispose(disposing);
