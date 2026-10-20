@@ -88,7 +88,7 @@
   "settings.widget.handle": "Mostra maniglia di trascinamento",
   "settings.widget.handleHint": "Una piccola maniglia per spostare il widget con il mouse.",
   "settings.widget.reserve": "Riserva il bordo",
-  "settings.widget.reserveHint": "Le finestre ingrandite si fermano prima del widget invece di finirci sotto. Viene riservato l'intero bordo, non solo la parte occupata dal widget.",
+  "settings.widget.reserveHint": "Solo quando il widget è in un angolo dello schermo: allora le finestre ingrandite si fermano prima del widget invece di finirci sotto. Viene riservato l'intero bordo, non solo la parte occupata dal widget; a metà del bordo non si riserva nulla e le altre finestre mantengono le dimensioni.",
   "settings.widget.items": "Elementi del widget",
   "settings.widget.itemsHint": "Si scelgono separatamente dalle icone dell'area di notifica.",
   "settings.widget.dial": "Quadrante",
