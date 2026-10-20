@@ -1,5 +1,5 @@
 {
-    "version": "0.8.0",
+    "version": "0.9.0",
     "description": "Live usage limits and API spending for your AI tools, in the Windows tray.",
     "homepage": "https://kimmansur.github.io/gaugely/",
     "license": "MIT",
@@ -9,8 +9,8 @@
     ],
     "architecture": {
         "64bit": {
-            "url": "https://github.com/kimmansur/gaugely/releases/download/v0.8.0/Gaugely.exe",
-            "hash": "41a79bcea10393bec81484a731be00b80691ee67db5632dd51fa548748b9528b"
+            "url": "https://github.com/kimmansur/gaugely/releases/download/v0.9.0/Gaugely.exe",
+            "hash": "0e153a190cc599a367ae4b549f288ed4e2e119367fc435e62aa4abc54fa3d060"
         }
     },
     "bin": "Gaugely.exe",
