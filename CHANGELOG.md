@@ -7,6 +7,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-20
+
 ### Changed
 - "Reserve the edge" now only reserves while the notch strip sits in a screen corner — its start
   or end within 8 px (at 96 dpi, scaled with DPI) of the start or end of the edge, measured
