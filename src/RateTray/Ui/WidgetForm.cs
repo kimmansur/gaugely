@@ -68,6 +68,9 @@ public sealed class WidgetForm : Form
     // Fork: overlay de preview durante o arrasto (bordas candidatas)
     private DragOverlayForm? _dragOverlay;
 
+    // Fork: no modo Notch, a faixa pode reservar a borda como AppBar (ReservarEspaco).
+    private readonly AppBar _appBar = new();
+
     public WidgetForm(AppConfig config, Palette palette)
     {
         _config = config;
@@ -152,7 +155,7 @@ public sealed class WidgetForm : Form
         // Fork: Item 7 - pula relayout se a assinatura (orientação, escala, canto, monitor, dpi e número de grupos) não mudou
         // Área útil e tema também entram: resolução, barra de tarefas ou tema claro/escuro mudam
         // posição e cor sem mexer em nenhuma configuração da faixa.
-        var sig = $"{_config.Widget.OrientacaoEfetiva}|{_config.Widget.Scale}|{_config.Widget.Corner}|{_config.Widget.Monitor}|{dpi}|{_groups.Count}|{area}|{Dark}|{_config.Widget.Modo}|{_config.Widget.Borda}|{_config.Widget.FracaoBorda:F4}|{_config.Widget.MostrarAlca}|{_config.Widget.Dial}";
+        var sig = $"{_config.Widget.OrientacaoEfetiva}|{_config.Widget.Scale}|{_config.Widget.Corner}|{_config.Widget.Monitor}|{dpi}|{_groups.Count}|{area}|{Dark}|{_config.Widget.Modo}|{_config.Widget.Borda}|{_config.Widget.FracaoBorda:F4}|{_config.Widget.MostrarAlca}|{_config.Widget.Dial}|{_config.Widget.ReservarEspaco}";
         if (sig == _layoutSignature) return;
         _layoutSignature = sig;
 
@@ -163,6 +166,20 @@ public sealed class WidgetForm : Form
         if (IsNotch)
         {
             var layout = CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, area, _dpi);
+
+            // Fork: com a reserva, a borda vira AppBar e a faixa fica dentro do espaço reservado —
+            // não na área útil, que já o desconta.
+            if (_config.Widget.ReservarEspaco &&
+                _appBar.Reserve(Handle, _config.Widget.Borda, screen.Bounds, AppBarMath.Thickness(layout.WidgetBounds, _config.Widget.Borda)) is { } reservado)
+            {
+                var areaFaixa = AppBarMath.LayoutArea(area, _config.Widget.Borda, reservado);
+                layout = CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, areaFaixa, _dpi);
+            }
+            else
+            {
+                _appBar.Remove();
+            }
+
             Bounds = layout.WidgetBounds;
 
             using var contorno = NotchShape(new Rectangle(0, 0, layout.WidgetBounds.Width, layout.WidgetBounds.Height), Px(Corner), _config.Widget.Borda);
@@ -172,6 +189,7 @@ public sealed class WidgetForm : Form
         }
         else
         {
+            _appBar.Remove();
             var layout = CalculateLayout(_config.Widget.OrientacaoEfetiva, _config.Widget.Scale, _config.Widget.Corner, _groups.Count, area, _dpi);
             Bounds = layout.WidgetBounds;
 
@@ -741,6 +759,62 @@ public sealed class WidgetForm : Form
         _dragOverlay?.Close();
         _dragOverlay?.Dispose();
         _dragOverlay = null;
+    }
+
+    // ------------------------------------------------------ AppBar (reserva da borda)
+
+    private const int WmActivate = 0x0006;
+    private const int WmWindowPosChanged = 0x0047;
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == AppBar.CallbackMessage && AppBar.CallbackMessage != 0)
+        {
+            switch ((int)m.WParam)
+            {
+                case AppBar.AbnPosChanged:
+                    // Barra de tarefas ou outra AppBar mudou: pede o espaço de novo e reposiciona.
+                    _appBar.Invalidate();
+                    RefazerReserva();
+                    break;
+                case AppBar.AbnFullScreenApp:
+                    _appBar.FullScreen(m.LParam != IntPtr.Zero);
+                    break;
+            }
+        }
+        else if (m.Msg == AppBar.TaskbarCreated && AppBar.TaskbarCreated != 0)
+        {
+            // Explorer reiniciou e esqueceu a AppBar.
+            if (_appBar.Registered)
+            {
+                _appBar.Lost();
+                RefazerReserva();
+            }
+        }
+        else if (m.Msg == WmWindowPosChanged)
+        {
+            _appBar.Notify(AppBar.AbmWindowPosChanged);
+        }
+        else if (m.Msg == WmActivate)
+        {
+            _appBar.Notify(AppBar.AbmActivate);
+        }
+
+        base.WndProc(ref m);
+    }
+
+    private void RefazerReserva()
+    {
+        if (!IsNotch || !_config.Widget.ReservarEspaco) return;
+        _layoutSignature = "";
+        Relayout();
+    }
+
+    protected override void OnHandleDestroyed(EventArgs e)
+    {
+        // Sem isto a borda ficaria reservada depois de a faixa sumir.
+        _appBar.Remove();
+        base.OnHandleDestroyed(e);
     }
 
     protected override void Dispose(bool disposing)

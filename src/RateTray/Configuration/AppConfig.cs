@@ -427,6 +427,12 @@ public sealed class WidgetOptions
     /// <summary>Mostrar a alça de arrasto na face externa da faixa.</summary>
     public bool MostrarAlca { get; set; } = true;
 
+    /// <summary>
+    /// Fork: no modo Notch, reserva a borda inteira como AppBar, para que janelas maximizadas parem
+    /// antes da faixa. Desligado por padrão: muda o tamanho de toda janela maximizada no monitor.
+    /// </summary>
+    public bool ReservarEspaco { get; set; }
+
     /// <summary>Fork: forma do mostrador — gauge (arco em G), semicircle ou segmented.</summary>
     public string Dial { get; set; } = "gauge";
 
