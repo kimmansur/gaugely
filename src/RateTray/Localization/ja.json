@@ -87,6 +87,8 @@
   "settings.widget.monitor.item": "モニター {0} ({1})",
   "settings.widget.handle": "ドラッグハンドルを表示",
   "settings.widget.handleHint": "マウスでウィジェットを動かすための小さなつまみです。",
+  "settings.widget.reserve": "画面端を確保する",
+  "settings.widget.reserveHint": "最大化したウィンドウがウィジェットの下に潜らず、手前で止まります。ウィジェットのある部分だけでなく、画面端全体が確保されます。",
   "settings.widget.items": "ウィジェットの項目",
   "settings.widget.itemsHint": "トレイアイコンとは別に選択します。",
   "settings.widget.dial": "メーター",

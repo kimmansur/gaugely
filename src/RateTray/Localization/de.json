@@ -87,6 +87,8 @@
   "settings.widget.monitor.item": "Bildschirm {0} ({1})",
   "settings.widget.handle": "Ziehgriff anzeigen",
   "settings.widget.handleHint": "Ein kleiner Griff, um das Widget mit der Maus zu verschieben.",
+  "settings.widget.reserve": "Rand reservieren",
+  "settings.widget.reserveHint": "Maximierte Fenster enden vor dem Widget, statt darunter zu liegen. Reserviert wird der ganze Rand, nicht nur der Teil, den das Widget belegt.",
   "settings.widget.items": "Widget-Elemente",
   "settings.widget.itemsHint": "Unabhängig von den Infobereich-Symbolen wählbar.",
   "settings.widget.dial": "Anzeige",

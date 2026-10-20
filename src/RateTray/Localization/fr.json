@@ -87,6 +87,8 @@
   "settings.widget.monitor.item": "Écran {0} ({1})",
   "settings.widget.handle": "Afficher la poignée",
   "settings.widget.handleHint": "Une petite poignée pour déplacer le widget à la souris.",
+  "settings.widget.reserve": "Réserver le bord",
+  "settings.widget.reserveHint": "Les fenêtres agrandies s'arrêtent avant le widget au lieu de passer dessous. Tout le bord est réservé, pas seulement la partie occupée par le widget.",
   "settings.widget.items": "Éléments du widget",
   "settings.widget.itemsHint": "Choisis indépendamment des icônes de la zone de notification.",
   "settings.widget.dial": "Cadran",

@@ -87,6 +87,8 @@
   "settings.widget.monitor.item": "Monitor {0} ({1})",
   "settings.widget.handle": "Show drag handle",
   "settings.widget.handleHint": "A small grip for moving the widget with the mouse.",
+  "settings.widget.reserve": "Reserve the edge",
+  "settings.widget.reserveHint": "Maximized windows stop before the widget instead of going under it. The whole edge is reserved, not just the part the widget covers.",
   "settings.widget.items": "Widget items",
   "settings.widget.itemsHint": "Chosen separately from the tray icons.",
   "settings.widget.dial": "Dial",

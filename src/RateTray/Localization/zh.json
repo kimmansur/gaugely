@@ -87,6 +87,8 @@
   "settings.widget.monitor.item": "显示器 {0} ({1})",
   "settings.widget.handle": "显示拖动手柄",
   "settings.widget.handleHint": "一个小把手，用鼠标拖动即可移动悬浮窗。",
+  "settings.widget.reserve": "预留屏幕边缘",
+  "settings.widget.reserveHint": "最大化的窗口会停在悬浮窗之前，不再被它遮住。预留的是整条边缘，而不只是悬浮窗所占的部分。",
   "settings.widget.items": "悬浮窗项目",
   "settings.widget.itemsHint": "与托盘图标分开选择。",
   "settings.widget.dial": "仪表样式",

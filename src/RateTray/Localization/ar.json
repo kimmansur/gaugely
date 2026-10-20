@@ -87,6 +87,8 @@
   "settings.widget.monitor.item": "الشاشة {0} ({1})",
   "settings.widget.handle": "إظهار مقبض السحب",
   "settings.widget.handleHint": "مقبض صغير لتحريك الأداة بالماوس.",
+  "settings.widget.reserve": "حجز حافة الشاشة",
+  "settings.widget.reserveHint": "تتوقف النوافذ المكبّرة قبل الأداة بدلاً من أن تمتد تحتها. تُحجز الحافة كلها، لا الجزء الذي تشغله الأداة فقط.",
   "settings.widget.items": "عناصر الأداة",
   "settings.widget.itemsHint": "تُختار بشكل منفصل عن أيقونات علبة النظام.",
   "settings.widget.dial": "المؤشر",

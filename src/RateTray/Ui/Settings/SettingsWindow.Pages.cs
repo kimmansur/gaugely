@@ -127,6 +127,9 @@ public sealed partial class SettingsWindow
             w.Borda.ToString(), v => w.Borda = Enum.Parse<BordaTela>(v));
         Row(basics, Loc.T("settings.widget.edge"), edge);
 
+        var reserve = Toggle(null, w.ReservarEspaco, v => w.ReservarEspaco = v);
+        Row(basics, Loc.T("settings.widget.reserve"), reserve, Loc.T("settings.widget.reserveHint"));
+
         var corner = Choice(
             [
                 ("topLeft", Loc.T("settings.widget.corner.topLeft")),
@@ -144,11 +147,12 @@ public sealed partial class SettingsWindow
             w.Orientation, v => w.Orientation = v);
         Row(basics, Loc.T("settings.widget.orientation"), orientation);
 
-        // Borda só vale no Notch; canto e orientação só na faixa flutuante.
+        // Borda e reserva só valem no Notch; canto e orientação só na faixa flutuante.
         void SyncMode()
         {
             var notch = mode.SelectedIndex == 1;
             edge.Enabled = notch;
+            reserve.Enabled = notch;
             corner.Enabled = !notch;
             orientation.Enabled = !notch;
         }

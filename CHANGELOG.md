@@ -7,6 +7,13 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Notch mode can reserve its screen edge (Settings → Widget → "Reserve the edge", off by default):
+  the strip registers as an AppBar, so maximized windows stop before it instead of going under
+  it. The whole edge is reserved, not just the part the strip covers. The reservation follows
+  edge and monitor changes, is re-registered when Explorer restarts, steps aside for full-screen
+  apps and is released when the strip leaves notch mode or closes.
+
 ## [0.7.1] - 2026-10-02
 
 ### Fixed
