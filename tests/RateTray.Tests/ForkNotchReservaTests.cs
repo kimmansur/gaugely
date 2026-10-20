@@ -377,55 +377,147 @@ public class ForkNotchReservaTests
         Assert.Null(estado.AoRegistrar());   // religar depois não manda ao fundo sem aviso novo
     }
 
-    [Fact]
-    public void TelaCheia_SairDoCantoComAppAbertoNaoVaiParaCimaEVoltarAoCantoMandaAoFundo()
-    {
-        // Faixa no canto, app em tela cheia; arrastada para o meio: o registro sai, mas o app continua
-        // cobrindo o monitor — nada de topmost, e o estado sobrevive.
-        var estado = new EstadoTelaCheia();
-        estado.Avisar(true);
-        Assert.Null(estado.SemRegistro(telaCheiaAgora: true));
-        Assert.True(estado.Aberto);
-        Assert.Null(estado.SemRegistro(telaCheiaAgora: true));   // vigia periódica, app ainda aberto
-        // De volta ao canto antes de o app fechar: o novo registro reaplica o fundo.
-        Assert.Equal(AppBarMath.HwndBottom, estado.AoRegistrar());
-    }
+    // ---------------------------------------------------------------- canto × meio: registro sempre, espessura zero fora do canto
 
-    [Fact]
-    public void TelaCheia_FechadaSemRegistroVoltaParaCimaPelaVigia()
+    [Theory]
+    [InlineData(true, 66, 66)]
+    [InlineData(false, 66, 0)]
+    [InlineData(true, -3, 0)]
+    public void EspessuraReserva_NormalNoCantoZeroForaDele(bool noCanto, int espessuraFaixa, int esperado)
     {
-        // Sem registro não chega ABN_FULLSCREENAPP: a vigia percebe o fim da tela cheia.
-        var estado = new EstadoTelaCheia();
-        estado.Avisar(true);
-        Assert.Null(estado.SemRegistro(telaCheiaAgora: true));
-        Assert.Equal(AppBarMath.HwndTopMost, estado.SemRegistro(telaCheiaAgora: false));
-        Assert.False(estado.Aberto);
-        Assert.Null(estado.SemRegistro(telaCheiaAgora: false));
-        Assert.Null(estado.AoRegistrar());   // voltar ao canto depois não manda ao fundo
-    }
-
-    [Fact]
-    public void TelaCheia_SemRegistroSemTelaCheiaNaoMexe()
-    {
-        var estado = new EstadoTelaCheia();
-        Assert.Null(estado.SemRegistro(telaCheiaAgora: true));   // sem aviso do shell, não inventa estado
-        Assert.False(estado.Aberto);
+        Assert.Equal(esperado, AppBarMath.EspessuraReserva(noCanto, espessuraFaixa));
     }
 
     [Theory]
-    [InlineData(0, 0, 1920, 1080, true)]          // exatamente o monitor
-    [InlineData(-8, -8, 1936, 1096, true)]        // passa do monitor (borda invisível): ainda cobre
-    [InlineData(0, 0, 1920, 1040, false)]         // maximizada comum: para na barra de tarefas
-    [InlineData(1920, -200, 2560, 1440, false)]   // tela cheia no outro monitor
-    public void CobreMonitor_SoQuandoAJanelaCobreOMonitorInteiro(int x, int y, int w, int h, bool esperado)
+    [InlineData(BordaTela.Topo)]
+    [InlineData(BordaTela.Base)]
+    [InlineData(BordaTela.Esquerda)]
+    [InlineData(BordaTela.Direita)]
+    public void PedidoForaDoCanto_DegeneradoColadoNaBordaENaoTiraAreaUtil(BordaTela borda)
     {
-        Assert.Equal(esperado, AppBarMath.CobreMonitor(new Rectangle(x, y, w, h), Principal));
+        // Retângulo pedido fora do canto: espessura zero, borda inteira de comprimento, colado na face
+        // externa do monitor (topo: top = bottom = monitor.Top). O Windows subtrai o retângulo da
+        // área útil — subtrair um retângulo degenerado não muda nada.
+        var pedido = AppBarMath.Request(Secundario, borda, AppBarMath.EspessuraReserva(false, 66));
+        var horizontal = borda is BordaTela.Topo or BordaTela.Base;
+        Assert.Equal(0, horizontal ? pedido.Height : pedido.Width);
+        Assert.Equal(horizontal ? Secundario.Width : Secundario.Height, horizontal ? pedido.Width : pedido.Height);
+        var colado = borda switch
+        {
+            BordaTela.Topo => pedido.Top == Secundario.Top && pedido.Bottom == Secundario.Top,
+            BordaTela.Base => pedido.Top == Secundario.Bottom && pedido.Bottom == Secundario.Bottom,
+            BordaTela.Esquerda => pedido.Left == Secundario.Left && pedido.Right == Secundario.Left,
+            _ => pedido.Left == Secundario.Right && pedido.Right == Secundario.Right,
+        };
+        Assert.True(colado, $"{borda}: {pedido}");
+        var ajustado = AppBarMath.Fit(pedido, borda, 0);   // depois do QUERYPOS continua degenerado
+        Assert.Equal(pedido, ajustado);
+        Assert.Equal(Secundario, Descontar(Secundario, borda, ajustado));
+    }
+
+    [Theory]
+    [InlineData(BordaTela.Topo)]
+    [InlineData(BordaTela.Base)]
+    [InlineData(BordaTela.Esquerda)]
+    [InlineData(BordaTela.Direita)]
+    public void LayoutArea_ReservaZeroLevaAFaixaABordaMesmoComCacheVelho(BordaTela borda)
+    {
+        // Logo depois de sair do canto o cache de Screen ainda desconta a reserva antiga; a reserva de
+        // espessura zero devolve a face da borda — a mesma área que a leitura nova dará.
+        var semReserva = Rectangle.FromLTRB(0, 0, 1920, 1032);
+        var antiga = AppBarMath.Fit(AppBarMath.Request(Principal, borda, 66), borda, 66);
+        var cacheVelho = Descontar(semReserva, borda, antiga);
+        var zero = AppBarMath.Fit(AppBarMath.Request(Principal, borda, 0), borda, 0);
+        if (borda == BordaTela.Base) zero = Rectangle.FromLTRB(0, 1032, 1920, 1032);   // o shell empurra para cima da barra de tarefas
+        Assert.Equal(semReserva, AppBarMath.LayoutArea(semReserva, borda, zero));
+        Assert.Equal(semReserva, AppBarMath.LayoutArea(cacheVelho, borda, zero));
+    }
+
+    [Theory]
+    [InlineData(BordaTela.Topo)]
+    [InlineData(BordaTela.Base)]
+    [InlineData(BordaTela.Esquerda)]
+    [InlineData(BordaTela.Direita)]
+    public void CantoMeio_TransicoesNaoOscilam(BordaTela borda)
+    {
+        // Shell simulado: a área útil desconta o que foi concedido. A faixa anda pela borda inteira e
+        // volta; em cada posição o relayout é repetido até parar. Cada troca canto ↔ meio custa um
+        // único SETPOS (espessura normal ↔ zero) e o relayout seguinte já não pede nada novo.
+        var semReserva = Rectangle.FromLTRB(0, 0, 1920, 1032);
+        var tol = AppBarMath.ToleranciaCanto(96);
+        var guarda = new SetPosGuarda();
+        Rectangle? concedido = null;
+        var relogio = 0L;
+        var trocas = 0;
+        var envios = 0;
+        bool? anterior = null;
+
+        int Relayout(double fracao)
+        {
+            var area = concedido is { } c ? Descontar(semReserva, borda, c) : semReserva;
+            var faixa = WidgetForm.CalculateNotchLayout(borda, 1.0, fracao, 3, concedido is { } r ? AppBarMath.LayoutArea(area, borda, r) : area, 96).WidgetBounds;
+            var noCanto = AppBarMath.NoCanto(faixa, borda, Principal, area, tol);
+            if (anterior is { } a && a != noCanto) trocas++;
+            anterior = noCanto;
+            var esp = AppBarMath.EspessuraReserva(noCanto, AppBarMath.Thickness(faixa, borda));
+            var proposto = AppBarMath.Request(Principal, borda, esp);
+            if (borda == BordaTela.Base) proposto.Offset(0, semReserva.Bottom - proposto.Bottom);   // QUERYPOS: acima da barra de tarefas
+            var ajustado = AppBarMath.Fit(proposto, borda, esp);
+            relogio += SetPosGuarda.JanelaMs;   // relayouts espaçados: só a comparação com o pedido decide
+            if (guarda.Decidir(ajustado, relogio) != SetPosDecisao.Enviar) return 0;
+            guarda.Registrar(ajustado, ajustado, relogio);
+            concedido = ajustado;
+            return 1;
+        }
+
+        var fracoes = Enumerable.Range(0, 41).Select(i => i / 40.0).ToList();
+        fracoes.AddRange(Enumerable.Range(0, 41).Select(i => 1 - i / 40.0));
+        foreach (var fracao in fracoes)
+        {
+            var antes = trocas;
+            envios += Relayout(fracao);
+            for (var i = 0; i < 3; i++) Assert.Equal(0, Relayout(fracao));   // estável: nada a pedir de novo
+            Assert.True(trocas - antes <= 1, $"{borda} fração {fracao}: {trocas - antes} trocas num só ponto");
+        }
+        Assert.True(trocas >= 2, $"{borda}: o passeio tem de passar por canto e meio");
+        Assert.Equal(trocas + 1, envios);   // o primeiro pedido + um por troca
+    }
+
+    [Theory]
+    [InlineData(true, BordaTela.Base, true, AcaoRegistro.Manter)]     // canto ↔ meio: mesmo registro
+    [InlineData(true, BordaTela.Topo, true, AcaoRegistro.Refazer)]    // outra borda: novo registro
+    [InlineData(true, BordaTela.Base, false, AcaoRegistro.Desligar)]  // opção desligada / fora do Notch
+    [InlineData(false, BordaTela.Base, false, AcaoRegistro.Manter)]   // sem registro, nada a tirar
+    public void AcaoAoRelayout_TrocaCantoMeioNaoTiraORegistro(bool registrado, BordaTela borda, bool opcao, AcaoRegistro esperado)
+    {
+        var noCanto = new AppBarReserva(BordaTela.Base, Principal, Rectangle.FromLTRB(0, 966, 1920, 1032));
+        var noMeio = new AppBarReserva(BordaTela.Base, Principal, Rectangle.FromLTRB(0, 1032, 1920, 1032));
+        Assert.Equal(esperado, AppBarMath.AcaoAoRelayout(registrado, noCanto, opcao, borda, Principal));
+        Assert.Equal(esperado, AppBarMath.AcaoAoRelayout(registrado, noMeio, opcao, borda, Principal));
+        Assert.Equal(AcaoRegistro.Refazer, AppBarMath.AcaoAoRelayout(true, noMeio, true, BordaTela.Base, Secundario));
     }
 
     [Fact]
-    public void CobreMonitor_MonitorVazioNuncaConta()
+    public void TelaCheia_PreservadaAoTrocarCantoMeio()
     {
-        Assert.False(AppBarMath.CobreMonitor(Principal, Rectangle.Empty));
+        // App em tela cheia com a faixa no canto. Arrastada para o meio e de volta: o registro fica
+        // (Manter), nada chama AoDesligar e o estado continua aberto — a faixa segue no fundo, e o
+        // fim da tela cheia chega pelo ABN_FULLSCREENAPP, porque ela segue registrada.
+        var estado = new EstadoTelaCheia();
+        Assert.Equal(AppBarMath.HwndBottom, estado.Avisar(true));
+        var noCanto = new AppBarReserva(BordaTela.Topo, Principal, Rectangle.FromLTRB(0, 0, 1920, 66));
+        var noMeio = new AppBarReserva(BordaTela.Topo, Principal, Rectangle.FromLTRB(0, 0, 1920, 0));
+        foreach (var atual in new[] { noCanto, noMeio, noCanto, noMeio })
+        {
+            var acao = AppBarMath.AcaoAoRelayout(true, atual, true, BordaTela.Topo, Principal);
+            Assert.Equal(AcaoRegistro.Manter, acao);
+            Assert.True(estado.Aberto);
+        }
+        // Mesmo trocando de borda com o app aberto (Refazer = Remove guardando o estado), o novo
+        // registro manda a faixa ao fundo.
+        Assert.Equal(AcaoRegistro.Refazer, AppBarMath.AcaoAoRelayout(true, noMeio, true, BordaTela.Base, Principal));
+        Assert.Equal(AppBarMath.HwndBottom, estado.AoRegistrar());
+        Assert.Equal(AppBarMath.HwndTopMost, estado.Avisar(false));   // fim pelo aviso do shell
     }
 
     // ---------------------------------------------------------------- clique × arrasto

@@ -20,10 +20,12 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (the offset was measured in the strip's own coordinates, which follow the cursor): no snap, and
   a strip dragged out of a corner kept the edge reserved. Click versus drag is now measured in
   screen coordinates against the system drag threshold (`SystemInformation.DragSize`).
-- Moving the strip out of a corner while another app is full screen no longer brings it above that
-  app, and moving it back before the app closes sends it to the bottom again. Unregistered, the
-  strip gets no full-screen notifications, so while the state is open it checks once a second
-  whether the foreground window still covers the monitor and returns on top when it no longer does.
+- With "Reserve the edge" on, the strip stays registered as an app bar in the middle of an edge as
+  well, asking the shell for a zero-thickness rectangle flush with the edge, which leaves the work
+  area untouched. It therefore keeps receiving full-screen notifications wherever it sits: a strip
+  outside a corner goes to the bottom when an app enters full screen and returns on top when it
+  leaves, and moving the strip between corner and middle while an app is full screen never brings
+  it above that app. No polling of the foreground window.
 
 ## [0.9.0] - 2026-10-20
 

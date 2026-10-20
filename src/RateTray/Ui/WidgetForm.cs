@@ -177,30 +177,25 @@ public sealed class WidgetForm : Form
         if (sig == _layoutSignature) return;
         _layoutSignature = sig;
 
-        // Fork: reserva que não vale mais (opção desligada, outro modo, outra borda ou monitor) sai
+        // Fork: registro que não vale mais (opção desligada, outro modo, outra borda ou monitor) sai
         // antes do layout, e a área útil é relida do Windows na hora (o cache de Screen ainda tem a
         // reserva). Nada sintetizado: outra AppBar na mesma borda continua descontada. A assinatura
         // fica com a área do cache: quando ele atualizar, um relayout a mais dá o mesmo resultado.
-        // A reserva só vale com a faixa num canto da tela (AppBarMath.NoCanto); no meio da borda ela
-        // sai pelo mesmo caminho. A posição ao longo da borda não depende da própria reserva, então a
-        // decisão não muda por tirá-la; refeita com a área relida, pega a reserva de outra borda que saiu.
+        // Com a opção ligada a faixa fica registrada no canto e no meio da borda; a posição só muda a
+        // espessura pedida (AppBarMath.EspessuraReserva: a da faixa no canto, zero no meio), e o shell
+        // continua avisando a tela cheia. A posição ao longo da borda não depende da própria reserva,
+        // então a decisão canto/meio não muda por pô-la ou tirá-la.
         var opcaoReserva = IsNotch && _config.Widget.ReservarEspaco;
-        bool NoCanto(Rectangle areaUtil) => AppBarMath.NoCanto(
-            CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, areaUtil, dpi).WidgetBounds,
-            _config.Widget.Borda, screen.Bounds, areaUtil, AppBarMath.ToleranciaCanto(dpi));
-        var querReserva = opcaoReserva && NoCanto(area);
-        // Com a opção ligada, perder a reserva (saiu do canto, outra borda ou monitor) é temporário:
-        // SairDoCanto guarda o estado de tela cheia e não põe a faixa por cima de um app em tela cheia.
-        void TirarReserva()
+        switch (AppBarMath.AcaoAoRelayout(_appBar.Registered, _appBar.Atual, opcaoReserva, _config.Widget.Borda, screen.Bounds))
         {
-            if (opcaoReserva) _appBar.SairDoCanto(Handle, screen.Bounds);
-            else _appBar.Remove();
-        }
-        if (_appBar.Registered && !AppBarMath.MantemReserva(_appBar.Atual, querReserva, _config.Widget.Borda, screen.Bounds))
-        {
-            TirarReserva();
-            area = AppBarMath.AreaAposRemover(AppBar.AreaUtilAgora(screen.Bounds), area, screen.Bounds);
-            querReserva = opcaoReserva && NoCanto(area);
+            case AcaoRegistro.Refazer:
+                _appBar.Remove(manterTelaCheia: true);   // o Reserve logo abaixo registra de novo e reaplica o fundo
+                area = AppBarMath.AreaAposRemover(AppBar.AreaUtilAgora(screen.Bounds), area, screen.Bounds);
+                break;
+            case AcaoRegistro.Desligar:
+                _appBar.Remove();
+                area = AppBarMath.AreaAposRemover(AppBar.AreaUtilAgora(screen.Bounds), area, screen.Bounds);
+                break;
         }
 
         _dpi = dpi;
@@ -211,17 +206,19 @@ public sealed class WidgetForm : Form
         {
             var layout = CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, area, _dpi);
 
-            // Fork: com a reserva, a borda vira AppBar e a faixa fica dentro do espaço reservado —
-            // não na área útil, que já o desconta.
-            if (querReserva &&
-                _appBar.Reserve(Handle, _config.Widget.Borda, screen.Bounds, AppBarMath.Thickness(layout.WidgetBounds, _config.Widget.Borda)) is { } reservado)
+            // Fork: com a opção, a borda vira AppBar e a faixa fica dentro do espaço reservado — não na
+            // área útil, que já o desconta. Fora do canto a reserva tem espessura zero e LayoutArea
+            // leva a faixa de volta à borda mesmo com a área útil do cache ainda descontando a antiga.
+            var noCanto = AppBarMath.NoCanto(layout.WidgetBounds, _config.Widget.Borda, screen.Bounds, area, AppBarMath.ToleranciaCanto(_dpi));
+            var espessura = AppBarMath.EspessuraReserva(noCanto, AppBarMath.Thickness(layout.WidgetBounds, _config.Widget.Borda));
+            if (opcaoReserva && _appBar.Reserve(Handle, _config.Widget.Borda, screen.Bounds, espessura) is { } reservado)
             {
                 var areaFaixa = AppBarMath.LayoutArea(area, _config.Widget.Borda, reservado);
                 layout = CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, areaFaixa, _dpi);
             }
             else
             {
-                TirarReserva();   // sem reserva (fora do canto) ou shell recusou o registro
+                _appBar.Remove();   // opção desligada ou shell recusou o registro: sem tela cheia, topmost
             }
 
             Bounds = layout.WidgetBounds;
