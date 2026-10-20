@@ -7,6 +7,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-20
+
 ### Added
 - Notch mode can reserve its screen edge (Settings → Widget → "Reserve the edge", off by default):
   the strip registers as an AppBar, so maximized windows stop before it instead of going under
