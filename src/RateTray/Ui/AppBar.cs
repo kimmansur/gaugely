@@ -48,14 +48,14 @@ internal static class AppBarMath
     /// espaço reservado — usá-la direto poria a faixa para fora da reserva, colada nas janelas
     /// maximizadas. Aqui o lado da borda volta para a face externa da reserva; os outros três
     /// continuam os da área útil. Dá o mesmo resultado antes e depois de o Windows atualizar a área
-    /// útil, então não importa quando ela é lida. Vale também para a reserva de espessura zero
-    /// (faixa fora do canto, ver <see cref="EspessuraReserva"/>): a face externa dela é a borda que o
-    /// shell devolveu, e a área ainda com a reserva antiga (cache de Screen, logo depois de sair do
-    /// canto) volta a encostar ali. Só a reserva vazia (sem concessão) devolve a área útil como está.
+    /// útil, então não importa quando ela é lida. A reserva degenerada (espessura zero, faixa fora do
+    /// canto — ver <see cref="EspessuraReserva"/>) ou vazia não entra: devolve a área útil como está.
+    /// A linha que o shell devolve para ela pode ficar na borda externa do monitor, além da barra de
+    /// tarefas na mesma borda, e não serve de limite (ver <see cref="AreaDaFaixa"/>).
     /// </summary>
     public static Rectangle LayoutArea(Rectangle areaUtil, BordaTela borda, Rectangle reservado)
     {
-        if (reservado.Width <= 0 && reservado.Height <= 0) return areaUtil;
+        if (Degenerada(reservado)) return areaUtil;
 
         return borda switch
         {
@@ -65,6 +65,20 @@ internal static class AppBarMath
             _ => Rectangle.FromLTRB(areaUtil.Left, areaUtil.Top, areaUtil.Right, reservado.Bottom),
         };
     }
+
+    /// <summary>Reserva sem área (espessura zero ou nenhuma concessão): não tira nada da área útil.</summary>
+    public static bool Degenerada(Rectangle reservado) => reservado.Width <= 0 || reservado.Height <= 0;
+
+    /// <summary>
+    /// Área em que a faixa se posiciona depois do ABM_SETPOS. No canto, <see cref="LayoutArea"/> sobre
+    /// a área do cache. Fora do canto (reserva degenerada) o retângulo concedido não conta: a faixa
+    /// encosta no limite da área útil, que já exclui a barra de tarefas — como sem reserva. Vale a área
+    /// lida na hora do monitor (<paramref name="fresca"/>, GetMonitorInfo depois do SETPOS), porque o
+    /// cache de Screen logo depois de sair do canto ainda desconta a reserva antiga; sem leitura
+    /// válida fica o cache (<see cref="AreaAposRemover"/>), e o relayout de quando ele atualizar corrige.
+    /// </summary>
+    public static Rectangle AreaDaFaixa(Rectangle cache, Rectangle? fresca, Rectangle monitor, BordaTela borda, Rectangle reservado) =>
+        Degenerada(reservado) ? AreaAposRemover(fresca, cache, monitor) : LayoutArea(cache, borda, reservado);
 
     /// <summary>Folga, em px físicos, para a faixa contar como encostada no canto: 8 px a 96 dpi.</summary>
     public static int ToleranciaCanto(int dpi) => (int)Math.Round(8 * Math.Max(dpi, 96) / 96.0);
