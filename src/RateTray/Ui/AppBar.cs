@@ -63,10 +63,45 @@ internal static class AppBarMath
         };
     }
 
+    /// <summary>
+    /// Só manda ABM_SETPOS se o retângulo ajustado mudou. Cada SETPOS faz o shell avisar as AppBars
+    /// (ABN_POSCHANGED); repetir o mesmo retângulo a cada aviso fecharia um ciclo — com a própria
+    /// faixa ou com outra AppBar que também responda ao aviso pedindo de novo.
+    /// </summary>
+    public static bool PrecisaSetPos(Rectangle? aprovado, Rectangle ajustado) => aprovado != ajustado;
+
+    /// <summary>
+    /// A reserva atual sobrevive a este relayout? Só se ainda é querida e continua na mesma borda do
+    /// mesmo monitor; senão sai antes de a área útil ser lida.
+    /// </summary>
+    public static bool MantemReserva(AppBarReserva? atual, bool querReserva, BordaTela borda, Rectangle monitor) =>
+        querReserva && atual is { } a && a.Borda == borda && a.Monitor == monitor;
+
+    /// <summary>
+    /// Área útil sem a reserva que acabou de sair. O Windows (e o cache de Screen do WinForms) pode
+    /// ainda não ter devolvido o espaço: o lado da borda reservada volta para a face externa da
+    /// reserva. Se a área útil já foi atualizada, o resultado é o mesmo.
+    /// </summary>
+    public static Rectangle AreaSemReserva(Rectangle areaUtil, Rectangle monitor, AppBarReserva? removida) =>
+        removida is { } r && r.Monitor == monitor ? LayoutArea(areaUtil, r.Borda, r.Reservado) : areaUtil;
+
+    /// <summary>
+    /// ABN_FULLSCREENAPP: com tela cheia aberta a faixa vai para o fundo (HWND_BOTTOM, como no exemplo
+    /// "Using Application Desktop Toolbars" da Microsoft); HWND_NOTOPMOST a deixaria acima de toda
+    /// janela comum, inclusive do app em tela cheia. Ao fechar, volta a ser topmost.
+    /// </summary>
+    public static IntPtr ZOrderTelaCheia(bool aberto) => aberto ? HwndBottom : HwndTopMost;
+
+    public static readonly IntPtr HwndTopMost = new(-1);
+    public static readonly IntPtr HwndBottom = new(1);
+
     /// <summary>Espessura da faixa perpendicular à borda — o quanto reservar.</summary>
     public static int Thickness(Rectangle faixa, BordaTela borda) =>
         borda is BordaTela.Topo or BordaTela.Base ? faixa.Height : faixa.Width;
 }
+
+/// <summary>Fork: o que o shell concedeu — borda, monitor e retângulo reservado.</summary>
+internal readonly record struct AppBarReserva(BordaTela Borda, Rectangle Monitor, Rectangle Reservado);
 
 /// <summary>
 /// Fork: registra a faixa do modo Notch como AppBar (SHAppBarMessage), para que janelas maximizadas
@@ -97,10 +132,19 @@ internal sealed class AppBar
 
     private IntPtr _hwnd;
     private (BordaTela Borda, Rectangle Monitor, int Espessura)? _pedido;
-    private Rectangle _reservado;
+    private AppBarReserva? _atual;
     private bool _abaixoDeTelaCheia;
 
     public bool Registered { get; private set; }
+
+    /// <summary>Reserva concedida pelo último ABM_SETPOS, ou null sem registro.</summary>
+    public AppBarReserva? Atual => _atual;
+
+    /// <summary>
+    /// Verdadeiro durante o ABM_SETPOS: o ABN_POSCHANGED que ele provoca é efeito do próprio ajuste
+    /// e não deve disparar outro.
+    /// </summary>
+    public bool Ajustando { get; private set; }
 
     /// <summary>
     /// Reserva <paramref name="espessura"/> px na borda do monitor e devolve o retângulo que o shell
@@ -120,21 +164,35 @@ internal sealed class AppBar
             _hwnd = hwnd;
             Registered = true;
             _pedido = null;
+            _atual = null;
         }
 
         var pedido = (borda, monitor, espessura);
-        if (_pedido == pedido) return _reservado;
+        if (_pedido == pedido && _atual is { } igual) return igual.Reservado;
 
         var dados = Data(hwnd);
         dados.uEdge = Edge(borda);
         dados.rc = RECT.From(AppBarMath.Request(monitor, borda, espessura));
         SHAppBarMessage(AbmQueryPos, ref dados);
-        dados.rc = RECT.From(AppBarMath.Fit(dados.rc.ToRectangle(), borda, espessura));
-        SHAppBarMessage(AbmSetPos, ref dados);
+        var ajustado = AppBarMath.Fit(dados.rc.ToRectangle(), borda, espessura);
 
-        _reservado = dados.rc.ToRectangle();
+        // Mesmo retângulo já aprovado (ex.: o ABN_POSCHANGED veio de outra AppBar e não mexeu nesta
+        // borda): não há o que pedir, e um SETPOS repetido só geraria outro aviso.
+        if (AppBarMath.PrecisaSetPos(_atual?.Reservado, ajustado))
+        {
+            dados.rc = RECT.From(ajustado);
+            Ajustando = true;
+            try { SHAppBarMessage(AbmSetPos, ref dados); }
+            finally { Ajustando = false; }
+            _atual = new AppBarReserva(borda, monitor, dados.rc.ToRectangle());
+        }
+        else
+        {
+            _atual = new AppBarReserva(borda, monitor, ajustado);
+        }
+
         _pedido = pedido;
-        return _reservado;
+        return _atual.Value.Reservado;
     }
 
     /// <summary>ABN_POSCHANGED: a barra de tarefas ou outra AppBar mudou — o próximo pedido vai ao shell.</summary>
@@ -145,16 +203,21 @@ internal sealed class AppBar
     {
         Registered = false;
         _pedido = null;
+        _atual = null;
     }
 
-    public void Remove()
+    /// <summary>Tira o registro e devolve a reserva que havia, para o layout descontá-la.</summary>
+    public AppBarReserva? Remove()
     {
-        if (!Registered) return;
+        if (!Registered) return null;
+        var removida = _atual;
         var dados = Data(_hwnd);
         SHAppBarMessage(AbmRemove, ref dados);
         Registered = false;
         _pedido = null;
+        _atual = null;
         if (_abaixoDeTelaCheia) FullScreen(false);   // sem reserva, ninguém mais avisaria a volta
+        return removida;
     }
 
     /// <summary>ABM_ACTIVATE / ABM_WINDOWPOSCHANGED, que o shell pede a toda AppBar registrada.</summary>
@@ -166,14 +229,14 @@ internal sealed class AppBar
     }
 
     /// <summary>
-    /// ABN_FULLSCREENAPP: com um app em tela cheia (vídeo, jogo, apresentação) a faixa sai de cima;
-    /// quando ele fecha, volta a ficar por cima. Sem ativar a janela.
+    /// ABN_FULLSCREENAPP: com um app em tela cheia (vídeo, jogo, apresentação) a faixa vai para o
+    /// fundo; quando ele fecha, volta a ficar por cima. Sem ativar a janela.
     /// </summary>
     public void FullScreen(bool aberto)
     {
         if (_hwnd == IntPtr.Zero) return;
         _abaixoDeTelaCheia = aberto;
-        SetWindowPos(_hwnd, aberto ? HwndNoTopMost : HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+        SetWindowPos(_hwnd, AppBarMath.ZOrderTelaCheia(aberto), 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
     }
 
     private static APPBARDATA Data(IntPtr hwnd) => new()
@@ -190,8 +253,6 @@ internal sealed class AppBar
         _ => 3,                   // ABE_BOTTOM
     };
 
-    private static readonly IntPtr HwndTopMost = new(-1);
-    private static readonly IntPtr HwndNoTopMost = new(-2);
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoMove = 0x0002;
     private const uint SwpNoActivate = 0x0010;

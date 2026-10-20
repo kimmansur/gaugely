@@ -144,8 +144,19 @@ public sealed class WidgetForm : Form
 
     private string _layoutSignature = "";
 
+    // Fork: o primeiro handle nasce de dentro do Relayout (Handle no Reserve); OnHandleCreated não refaz.
+    private bool _emRelayout;
+
     /// <summary>Recoloca a faixa no canto guardado, ajusta a altura e refaz o recorte arredondado.</summary>
     public void Relayout()
+    {
+        var antes = _emRelayout;
+        _emRelayout = true;
+        try { RelayoutCore(); }
+        finally { _emRelayout = antes; }
+    }
+
+    private void RelayoutCore()
     {
         var screen = ScreenOfChoice();
         var area = screen.WorkingArea;
@@ -159,6 +170,14 @@ public sealed class WidgetForm : Form
         if (sig == _layoutSignature) return;
         _layoutSignature = sig;
 
+        // Fork: reserva que não vale mais (opção desligada, outro modo, outra borda ou monitor) sai
+        // antes do layout; a área útil volta sem ela, mesmo que o Windows ainda não a tenha
+        // devolvido. A assinatura fica com a área de antes: quando o Windows atualizar, um relayout
+        // a mais dá o mesmo resultado.
+        var querReserva = IsNotch && _config.Widget.ReservarEspaco;
+        if (_appBar.Registered && !AppBarMath.MantemReserva(_appBar.Atual, querReserva, _config.Widget.Borda, screen.Bounds))
+            area = AppBarMath.AreaSemReserva(ScreenOfChoice().WorkingArea, screen.Bounds, _appBar.Remove());
+
         _dpi = dpi;
         BuildFonts();
         BackColor = Background;
@@ -169,7 +188,7 @@ public sealed class WidgetForm : Form
 
             // Fork: com a reserva, a borda vira AppBar e a faixa fica dentro do espaço reservado —
             // não na área útil, que já o desconta.
-            if (_config.Widget.ReservarEspaco &&
+            if (querReserva &&
                 _appBar.Reserve(Handle, _config.Widget.Borda, screen.Bounds, AppBarMath.Thickness(layout.WidgetBounds, _config.Widget.Borda)) is { } reservado)
             {
                 var areaFaixa = AppBarMath.LayoutArea(area, _config.Widget.Borda, reservado);
@@ -177,7 +196,7 @@ public sealed class WidgetForm : Form
             }
             else
             {
-                _appBar.Remove();
+                _appBar.Remove();   // shell recusou o registro
             }
 
             Bounds = layout.WidgetBounds;
@@ -189,7 +208,6 @@ public sealed class WidgetForm : Form
         }
         else
         {
-            _appBar.Remove();
             var layout = CalculateLayout(_config.Widget.OrientacaoEfetiva, _config.Widget.Scale, _config.Widget.Corner, _groups.Count, area, _dpi);
             Bounds = layout.WidgetBounds;
 
@@ -774,6 +792,9 @@ public sealed class WidgetForm : Form
             {
                 case AppBar.AbnPosChanged:
                     // Barra de tarefas ou outra AppBar mudou: pede o espaço de novo e reposiciona.
+                    // O aviso provocado pelo próprio ABM_SETPOS é ignorado; e o Reserve só repete o
+                    // SETPOS se o retângulo mudou, então os avisos não viram ciclo.
+                    if (_appBar.Ajustando) break;
                     _appBar.Invalidate();
                     RefazerReserva();
                     break;
@@ -812,9 +833,19 @@ public sealed class WidgetForm : Form
 
     protected override void OnHandleDestroyed(EventArgs e)
     {
-        // Sem isto a borda ficaria reservada depois de a faixa sumir.
+        // Sem isto a borda ficaria reservada depois de a faixa sumir. A assinatura cai junto: depois
+        // de um RecreateHandle o próximo relayout tem de registrar a janela nova.
         _appBar.Remove();
+        _layoutSignature = "";
         base.OnHandleDestroyed(e);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        // Janela recriada (RecreateHandle) com a reserva ligada: registra de novo já, sem esperar
+        // outro motivo de relayout. No primeiro handle, criado de dentro do Relayout, ele mesmo cuida.
+        if (!_emRelayout) RefazerReserva();
     }
 
     protected override void Dispose(bool disposing)
