@@ -484,12 +484,13 @@ public class ForkNotchReservaTests
     }
 
     [Theory]
-    [InlineData(true, BordaTela.Base, true, AcaoRegistro.Manter)]     // canto ↔ meio: mesmo registro
-    [InlineData(true, BordaTela.Topo, true, AcaoRegistro.Refazer)]    // outra borda: novo registro
-    [InlineData(true, BordaTela.Base, false, AcaoRegistro.Desligar)]  // opção desligada / fora do Notch
-    [InlineData(false, BordaTela.Base, false, AcaoRegistro.Manter)]   // sem registro, nada a tirar
-    public void AcaoAoRelayout_TrocaCantoMeioNaoTiraORegistro(bool registrado, BordaTela borda, bool opcao, AcaoRegistro esperado)
+    [InlineData(true, BordaTela.Base, true, nameof(AcaoRegistro.Manter))]   // canto ↔ meio: mesmo registro
+    [InlineData(true, BordaTela.Topo, true, nameof(AcaoRegistro.Refazer))]   // outra borda: novo registro
+    [InlineData(true, BordaTela.Base, false, nameof(AcaoRegistro.Desligar))]  // opção desligada / fora do Notch
+    [InlineData(false, BordaTela.Base, false, nameof(AcaoRegistro.Manter))]  // sem registro, nada a tirar
+    public void AcaoAoRelayout_TrocaCantoMeioNaoTiraORegistro(bool registrado, BordaTela borda, bool opcao, string nomeEsperado)
     {
+        var esperado = Enum.Parse<AcaoRegistro>(nomeEsperado);   // o enum é internal: não pode ser parâmetro do teste público
         var noCanto = new AppBarReserva(BordaTela.Base, Principal, Rectangle.FromLTRB(0, 966, 1920, 1032));
         var noMeio = new AppBarReserva(BordaTela.Base, Principal, Rectangle.FromLTRB(0, 1032, 1920, 1032));
         Assert.Equal(esperado, AppBarMath.AcaoAoRelayout(registrado, noCanto, opcao, borda, Principal));
