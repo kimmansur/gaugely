@@ -88,7 +88,7 @@
   "settings.widget.handle": "Mostrar alça de arrasto",
   "settings.widget.handleHint": "Uma pegada pequena para mover a faixa com o mouse.",
   "settings.widget.reserve": "Reservar a borda",
-  "settings.widget.reserveHint": "Janelas maximizadas param antes da faixa em vez de ficar por baixo dela. A borda inteira fica reservada, não só o trecho ocupado pela faixa.",
+  "settings.widget.reserveHint": "Só quando a faixa está num canto da tela: aí as janelas maximizadas param antes dela em vez de ficar por baixo. A borda inteira fica reservada, não só o trecho ocupado pela faixa; no meio da borda nada é reservado e as outras janelas mantêm o tamanho.",
   "settings.widget.items": "Itens da faixa",
   "settings.widget.itemsHint": "Escolhidos à parte dos ícones da bandeja.",
   "settings.widget.dial": "Mostrador",

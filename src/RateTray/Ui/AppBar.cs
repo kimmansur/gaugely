@@ -63,6 +63,31 @@ internal static class AppBarMath
         };
     }
 
+    /// <summary>Folga, em px físicos, para a faixa contar como encostada no canto: 8 px a 96 dpi.</summary>
+    public static int ToleranciaCanto(int dpi) => (int)Math.Round(8 * Math.Max(dpi, 96) / 96.0);
+
+    /// <summary>
+    /// A faixa está num canto da tela? Só então a reserva vale: no meio da borda, reservar a borda
+    /// inteira encolheria toda janela maximizada por causa de um pedaço pequeno. Conta a posição ao
+    /// longo da borda: o início (esquerda ou topo) ou o fim (direita ou base) da faixa tem de estar a
+    /// até <paramref name="tolerancia"/> px do início ou do fim do monitor ou da área útil — esta
+    /// cobre a barra de tarefas numa borda vizinha (faixa à esquerda, colada em cima da barra na
+    /// base). Não oscila: a reserva da própria faixa só muda o lado da área útil na borda dela, que é
+    /// perpendicular ao eixo comparado aqui; tirar ou pôr a reserva não move nenhum dos limites.
+    /// </summary>
+    public static bool NoCanto(Rectangle faixa, BordaTela borda, Rectangle monitor, Rectangle areaUtil, int tolerancia)
+    {
+        if (faixa.Width <= 0 || faixa.Height <= 0) return false;
+        tolerancia = Math.Max(0, tolerancia);
+        var horizontal = borda is BordaTela.Topo or BordaTela.Base;
+        var (ini, fim) = horizontal ? (faixa.Left, faixa.Right) : (faixa.Top, faixa.Bottom);
+        var (monIni, monFim) = horizontal ? (monitor.Left, monitor.Right) : (monitor.Top, monitor.Bottom);
+        var (areaIni, areaFim) = horizontal ? (areaUtil.Left, areaUtil.Right) : (areaUtil.Top, areaUtil.Bottom);
+
+        bool Perto(int a, int b) => Math.Abs(a - b) <= tolerancia;
+        return Perto(ini, monIni) || Perto(ini, areaIni) || Perto(fim, monFim) || Perto(fim, areaFim);
+    }
+
     /// <summary>
     /// A reserva atual sobrevive a este relayout? Só se ainda é querida e continua na mesma borda do
     /// mesmo monitor; senão sai antes de a área útil ser lida.

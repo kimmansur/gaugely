@@ -181,11 +181,19 @@ public sealed class WidgetForm : Form
         // antes do layout, e a área útil é relida do Windows na hora (o cache de Screen ainda tem a
         // reserva). Nada sintetizado: outra AppBar na mesma borda continua descontada. A assinatura
         // fica com a área do cache: quando ele atualizar, um relayout a mais dá o mesmo resultado.
-        var querReserva = IsNotch && _config.Widget.ReservarEspaco;
+        // A reserva só vale com a faixa num canto da tela (AppBarMath.NoCanto); no meio da borda ela
+        // sai pelo mesmo caminho. A posição ao longo da borda não depende da própria reserva, então a
+        // decisão não muda por tirá-la; refeita com a área relida, pega a reserva de outra borda que saiu.
+        var opcaoReserva = IsNotch && _config.Widget.ReservarEspaco;
+        bool NoCanto(Rectangle areaUtil) => AppBarMath.NoCanto(
+            CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, areaUtil, dpi).WidgetBounds,
+            _config.Widget.Borda, screen.Bounds, areaUtil, AppBarMath.ToleranciaCanto(dpi));
+        var querReserva = opcaoReserva && NoCanto(area);
         if (_appBar.Registered && !AppBarMath.MantemReserva(_appBar.Atual, querReserva, _config.Widget.Borda, screen.Bounds))
         {
             _appBar.Remove();
             area = AppBarMath.AreaAposRemover(AppBar.AreaUtilAgora(screen.Bounds), area, screen.Bounds);
+            querReserva = opcaoReserva && NoCanto(area);
         }
 
         _dpi = dpi;
@@ -206,7 +214,7 @@ public sealed class WidgetForm : Form
             }
             else
             {
-                _appBar.Remove();   // shell recusou o registro
+                _appBar.Remove();   // sem reserva (fora do canto) ou shell recusou o registro
             }
 
             Bounds = layout.WidgetBounds;

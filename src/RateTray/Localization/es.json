@@ -88,7 +88,7 @@
   "settings.widget.handle": "Mostrar asa de arrastre",
   "settings.widget.handleHint": "Un pequeño asidero para arrastrar el widget a otro lugar.",
   "settings.widget.reserve": "Reservar el borde",
-  "settings.widget.reserveHint": "Las ventanas maximizadas se detienen antes del widget en lugar de quedar debajo. Se reserva todo el borde, no solo la parte que ocupa el widget.",
+  "settings.widget.reserveHint": "Solo cuando el widget está en una esquina de la pantalla: entonces las ventanas maximizadas se detienen antes de él en lugar de quedar debajo. Se reserva todo el borde, no solo la parte que ocupa el widget; en medio del borde no se reserva nada y las demás ventanas conservan su tamaño.",
   "settings.widget.items": "Elementos del widget",
   "settings.widget.itemsHint": "Se eligen aparte de los iconos de la bandeja.",
   "settings.widget.dial": "Indicador",

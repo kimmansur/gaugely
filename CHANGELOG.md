@@ -7,6 +7,14 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- "Reserve the edge" now only reserves while the notch strip sits in a screen corner — its start
+  or end within 8 px (at 96 dpi, scaled with DPI) of the start or end of the edge, measured
+  against the monitor or the work area (so a taskbar on the neighbouring edge still counts). In
+  the middle of an edge nothing is reserved and other windows keep their size. Re-evaluated when
+  the strip is dragged, its position along the edge, scale or monitor change; adding or removing
+  the reservation never moves the position along the edge, so the decision does not flip-flop.
+
 ## [0.9.0] - 2026-10-20
 
 ### Added
