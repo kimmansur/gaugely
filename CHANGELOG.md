@@ -15,6 +15,16 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the strip is dragged, its position along the edge, scale or monitor change; adding or removing
   the reservation never moves the position along the edge, so the decision does not flip-flop.
 
+### Fixed
+- Dragging the strip and releasing the cursor on the same spot of the strip was taken as a click
+  (the offset was measured in the strip's own coordinates, which follow the cursor): no snap, and
+  a strip dragged out of a corner kept the edge reserved. Click versus drag is now measured in
+  screen coordinates against the system drag threshold (`SystemInformation.DragSize`).
+- Moving the strip out of a corner while another app is full screen no longer brings it above that
+  app, and moving it back before the app closes sends it to the bottom again. Unregistered, the
+  strip gets no full-screen notifications, so while the state is open it checks once a second
+  whether the foreground window still covers the monitor and returns on top when it no longer does.
+
 ## [0.9.0] - 2026-10-20
 
 ### Added

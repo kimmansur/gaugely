@@ -115,6 +115,14 @@ internal static class AppBarMath
     public static readonly IntPtr HwndTopMost = new(-1);
     public static readonly IntPtr HwndBottom = new(1);
 
+    /// <summary>
+    /// A janela em primeiro plano está em tela cheia neste monitor? Cobre o monitor inteiro — o
+    /// mesmo critério do shell para ABN_FULLSCREENAPP. Serve só quando a faixa está sem registro
+    /// (fora do canto) e o shell não avisa mais nada.
+    /// </summary>
+    public static bool CobreMonitor(Rectangle janela, Rectangle monitor) =>
+        monitor.Width > 0 && monitor.Height > 0 && janela.Contains(monitor);
+
     /// <summary>Espessura da faixa perpendicular à borda — o quanto reservar.</summary>
     public static int Thickness(Rectangle faixa, BordaTela borda) =>
         borda is BordaTela.Topo or BordaTela.Base ? faixa.Height : faixa.Width;
@@ -252,6 +260,20 @@ internal sealed class EstadoTelaCheia
         Aberto = false;
         return AppBarMath.HwndTopMost;
     }
+
+    /// <summary>
+    /// Sem registro por um tempo (faixa fora do canto, ou shell recusou): o estado não é esquecido,
+    /// porque a faixa pode voltar ao canto com o app ainda em tela cheia e o novo registro tem de
+    /// mandá-la ao fundo. Como o shell não avisa mais o fim da tela cheia, quem chama confere a janela
+    /// em primeiro plano (<paramref name="telaCheiaAgora"/>) agora e periodicamente: enquanto ela
+    /// cobre o monitor, nada muda; quando deixa de cobrir, a faixa volta para cima e o estado acaba.
+    /// </summary>
+    public IntPtr? SemRegistro(bool telaCheiaAgora)
+    {
+        if (!Aberto || telaCheiaAgora) return null;
+        Aberto = false;
+        return AppBarMath.HwndTopMost;
+    }
 }
 
 /// <summary>
@@ -332,7 +354,9 @@ internal sealed class AppBar : IDisposable
             _base = null;
             _atual = null;
             _guarda.Liberar();
-            // Handle recriado com um app ainda em tela cheia: o aviso não se repete.
+            // Handle recriado, ou volta ao canto, com um app ainda em tela cheia: o aviso não se
+            // repete. Registrado, o shell volta a avisar o fim dela; a vigia sem registro para.
+            PararVigiaTelaCheia();
             if (_telaCheia.AoRegistrar() is { } z) ZOrder(z);
         }
 
@@ -401,6 +425,8 @@ internal sealed class AppBar : IDisposable
     {
         _reconciliacao?.Dispose();
         _reconciliacao = null;
+        _vigiaTelaCheia?.Dispose();
+        _vigiaTelaCheia = null;
     }
 
     /// <summary>O Explorer reiniciou e esqueceu o registro; não adianta mandar ABM_REMOVE.</summary>
@@ -421,7 +447,11 @@ internal sealed class AppBar : IDisposable
     /// </summary>
     public AppBarReserva? Remove(bool manterTelaCheia = false)
     {
-        if (!manterTelaCheia && _telaCheia.AoDesligar() is { } z) ZOrder(z);
+        if (!manterTelaCheia)
+        {
+            PararVigiaTelaCheia();
+            if (_telaCheia.AoDesligar() is { } z) ZOrder(z);
+        }
         PararReconciliacao();
         if (!Registered) return null;
         var removida = _atual;
@@ -433,6 +463,66 @@ internal sealed class AppBar : IDisposable
         _atual = null;
         _guarda.Liberar();
         return removida;
+    }
+
+    /// <summary>
+    /// A reserva continua ligada, mas a faixa saiu do canto (ou o shell recusou o registro): tira o
+    /// registro sem esquecer a tela cheia (ver <see cref="EstadoTelaCheia.SemRegistro"/>) e sem
+    /// forçar topmost enquanto um app cobre o monitor. Sem registro não chega ABN_FULLSCREENAPP, então
+    /// a janela em primeiro plano é conferida já e a cada <see cref="VigiaTelaCheiaMs"/> ms até a tela
+    /// cheia fechar (faixa volta para cima) ou a faixa voltar ao canto (o novo registro reaplica o
+    /// fundo e o shell volta a avisar).
+    /// </summary>
+    public AppBarReserva? SairDoCanto(IntPtr hwnd, Rectangle monitor)
+    {
+        var removida = Remove(manterTelaCheia: true);
+        _hwnd = hwnd;   // handle recriado fora do canto: o z-order vai para a janela nova
+        _monitorVigia = monitor;
+        VerificarTelaCheia();
+        return removida;
+    }
+
+    public const int VigiaTelaCheiaMs = 1000;
+
+    private Rectangle _monitorVigia;
+    private System.Windows.Forms.Timer? _vigiaTelaCheia;
+
+    private void VerificarTelaCheia()
+    {
+        if (Registered || !_telaCheia.Aberto)
+        {
+            PararVigiaTelaCheia();
+            return;
+        }
+        if (_telaCheia.SemRegistro(TelaCheiaAgora(_monitorVigia, _hwnd)) is { } z) ZOrder(z);
+        if (!_telaCheia.Aberto)
+        {
+            PararVigiaTelaCheia();
+            return;
+        }
+        if (_vigiaTelaCheia is null)
+        {
+            _vigiaTelaCheia = new System.Windows.Forms.Timer { Interval = VigiaTelaCheiaMs };
+            _vigiaTelaCheia.Tick += (_, _) => VerificarTelaCheia();
+        }
+        _vigiaTelaCheia.Start();
+    }
+
+    private void PararVigiaTelaCheia() => _vigiaTelaCheia?.Stop();
+
+    /// <summary>
+    /// Há app em tela cheia no monitor: a janela em primeiro plano cobre o monitor inteiro. Ficam de
+    /// fora a própria faixa e a área de trabalho (Progman/WorkerW e a janela do shell), que também
+    /// cobrem o monitor e manteriam a faixa no fundo à toa.
+    /// </summary>
+    private static bool TelaCheiaAgora(Rectangle monitor, IntPtr propria)
+    {
+        var fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero || fg == propria || fg == GetShellWindow() || fg == GetDesktopWindow()) return false;
+        var classe = new System.Text.StringBuilder(64);
+        GetClassName(fg, classe, classe.Capacity);
+        if (classe.ToString() is "Progman" or "WorkerW") return false;
+        return GetWindowRect(fg, out var rc) && AppBarMath.CobreMonitor(rc.ToRectangle(), monitor);
     }
 
     /// <summary>
@@ -526,6 +616,22 @@ internal sealed class AppBar : IDisposable
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetShellWindow();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetDesktopWindow();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromRect(ref RECT rect, uint flags);

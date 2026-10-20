@@ -377,6 +377,91 @@ public class ForkNotchReservaTests
         Assert.Null(estado.AoRegistrar());   // religar depois não manda ao fundo sem aviso novo
     }
 
+    [Fact]
+    public void TelaCheia_SairDoCantoComAppAbertoNaoVaiParaCimaEVoltarAoCantoMandaAoFundo()
+    {
+        // Faixa no canto, app em tela cheia; arrastada para o meio: o registro sai, mas o app continua
+        // cobrindo o monitor — nada de topmost, e o estado sobrevive.
+        var estado = new EstadoTelaCheia();
+        estado.Avisar(true);
+        Assert.Null(estado.SemRegistro(telaCheiaAgora: true));
+        Assert.True(estado.Aberto);
+        Assert.Null(estado.SemRegistro(telaCheiaAgora: true));   // vigia periódica, app ainda aberto
+        // De volta ao canto antes de o app fechar: o novo registro reaplica o fundo.
+        Assert.Equal(AppBarMath.HwndBottom, estado.AoRegistrar());
+    }
+
+    [Fact]
+    public void TelaCheia_FechadaSemRegistroVoltaParaCimaPelaVigia()
+    {
+        // Sem registro não chega ABN_FULLSCREENAPP: a vigia percebe o fim da tela cheia.
+        var estado = new EstadoTelaCheia();
+        estado.Avisar(true);
+        Assert.Null(estado.SemRegistro(telaCheiaAgora: true));
+        Assert.Equal(AppBarMath.HwndTopMost, estado.SemRegistro(telaCheiaAgora: false));
+        Assert.False(estado.Aberto);
+        Assert.Null(estado.SemRegistro(telaCheiaAgora: false));
+        Assert.Null(estado.AoRegistrar());   // voltar ao canto depois não manda ao fundo
+    }
+
+    [Fact]
+    public void TelaCheia_SemRegistroSemTelaCheiaNaoMexe()
+    {
+        var estado = new EstadoTelaCheia();
+        Assert.Null(estado.SemRegistro(telaCheiaAgora: true));   // sem aviso do shell, não inventa estado
+        Assert.False(estado.Aberto);
+    }
+
+    [Theory]
+    [InlineData(0, 0, 1920, 1080, true)]          // exatamente o monitor
+    [InlineData(-8, -8, 1936, 1096, true)]        // passa do monitor (borda invisível): ainda cobre
+    [InlineData(0, 0, 1920, 1040, false)]         // maximizada comum: para na barra de tarefas
+    [InlineData(1920, -200, 2560, 1440, false)]   // tela cheia no outro monitor
+    public void CobreMonitor_SoQuandoAJanelaCobreOMonitorInteiro(int x, int y, int w, int h, bool esperado)
+    {
+        Assert.Equal(esperado, AppBarMath.CobreMonitor(new Rectangle(x, y, w, h), Principal));
+    }
+
+    [Fact]
+    public void CobreMonitor_MonitorVazioNuncaConta()
+    {
+        Assert.False(AppBarMath.CobreMonitor(Principal, Rectangle.Empty));
+    }
+
+    // ---------------------------------------------------------------- clique × arrasto
+
+    [Fact]
+    public void Arrasto_FaixaAcompanhaOCursor_MedidoEmTelaNaoViraClique()
+    {
+        // MouseDown no ponto (30, 20) da faixa em (100, 1000); a faixa é arrastada 600 px para a
+        // direita e o cursor é solto no mesmo ponto relativo dela. Em coordenadas locais o
+        // deslocamento seria zero; em tela é 600 px.
+        var limiar = new Size(4, 4);   // SystemInformation.DragSize padrão
+        var origemTela = new Point(100 + 30, 1000 + 20);
+        var solturaTela = new Point(700 + 30, 1000 + 20);
+        Assert.True(WidgetForm.PassouDoLimiar(origemTela, solturaTela, limiar));
+    }
+
+    [Theory]
+    [InlineData(0, 0, false)]
+    [InlineData(2, -2, false)]    // dentro do retângulo de arrasto: clique
+    [InlineData(3, 0, true)]
+    [InlineData(0, -3, true)]
+    public void Arrasto_LimiarDoSistemaCentradoNoMouseDown(int dx, int dy, bool esperado)
+    {
+        var origem = new Point(500, 500);
+        Assert.Equal(esperado, WidgetForm.PassouDoLimiar(origem, new Point(500 + dx, 500 + dy), new Size(4, 4)));
+    }
+
+    [Fact]
+    public void Arrasto_LimiarMaiorDoSistemaEhRespeitado()
+    {
+        // DragSize configurado maior (acessibilidade, caneta): 10 px ainda é clique.
+        var origem = new Point(0, 0);
+        Assert.False(WidgetForm.PassouDoLimiar(origem, new Point(10, 0), new Size(20, 20)));
+        Assert.True(WidgetForm.PassouDoLimiar(origem, new Point(11, 0), new Size(20, 20)));
+    }
+
     // ---------------------------------------------------------------- remover antes do layout
 
     [Theory]

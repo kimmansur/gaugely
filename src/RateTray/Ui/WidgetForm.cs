@@ -49,7 +49,6 @@ public sealed class WidgetForm : Form
     private const int PadTop = 6;
     private const int Corner = 14;
     private const int EdgeMargin = 12;
-    private const int DragSlop = 4;             // movimento menor que isso ainda é um clique
     private const int HandleThickness = 5;      // espessura da alça de arrasto
 
     private readonly AppConfig _config;
@@ -60,9 +59,10 @@ public sealed class WidgetForm : Form
     private IReadOnlyList<(WidgetGroup Group, LimitReading? Summary, LimitReading? Binding)> _cachedGroups = [];
     private int _dpi = 96;
     private Font _valueFont = null!;
-    private Point _dragOrigin;
     private Point _dragScreenOrigin;
+    private Point _dragFormOrigin;
     private bool _dragging;
+    private bool _arrastou;   // passou do limiar de arrasto do sistema desde o MouseDown
     private int _hovered = -1;
 
     // Fork: overlay de preview durante o arrasto (bordas candidatas)
@@ -189,9 +189,16 @@ public sealed class WidgetForm : Form
             CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, areaUtil, dpi).WidgetBounds,
             _config.Widget.Borda, screen.Bounds, areaUtil, AppBarMath.ToleranciaCanto(dpi));
         var querReserva = opcaoReserva && NoCanto(area);
+        // Com a opção ligada, perder a reserva (saiu do canto, outra borda ou monitor) é temporário:
+        // SairDoCanto guarda o estado de tela cheia e não põe a faixa por cima de um app em tela cheia.
+        void TirarReserva()
+        {
+            if (opcaoReserva) _appBar.SairDoCanto(Handle, screen.Bounds);
+            else _appBar.Remove();
+        }
         if (_appBar.Registered && !AppBarMath.MantemReserva(_appBar.Atual, querReserva, _config.Widget.Borda, screen.Bounds))
         {
-            _appBar.Remove();
+            TirarReserva();
             area = AppBarMath.AreaAposRemover(AppBar.AreaUtilAgora(screen.Bounds), area, screen.Bounds);
             querReserva = opcaoReserva && NoCanto(area);
         }
@@ -214,7 +221,7 @@ public sealed class WidgetForm : Form
             }
             else
             {
-                _appBar.Remove();   // sem reserva (fora do canto) ou shell recusou o registro
+                TirarReserva();   // sem reserva (fora do canto) ou shell recusou o registro
             }
 
             Bounds = layout.WidgetBounds;
@@ -639,19 +646,30 @@ public sealed class WidgetForm : Form
     {
         if (e.Button != MouseButtons.Left) return;
         _dragging = true;
-        _dragOrigin = e.Location;
+        _arrastou = false;
         _dragScreenOrigin = PointToScreen(e.Location);
+        _dragFormOrigin = Location;
     }
+
+    /// <summary>
+    /// Fork: clique ou arrasto? Medido em coordenadas de TELA: a faixa acompanha o cursor, então em
+    /// coordenadas locais ele volta ao mesmo ponto da faixa e todo arrasto pareceria um clique. Mesmo
+    /// critério do DragDetect do Windows: sair do retângulo <paramref name="limiar"/>
+    /// (SystemInformation.DragSize) centrado no ponto do MouseDown.
+    /// </summary>
+    internal static bool PassouDoLimiar(Point origemTela, Point atualTela, Size limiar) =>
+        Math.Abs(atualTela.X - origemTela.X) > limiar.Width / 2 ||
+        Math.Abs(atualTela.Y - origemTela.Y) > limiar.Height / 2;
 
     private void OnMouseMove(object? sender, MouseEventArgs e)
     {
         if (_dragging && e.Button == MouseButtons.Left)
         {
-            var dx = e.X - _dragOrigin.X;
-            var dy = e.Y - _dragOrigin.Y;
-            if (Math.Abs(dx) > DragSlop || Math.Abs(dy) > DragSlop)
+            var tela = PointToScreen(e.Location);
+            if (!_arrastou && PassouDoLimiar(_dragScreenOrigin, tela, SystemInformation.DragSize)) _arrastou = true;
+            if (_arrastou)
             {
-                Location = new Point(Location.X + dx, Location.Y + dy);
+                Location = new Point(_dragFormOrigin.X + tela.X - _dragScreenOrigin.X, _dragFormOrigin.Y + tela.Y - _dragScreenOrigin.Y);
 
                 // Fork: preview das bordas candidatas durante arrasto no modo Notch
                 if (IsNotch)
@@ -687,8 +705,13 @@ public sealed class WidgetForm : Form
     private void OnMouseUp(object? sender, MouseEventArgs e)
     {
         if (e.Button != MouseButtons.Left) return;
-        var arrastou = _dragging && (Math.Abs(e.X - _dragOrigin.X) > DragSlop || Math.Abs(e.Y - _dragOrigin.Y) > DragSlop);
+        // Houve arrasto se algum MouseMove passou do limiar, ou se o ponto de soltura, em tela, está
+        // fora dele: soltar no mesmo ponto relativo da faixa depois de movê-la continua sendo arrasto,
+        // e o snap (com a reavaliação do canto e da reserva no Relayout) sempre roda.
+        var arrastou = _dragging &&
+            (_arrastou || PassouDoLimiar(_dragScreenOrigin, PointToScreen(e.Location), SystemInformation.DragSize));
         _dragging = false;
+        _arrastou = false;
 
         // Esconde o overlay de preview
         HideDragOverlay();
