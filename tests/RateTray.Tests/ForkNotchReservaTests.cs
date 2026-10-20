@@ -161,43 +161,104 @@ public class ForkNotchReservaTests
 
     // ---------------------------------------------------------------- SETPOS sem ciclo
 
+    private static readonly Rectangle Aprovado = Rectangle.FromLTRB(0, 966, 1920, 1032);
+
     [Fact]
-    public void PrecisaSetPos_PrimeiroPedidoVaiAoShell()
+    public void Guarda_PrimeiroPedidoVaiAoShell()
     {
-        Assert.True(AppBarMath.PrecisaSetPos(null, Rectangle.FromLTRB(0, 966, 1920, 1032)));
+        Assert.Equal(SetPosDecisao.Enviar, new SetPosGuarda().Decidir(Aprovado, 0));
     }
 
     [Fact]
-    public void PrecisaSetPos_RetanguloIgualAoAprovadoNaoRepete()
+    public void Guarda_PedidoIgualAoAnteriorNaoRepete()
     {
-        // ABN_POSCHANGED de outra AppBar (ou do próprio SETPOS) sem mudança nesta borda: repetir o
-        // SETPOS geraria outro aviso, e assim por diante.
-        var aprovado = Rectangle.FromLTRB(0, 966, 1920, 1032);
-        Assert.False(AppBarMath.PrecisaSetPos(aprovado, Rectangle.FromLTRB(0, 966, 1920, 1032)));
+        var g = new SetPosGuarda();
+        g.Registrar(Aprovado, Aprovado, 0);
+        Assert.Equal(SetPosDecisao.Reusar, g.Decidir(Aprovado, 10));
     }
 
     [Fact]
-    public void PrecisaSetPos_BarraDeTarefasCresceuRepete()
+    public void Guarda_ShellQueAjustaOConcedidoNaoGeraCiclo()
     {
-        var aprovado = Rectangle.FromLTRB(0, 966, 1920, 1032);
-        var depois = AppBarMath.Fit(Rectangle.FromLTRB(0, 1000, 1920, 1008), BordaTela.Base, 66);
-        Assert.True(AppBarMath.PrecisaSetPos(aprovado, depois));
-    }
-
-    [Fact]
-    public void PrecisaSetPos_AvisosRepetidosConvergem()
-    {
-        // Simula a troca de avisos: cada ABN_POSCHANGED refaz QUERYPOS+Fit; com o shell devolvendo
-        // o mesmo retângulo, só o primeiro aviso gera SETPOS.
-        Rectangle? aprovado = null;
-        var proposto = Rectangle.FromLTRB(0, 1014, 1920, 1032);
+        // O shell devolve no SETPOS um retângulo diferente do pedido, sempre. Comparar com o
+        // concedido mandaria SETPOS a cada ABN_POSCHANGED; comparando com o pedido, só o primeiro.
+        var g = new SetPosGuarda();
+        var pedido = AppBarMath.Fit(Rectangle.FromLTRB(0, 1014, 1920, 1032), BordaTela.Base, 66);
+        var concedido = Rectangle.FromLTRB(0, 970, 1920, 1032);
         var setpos = 0;
-        for (var aviso = 0; aviso < 10; aviso++)
+        for (var aviso = 0; aviso < 50; aviso++)
         {
-            var ajustado = AppBarMath.Fit(proposto, BordaTela.Base, 66);
-            if (AppBarMath.PrecisaSetPos(aprovado, ajustado)) { setpos++; aprovado = ajustado; }
+            if (g.Decidir(pedido, aviso * 5) == SetPosDecisao.Enviar) { setpos++; g.Registrar(pedido, concedido, aviso * 5); }
         }
         Assert.Equal(1, setpos);
+        Assert.Equal(concedido, g.UltimoConcedido);
+    }
+
+    [Fact]
+    public void Guarda_QueryPosQueDevolveOConcedidoTambemReusa()
+    {
+        var g = new SetPosGuarda();
+        var concedido = Rectangle.FromLTRB(0, 970, 1920, 1032);
+        g.Registrar(Aprovado, concedido, 0);
+        Assert.Equal(SetPosDecisao.Reusar, g.Decidir(concedido, 10));
+    }
+
+    [Fact]
+    public void Guarda_BarraDeTarefasCresceuRepete()
+    {
+        var g = new SetPosGuarda();
+        g.Registrar(Aprovado, Aprovado, 0);
+        var depois = AppBarMath.Fit(Rectangle.FromLTRB(0, 1000, 1920, 1008), BordaTela.Base, 66);
+        Assert.Equal(SetPosDecisao.Enviar, g.Decidir(depois, 5000));
+    }
+
+    [Fact]
+    public void Guarda_OscilacaoParaNoLimiteEEsperaEventoReal()
+    {
+        // Outra AppBar disputando a borda: o QUERYPOS alterna entre dois retângulos. No máximo
+        // Maximo SETPOS na janela; depois, nada — nem passada a janela — até Liberar.
+        var g = new SetPosGuarda();
+        var a = Aprovado;
+        var b = Rectangle.FromLTRB(0, 900, 1920, 966);
+        var setpos = 0;
+        for (var aviso = 0; aviso < 40; aviso++)
+        {
+            var t = aviso * 100L;   // 4 s de avisos
+            var r = aviso % 2 == 0 ? a : b;
+            var d = g.Decidir(r, t);
+            if (d == SetPosDecisao.Enviar) { setpos++; g.Registrar(r, r, t); }
+        }
+        Assert.Equal(SetPosGuarda.Maximo, setpos);
+        Assert.True(g.Travado);
+        Assert.Equal(SetPosDecisao.Travado, g.Decidir(a == g.UltimoPedido ? b : a, 60_000));
+
+        g.Liberar();   // mudança de tela, de borda ou Explorer reiniciado
+        Assert.False(g.Travado);
+        Assert.Equal(SetPosDecisao.Enviar, g.Decidir(a, 60_100));
+    }
+
+    [Fact]
+    public void Guarda_MudancasEspacadasNaoTravam()
+    {
+        // Mudanças reais mais lentas que Maximo por janela nunca travam.
+        var g = new SetPosGuarda();
+        var passo = SetPosGuarda.JanelaMs / SetPosGuarda.Maximo + 1;
+        for (var i = 0; i < 20; i++)
+        {
+            var r = Rectangle.FromLTRB(0, 966 - i, 1920, 1032);
+            var t = i * passo;
+            Assert.Equal(SetPosDecisao.Enviar, g.Decidir(r, t));
+            g.Registrar(r, r, t);
+        }
+        Assert.False(g.Travado);
+    }
+
+    [Fact]
+    public void Guarda_SemConcessaoNuncaTrava()
+    {
+        // Sem nada concedido não há reserva para manter: o pedido segue (o limite só segura reenvio).
+        var g = new SetPosGuarda();
+        for (var i = 0; i < 10; i++) Assert.Equal(SetPosDecisao.Enviar, g.Decidir(Aprovado, i));
     }
 
     // ---------------------------------------------------------------- tela cheia
@@ -208,6 +269,33 @@ public class ForkNotchReservaTests
         Assert.Equal(new IntPtr(1), AppBarMath.ZOrderTelaCheia(true));      // HWND_BOTTOM
         Assert.Equal(new IntPtr(-1), AppBarMath.ZOrderTelaCheia(false));    // HWND_TOPMOST
         Assert.NotEqual(new IntPtr(-2), AppBarMath.ZOrderTelaCheia(true));  // nunca HWND_NOTOPMOST
+    }
+
+    [Fact]
+    public void TelaCheia_SobreviveAoHandleRecriado()
+    {
+        // ABN_FULLSCREENAPP só chega na transição. O handle recriado nasce topmost; o novo registro
+        // tem de mandá-lo de volta para o fundo.
+        var estado = new EstadoTelaCheia();
+        Assert.Null(estado.AoRegistrar());
+        Assert.Equal(AppBarMath.HwndBottom, estado.Avisar(true));
+        // RecreateHandle: Remove(manterTelaCheia: true) não toca no estado.
+        Assert.True(estado.Aberto);
+        Assert.Equal(AppBarMath.HwndBottom, estado.AoRegistrar());
+        Assert.Equal(AppBarMath.HwndBottom, estado.AoRegistrar());   // Explorer reiniciado de novo
+        Assert.Equal(AppBarMath.HwndTopMost, estado.Avisar(false));
+        Assert.Null(estado.AoRegistrar());
+    }
+
+    [Fact]
+    public void TelaCheia_DesligarAReservaVoltaParaCimaEEsquece()
+    {
+        var estado = new EstadoTelaCheia();
+        estado.Avisar(true);
+        Assert.Equal(AppBarMath.HwndTopMost, estado.AoDesligar());
+        Assert.False(estado.Aberto);
+        Assert.Null(estado.AoDesligar());
+        Assert.Null(estado.AoRegistrar());   // religar depois não manda ao fundo sem aviso novo
     }
 
     // ---------------------------------------------------------------- remover antes do layout
@@ -230,37 +318,42 @@ public class ForkNotchReservaTests
         Assert.False(AppBarMath.MantemReserva(null, true, BordaTela.Base, Principal));
     }
 
-    [Theory]
-    [InlineData(BordaTela.Esquerda)]
-    [InlineData(BordaTela.Direita)]
-    [InlineData(BordaTela.Topo)]
-    [InlineData(BordaTela.Base)]
-    public void AreaSemReserva_DesligarDevolveAFaixaABorda(BordaTela borda)
+    [Fact]
+    public void AreaAposRemover_UsaAAreaLidaNaHoraEmVezDoCache()
     {
-        // Barra de tarefas de 48 px na base; a faixa reservava a borda. Ao desligar, a área útil lida
-        // logo depois do ABM_REMOVE pode ainda estar reduzida — a faixa tem de voltar ao mesmo lugar
-        // de quem nunca reservou, e não ficar afastada da borda pela espessura da reserva.
-        var semNada = Rectangle.FromLTRB(0, 0, 1920, 1032);
-        var reservado = AppBarMath.Fit(AppBarMath.Request(semNada, borda, 66), borda, 66);
-        var reduzida = Descontar(semNada, borda, reservado);
-        var removida = new AppBarReserva(borda, Principal, reservado);
+        // Cache do WinForms ainda com a reserva (faixa de 66 px acima da barra de tarefas); o Windows
+        // já devolveu o espaço.
+        var cache = Rectangle.FromLTRB(0, 0, 1920, 966);
+        var fresca = Rectangle.FromLTRB(0, 0, 1920, 1032);
+        Assert.Equal(fresca, AppBarMath.AreaAposRemover(fresca, cache, Principal));
 
-        Assert.Equal(semNada, AppBarMath.AreaSemReserva(reduzida, Principal, removida));   // Windows atrasado
-        Assert.Equal(semNada, AppBarMath.AreaSemReserva(semNada, Principal, removida));    // já atualizado
-
-        var esperado = WidgetForm.CalculateNotchLayout(borda, 1.0, 0.5, 3, semNada, 96).WidgetBounds;
+        var esperado = WidgetForm.CalculateNotchLayout(BordaTela.Base, 1.0, 0.5, 3, fresca, 96).WidgetBounds;
         var faixa = WidgetForm.CalculateNotchLayout(
-            borda, 1.0, 0.5, 3, AppBarMath.AreaSemReserva(reduzida, Principal, removida), 96).WidgetBounds;
+            BordaTela.Base, 1.0, 0.5, 3, AppBarMath.AreaAposRemover(fresca, cache, Principal), 96).WidgetBounds;
         Assert.Equal(esperado, faixa);
+        Assert.Equal(1032, faixa.Bottom);
     }
 
     [Fact]
-    public void AreaSemReserva_ReservaDeOutroMonitorNaoMexeNaArea()
+    public void AreaAposRemover_NaoInvadeOutraAppBarNaMesmaBorda()
     {
-        var area = Rectangle.FromLTRB(1920, -200, 4480, 1240);
-        var removida = new AppBarReserva(BordaTela.Base, Principal, Rectangle.FromLTRB(0, 966, 1920, 1032));
-        Assert.Equal(area, AppBarMath.AreaSemReserva(area, Secundario, removida));
-        Assert.Equal(area, AppBarMath.AreaSemReserva(area, Secundario, null));
+        // Outra AppBar de 40 px continua na base, por dentro da que saiu. A área lida na hora a
+        // desconta; uma área sintetizada até a face externa da reserva removida passaria por cima.
+        var outra = Rectangle.FromLTRB(0, 926, 1920, 966);
+        var fresca = Rectangle.FromLTRB(0, 0, 1920, outra.Top);
+        var area = AppBarMath.AreaAposRemover(fresca, Rectangle.FromLTRB(0, 0, 1920, 926), Principal);
+
+        var faixa = WidgetForm.CalculateNotchLayout(BordaTela.Base, 1.0, 0.5, 3, area, 96).WidgetBounds;
+        Assert.False(faixa.IntersectsWith(outra), $"{faixa} invade {outra}");
+    }
+
+    [Fact]
+    public void AreaAposRemover_LeituraInvalidaFicaComOCache()
+    {
+        var cache = Rectangle.FromLTRB(0, 0, 1920, 1032);
+        Assert.Equal(cache, AppBarMath.AreaAposRemover(null, cache, Principal));
+        Assert.Equal(cache, AppBarMath.AreaAposRemover(Rectangle.Empty, cache, Principal));
+        Assert.Equal(cache, AppBarMath.AreaAposRemover(Rectangle.FromLTRB(1920, -200, 4480, 1240), cache, Principal));   // outro monitor
     }
 
     // ---------------------------------------------------------------- configuração
