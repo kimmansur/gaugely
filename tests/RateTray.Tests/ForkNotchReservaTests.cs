@@ -420,17 +420,105 @@ public class ForkNotchReservaTests
     [InlineData(BordaTela.Base)]
     [InlineData(BordaTela.Esquerda)]
     [InlineData(BordaTela.Direita)]
-    public void LayoutArea_ReservaZeroLevaAFaixaABordaMesmoComCacheVelho(BordaTela borda)
+    public void AreaDaFaixa_ReservaZeroLevaAFaixaABordaMesmoComCacheVelho(BordaTela borda)
     {
-        // Logo depois de sair do canto o cache de Screen ainda desconta a reserva antiga; a reserva de
-        // espessura zero devolve a face da borda — a mesma área que a leitura nova dará.
+        // Logo depois de sair do canto o cache de Screen ainda desconta a reserva antiga; a área lida
+        // na hora já não a desconta, e é ela que vale. O retângulo degenerado não entra.
         var semReserva = Rectangle.FromLTRB(0, 0, 1920, 1032);
         var antiga = AppBarMath.Fit(AppBarMath.Request(Principal, borda, 66), borda, 66);
         var cacheVelho = Descontar(semReserva, borda, antiga);
         var zero = AppBarMath.Fit(AppBarMath.Request(Principal, borda, 0), borda, 0);
-        if (borda == BordaTela.Base) zero = Rectangle.FromLTRB(0, 1032, 1920, 1032);   // o shell empurra para cima da barra de tarefas
         Assert.Equal(semReserva, AppBarMath.LayoutArea(semReserva, borda, zero));
-        Assert.Equal(semReserva, AppBarMath.LayoutArea(cacheVelho, borda, zero));
+        Assert.Equal(cacheVelho, AppBarMath.LayoutArea(cacheVelho, borda, zero));   // sozinha não sintetiza nada
+        Assert.Equal(semReserva, AppBarMath.AreaDaFaixa(cacheVelho, semReserva, Principal, borda, zero));
+        Assert.Equal(cacheVelho, AppBarMath.AreaDaFaixa(cacheVelho, null, Principal, borda, zero));   // sem leitura: cache
+    }
+
+    /// <summary>Área útil com a barra de tarefas de 48 px na <paramref name="borda"/> do monitor principal.</summary>
+    private static Rectangle ComBarraNaBorda(BordaTela borda) => borda switch
+    {
+        BordaTela.Topo => Rectangle.FromLTRB(0, 48, 1920, 1080),
+        BordaTela.Esquerda => Rectangle.FromLTRB(48, 0, 1920, 1080),
+        BordaTela.Direita => Rectangle.FromLTRB(0, 0, 1872, 1080),
+        _ => Rectangle.FromLTRB(0, 0, 1920, 1032),
+    };
+
+    /// <summary>Linha degenerada que o shell devolve ao QUERYPOS de espessura zero: na borda externa ou deslocada para o limite da área útil.</summary>
+    private static Rectangle LinhaZero(BordaTela borda, Rectangle areaUtil, bool deslocada)
+    {
+        var linha = AppBarMath.Request(Principal, borda, 0);
+        if (!deslocada) return linha;
+        return borda switch
+        {
+            BordaTela.Topo => Rectangle.FromLTRB(linha.Left, areaUtil.Top, linha.Right, areaUtil.Top),
+            BordaTela.Esquerda => Rectangle.FromLTRB(areaUtil.Left, linha.Top, areaUtil.Left, linha.Bottom),
+            BordaTela.Direita => Rectangle.FromLTRB(areaUtil.Right, linha.Top, areaUtil.Right, linha.Bottom),
+            _ => Rectangle.FromLTRB(linha.Left, areaUtil.Bottom, linha.Right, areaUtil.Bottom),
+        };
+    }
+
+    [Theory]
+    [InlineData(BordaTela.Topo, false)]
+    [InlineData(BordaTela.Base, false)]
+    [InlineData(BordaTela.Esquerda, false)]
+    [InlineData(BordaTela.Direita, false)]
+    [InlineData(BordaTela.Topo, true)]
+    [InlineData(BordaTela.Base, true)]
+    [InlineData(BordaTela.Esquerda, true)]
+    [InlineData(BordaTela.Direita, true)]
+    public void AreaDaFaixa_ForaDoCantoNaoSobrepoeABarraDeTarefasNaMesmaBorda(BordaTela borda, bool shellDesloca)
+    {
+        // Fora do canto, com a barra de tarefas na mesma borda: deslocada ou não pelo shell, a linha
+        // degenerada não mexe no layout — a faixa encosta no limite da área útil, como sem reserva.
+        var areaUtil = ComBarraNaBorda(borda);
+        var zero = LinhaZero(borda, areaUtil, shellDesloca);
+        Assert.True(AppBarMath.Degenerada(zero));
+
+        foreach (var cache in new[] { areaUtil, Descontar(areaUtil, borda, AppBarMath.Fit(AppBarMath.Request(areaUtil, borda, 66), borda, 66)) })
+        {
+            var area = AppBarMath.AreaDaFaixa(cache, areaUtil, Principal, borda, zero);
+            Assert.Equal(areaUtil, area);
+            foreach (var fracao in new[] { 0.25, 0.5, 0.75 })
+            {
+                var faixa = WidgetForm.CalculateNotchLayout(borda, 1.0, fracao, 3, area, 96).WidgetBounds;
+                Assert.Equal(WidgetForm.CalculateNotchLayout(borda, 1.0, fracao, 3, areaUtil, 96).WidgetBounds, faixa);
+                Assert.True(areaUtil.Contains(faixa), $"{borda} {fracao} desloca={shellDesloca}: {faixa} fora de {areaUtil}");
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AreaDaFaixa_BaseForaDoCantoTerminaAcimaDaBarraDeTarefas(bool shellDesloca)
+    {
+        // O caso do achado: QUERYPOS devolve a linha em y = 1080 (borda externa) com a barra de
+        // tarefas na base até y = 1032. A faixa termina em 1032, não em 1080.
+        var areaUtil = Rectangle.FromLTRB(0, 0, 1920, 1032);
+        var zero = shellDesloca ? Rectangle.FromLTRB(0, 1032, 1920, 1032) : Rectangle.FromLTRB(0, 1080, 1920, 1080);
+        var area = AppBarMath.AreaDaFaixa(areaUtil, areaUtil, Principal, BordaTela.Base, zero);
+        var faixa = WidgetForm.CalculateNotchLayout(BordaTela.Base, 1.0, 0.5, 3, area, 96).WidgetBounds;
+        Assert.Equal(1032, faixa.Bottom);
+    }
+
+    [Theory]
+    [InlineData(BordaTela.Topo)]
+    [InlineData(BordaTela.Base)]
+    [InlineData(BordaTela.Esquerda)]
+    [InlineData(BordaTela.Direita)]
+    public void AreaDaFaixa_NoCantoUsaAReserva(BordaTela borda)
+    {
+        // No canto a reserva tem espessura: vale LayoutArea sobre o cache, e a leitura nova não entra.
+        var areaUtil = ComBarraNaBorda(borda);
+        var reservado = AppBarMath.Fit(AppBarMath.Request(areaUtil, borda, 66), borda, 66);
+        var comReserva = Descontar(areaUtil, borda, reservado);
+        var esperado = AppBarMath.LayoutArea(comReserva, borda, reservado);
+        Assert.Equal(areaUtil, esperado);
+        Assert.Equal(esperado, AppBarMath.AreaDaFaixa(comReserva, Principal, Principal, borda, reservado));   // leitura nova ignorada
+        Assert.Equal(esperado, AppBarMath.AreaDaFaixa(areaUtil, null, Principal, borda, reservado));
+        var faixa = WidgetForm.CalculateNotchLayout(borda, 1.0, 0.0, 3, esperado, 96).WidgetBounds;
+        Assert.True(reservado.Contains(faixa), $"{borda}: {faixa} fora de {reservado}");
+        Assert.False(comReserva.IntersectsWith(faixa), $"{borda}: {faixa} invade {comReserva}");
     }
 
     [Theory]
@@ -455,7 +543,7 @@ public class ForkNotchReservaTests
         int Relayout(double fracao)
         {
             var area = concedido is { } c ? Descontar(semReserva, borda, c) : semReserva;
-            var faixa = WidgetForm.CalculateNotchLayout(borda, 1.0, fracao, 3, concedido is { } r ? AppBarMath.LayoutArea(area, borda, r) : area, 96).WidgetBounds;
+            var faixa = WidgetForm.CalculateNotchLayout(borda, 1.0, fracao, 3, concedido is { } r ? AppBarMath.AreaDaFaixa(area, area, Principal, borda, r) : area, 96).WidgetBounds;
             var noCanto = AppBarMath.NoCanto(faixa, borda, Principal, area, tol);
             if (anterior is { } a && a != noCanto) trocas++;
             anterior = noCanto;

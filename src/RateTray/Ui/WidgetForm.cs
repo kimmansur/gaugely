@@ -207,13 +207,15 @@ public sealed class WidgetForm : Form
             var layout = CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, area, _dpi);
 
             // Fork: com a opção, a borda vira AppBar e a faixa fica dentro do espaço reservado — não na
-            // área útil, que já o desconta. Fora do canto a reserva tem espessura zero e LayoutArea
-            // leva a faixa de volta à borda mesmo com a área útil do cache ainda descontando a antiga.
+            // área útil, que já o desconta. Fora do canto a reserva tem espessura zero e não entra no
+            // layout: a faixa vai para a área útil relida do Windows (o cache ainda pode descontar a
+            // reserva antiga), cujo limite já exclui a barra de tarefas na mesma borda.
             var noCanto = AppBarMath.NoCanto(layout.WidgetBounds, _config.Widget.Borda, screen.Bounds, area, AppBarMath.ToleranciaCanto(_dpi));
             var espessura = AppBarMath.EspessuraReserva(noCanto, AppBarMath.Thickness(layout.WidgetBounds, _config.Widget.Borda));
             if (opcaoReserva && _appBar.Reserve(Handle, _config.Widget.Borda, screen.Bounds, espessura) is { } reservado)
             {
-                var areaFaixa = AppBarMath.LayoutArea(area, _config.Widget.Borda, reservado);
+                var fresca = AppBarMath.Degenerada(reservado) ? AppBar.AreaUtilAgora(screen.Bounds) : null;
+                var areaFaixa = AppBarMath.AreaDaFaixa(area, fresca, screen.Bounds, _config.Widget.Borda, reservado);
                 layout = CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, areaFaixa, _dpi);
             }
             else

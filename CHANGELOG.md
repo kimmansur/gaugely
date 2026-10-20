@@ -25,7 +25,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   area untouched. It therefore keeps receiving full-screen notifications wherever it sits: a strip
   outside a corner goes to the bottom when an app enters full screen and returns on top when it
   leaves, and moving the strip between corner and middle while an app is full screen never brings
-  it above that app. No polling of the foreground window.
+  it above that app. No polling of the foreground window. The zero-thickness rectangle never
+  positions the strip: outside a corner it sits against the work area read fresh from Windows,
+  which already excludes a taskbar on the same edge, exactly as without the reservation.
 
 ## [0.9.0] - 2026-10-20
 
