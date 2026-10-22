@@ -97,6 +97,35 @@ public class ForkRenovacaoClaudeTests
     }
 
     [Fact]
+    public async Task Arquivo_preso_na_gravacao_e_tentado_de_novo_e_o_token_novo_nao_se_perde()
+    {
+        // Depois do 200 o refresh token antigo já não vale: desistir na primeira IOException
+        // deslogava também o Claude Code.
+        var arquivo = Path.Combine(Path.GetTempPath(), $"gaugely-creds-{Guid.NewGuid():N}.json");
+        File.WriteAllText(arquivo, """{ "claudeAiOauth": { "accessToken": "velho", "refreshToken": "refresh-velho", "expiresAt": 1 } }""");
+        var tentativas = 0;
+
+        try
+        {
+            var novo = ClaudeUsageProvider.FromTokenResponse("""{ "access_token": "a2", "refresh_token": "r2" }""", Anterior(), Agora)!;
+            await ClaudeUsageProvider.WriteCredentialsAsync(arquivo, novo, (caminho, credenciais) =>
+            {
+                if (++tentativas == 1) throw new IOException("preso");
+                ClaudeUsageProvider.WriteCredentials(caminho, credenciais);
+            }, TimeSpan.Zero);
+
+            Assert.Equal(2, tentativas);
+            var oauth = JsonNode.Parse(File.ReadAllText(arquivo))!["claudeAiOauth"]!;
+            Assert.Equal("a2", oauth["accessToken"]!.GetValue<string>());
+            Assert.Equal("r2", oauth["refreshToken"]!.GetValue<string>());
+        }
+        finally
+        {
+            File.Delete(arquivo);
+        }
+    }
+
+    [Fact]
     public void Endereco_de_token_e_o_do_claude_code_e_o_antigo_salvo_migra()
     {
         Assert.Equal("https://platform.claude.com/v1/oauth/token", ClaudeOptions.TokenUrlDefault);
