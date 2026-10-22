@@ -80,30 +80,22 @@ internal static class AppBarMath
     public static Rectangle AreaDaFaixa(Rectangle cache, Rectangle? fresca, Rectangle monitor, BordaTela borda, Rectangle reservado) =>
         Degenerada(reservado) ? AreaAposRemover(fresca, cache, monitor) : LayoutArea(cache, borda, reservado);
 
-    /// <summary>Folga, em px físicos, para a faixa contar como encostada no canto: 8 px a 96 dpi.</summary>
+    /// <summary>
+    /// Folga, em px físicos, para a faixa solta perto do início ou do fim da área útil ser encaixada
+    /// no canto: 8 px a 96 dpi. Só vale no arraste (e na migração da fração antiga); depois disso o
+    /// canto é a fração exata.
+    /// </summary>
     public static int ToleranciaCanto(int dpi) => (int)Math.Round(8 * Math.Max(dpi, 96) / 96.0);
 
     /// <summary>
     /// A faixa está num canto da tela? Só então a reserva vale: no meio da borda, reservar a borda
-    /// inteira encolheria toda janela maximizada por causa de um pedaço pequeno. Conta a posição ao
-    /// longo da borda: o início (esquerda ou topo) ou o fim (direita ou base) da faixa tem de estar a
-    /// até <paramref name="tolerancia"/> px do início ou do fim do monitor ou da área útil — esta
-    /// cobre a barra de tarefas numa borda vizinha (faixa à esquerda, colada em cima da barra na
-    /// base). Não oscila: a reserva da própria faixa só muda o lado da área útil na borda dela, que é
-    /// perpendicular ao eixo comparado aqui; tirar ou pôr a reserva não move nenhum dos limites.
+    /// inteira encolheria toda janela maximizada por causa de um pedaço pequeno. Fork: canto é a
+    /// fração exata 0 ou 1 — a faixa encostada no início ou no fim da área útil, que cobre a barra de
+    /// tarefas numa borda vizinha. Medir em px fazia a mesma fração ser canto num monitor e não em
+    /// outro (resolução, escala, número de grupos); o arraste já grava 0 ou 1 quando solta perto.
+    /// Não oscila: a reserva não mexe na fração.
     /// </summary>
-    public static bool NoCanto(Rectangle faixa, BordaTela borda, Rectangle monitor, Rectangle areaUtil, int tolerancia)
-    {
-        if (faixa.Width <= 0 || faixa.Height <= 0) return false;
-        tolerancia = Math.Max(0, tolerancia);
-        var horizontal = borda is BordaTela.Topo or BordaTela.Base;
-        var (ini, fim) = horizontal ? (faixa.Left, faixa.Right) : (faixa.Top, faixa.Bottom);
-        var (monIni, monFim) = horizontal ? (monitor.Left, monitor.Right) : (monitor.Top, monitor.Bottom);
-        var (areaIni, areaFim) = horizontal ? (areaUtil.Left, areaUtil.Right) : (areaUtil.Top, areaUtil.Bottom);
-
-        bool Perto(int a, int b) => Math.Abs(a - b) <= tolerancia;
-        return Perto(ini, monIni) || Perto(ini, areaIni) || Perto(fim, monFim) || Perto(fim, areaFim);
-    }
+    public static bool NoCanto(double fracaoBorda) => fracaoBorda is 0.0 or 1.0;
 
     /// <summary>
     /// Espessura pedida ao shell com a opção ligada: a da faixa no canto, zero fora dele. A faixa

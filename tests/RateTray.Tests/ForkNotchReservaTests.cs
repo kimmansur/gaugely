@@ -532,7 +532,6 @@ public class ForkNotchReservaTests
         // volta; em cada posição o relayout é repetido até parar. Cada troca canto ↔ meio custa um
         // único SETPOS (espessura normal ↔ zero) e o relayout seguinte já não pede nada novo.
         var semReserva = Rectangle.FromLTRB(0, 0, 1920, 1032);
-        var tol = AppBarMath.ToleranciaCanto(96);
         var guarda = new SetPosGuarda();
         Rectangle? concedido = null;
         var relogio = 0L;
@@ -544,7 +543,7 @@ public class ForkNotchReservaTests
         {
             var area = concedido is { } c ? Descontar(semReserva, borda, c) : semReserva;
             var faixa = WidgetForm.CalculateNotchLayout(borda, 1.0, fracao, 3, concedido is { } r ? AppBarMath.AreaDaFaixa(area, area, Principal, borda, r) : area, 96).WidgetBounds;
-            var noCanto = AppBarMath.NoCanto(faixa, borda, Principal, area, tol);
+            var noCanto = AppBarMath.NoCanto(fracao);
             if (anterior is { } a && a != noCanto) trocas++;
             anterior = noCanto;
             var esp = AppBarMath.EspessuraReserva(noCanto, AppBarMath.Thickness(faixa, borda));
@@ -707,47 +706,24 @@ public class ForkNotchReservaTests
         WidgetForm.CalculateNotchLayout(borda, 1.0, fracao, 3, area, dpi).WidgetBounds;
 
     [Theory]
-    [InlineData(BordaTela.Topo, 0.0, true)]
-    [InlineData(BordaTela.Topo, 1.0, true)]
-    [InlineData(BordaTela.Topo, 0.5, false)]
-    [InlineData(BordaTela.Base, 0.0, true)]
-    [InlineData(BordaTela.Base, 1.0, true)]
-    [InlineData(BordaTela.Base, 0.5, false)]
-    [InlineData(BordaTela.Esquerda, 0.0, true)]
-    [InlineData(BordaTela.Esquerda, 1.0, true)]
-    [InlineData(BordaTela.Esquerda, 0.5, false)]
-    [InlineData(BordaTela.Direita, 0.0, true)]
-    [InlineData(BordaTela.Direita, 1.0, true)]
-    [InlineData(BordaTela.Direita, 0.5, false)]
-    public void NoCanto_InicioEFimDaBordaSimMeioNao(BordaTela borda, double fracao, bool esperado)
+    [InlineData(0.0, true)]
+    [InlineData(1.0, true)]
+    [InlineData(0.5, false)]
+    [InlineData(0.0042, false)]   // 7 px de 1658: era canto em 1920 px e não em 4K
+    [InlineData(0.9999, false)]
+    public void NoCanto_SoAFracaoExata(double fracao, bool esperado)
     {
-        var faixa = Faixa(borda, fracao, Principal);
-        Assert.Equal(esperado, AppBarMath.NoCanto(faixa, borda, Principal, Principal, AppBarMath.ToleranciaCanto(96)));
-    }
-
-    [Theory]
-    [InlineData(BordaTela.Topo, 0.0, true)]
-    [InlineData(BordaTela.Topo, 1.0, true)]
-    [InlineData(BordaTela.Topo, 0.3, false)]
-    [InlineData(BordaTela.Esquerda, 0.0, true)]
-    [InlineData(BordaTela.Esquerda, 1.0, true)]
-    [InlineData(BordaTela.Direita, 0.7, false)]
-    public void NoCanto_MonitorSecundarioComDeslocamento(BordaTela borda, double fracao, bool esperado)
-    {
-        var faixa = Faixa(borda, fracao, Secundario);
-        Assert.Equal(esperado, AppBarMath.NoCanto(faixa, borda, Secundario, Secundario, AppBarMath.ToleranciaCanto(96)));
+        Assert.Equal(esperado, AppBarMath.NoCanto(fracao));
     }
 
     [Fact]
     public void NoCanto_BarraDeTarefasNaBordaVizinhaContaComoCanto()
     {
-        // Barra de 48 px na base: a faixa na esquerda, encostada em cima dela, está no canto da
-        // área útil, 48 px acima do canto do monitor.
+        // Barra de 48 px na base: a faixa na esquerda com fração 1 encosta em cima dela, no canto
+        // da área útil, 48 px acima do canto do monitor.
         var area = Rectangle.FromLTRB(0, 0, 1920, 1032);
-        var faixa = Faixa(BordaTela.Esquerda, 1.0, area);
-        Assert.Equal(1032, faixa.Bottom);
-        Assert.True(AppBarMath.NoCanto(faixa, BordaTela.Esquerda, Principal, area, AppBarMath.ToleranciaCanto(96)));
-        Assert.False(AppBarMath.NoCanto(Faixa(BordaTela.Esquerda, 0.5, area), BordaTela.Esquerda, Principal, area, AppBarMath.ToleranciaCanto(96)));
+        Assert.Equal(1032, Faixa(BordaTela.Esquerda, 1.0, area).Bottom);
+        Assert.True(AppBarMath.NoCanto(1.0));
     }
 
     [Theory]
@@ -762,53 +738,53 @@ public class ForkNotchReservaTests
     }
 
     [Theory]
-    [InlineData(96)]
-    [InlineData(144)]
-    public void NoCanto_ToleranciaCobreArredondamentoDeDpi(int dpi)
+    [InlineData(BordaTela.Topo, 96)]
+    [InlineData(BordaTela.Base, 144)]
+    [InlineData(BordaTela.Esquerda, 120)]
+    [InlineData(BordaTela.Direita, 192)]
+    public void Soltar_ATeAToleranciaDoCantoGravaFracaoExata(BordaTela borda, int dpi)
     {
+        // Área útil deslocada (monitor secundário, barra de tarefas): conta o início e o fim dela.
+        var area = Rectangle.FromLTRB(1920, -200, 4480, 1192);
         var tol = AppBarMath.ToleranciaCanto(dpi);
-        var junto = new Rectangle(Principal.Left + tol, 0, 300, 66);
-        var longe = new Rectangle(Principal.Left + tol + 1, 0, 300, 66);
-        Assert.True(AppBarMath.NoCanto(junto, BordaTela.Topo, Principal, Principal, tol));
-        Assert.False(AppBarMath.NoCanto(longe, BordaTela.Topo, Principal, Principal, tol));
+        var horizontal = borda is BordaTela.Topo or BordaTela.Base;
+        const int comprimento = 300;
+        var (inicio, fim) = horizontal ? (area.Left, area.Right) : (area.Top, area.Bottom);
+        Point Em(int ao) => horizontal ? new Point(ao, area.Top) : new Point(area.Left, ao);
 
-        // Fim da borda: a direita da faixa a até tol px da direita do monitor.
-        var fimJunto = Rectangle.FromLTRB(1500, 1014, Principal.Right - tol, 1080);
-        var fimLonge = Rectangle.FromLTRB(1500, 1014, Principal.Right - tol - 1, 1080);
-        Assert.True(AppBarMath.NoCanto(fimJunto, BordaTela.Base, Principal, Principal, tol));
-        Assert.False(AppBarMath.NoCanto(fimLonge, BordaTela.Base, Principal, Principal, tol));
+        Assert.Equal(0.0, WidgetForm.PositionToFraction(Em(inicio + tol), borda, area, comprimento, tol));
+        Assert.Equal(1.0, WidgetForm.PositionToFraction(Em(fim - comprimento - tol), borda, area, comprimento, tol));
+        Assert.False(AppBarMath.NoCanto(WidgetForm.PositionToFraction(Em(inicio + tol + 1), borda, area, comprimento, tol)));
+        Assert.False(AppBarMath.NoCanto(WidgetForm.PositionToFraction(Em(fim - comprimento - tol - 1), borda, area, comprimento, tol)));
     }
 
     [Fact]
-    public void NoCanto_FaixaVaziaNaoReserva()
+    public void MesmaFracao_MesmaDecisaoEmQualquerMonitorEscalaOuGrupos()
     {
-        Assert.False(AppBarMath.NoCanto(Rectangle.Empty, BordaTela.Topo, Principal, Principal, 8));
+        // Solta a 9 px do canto num monitor de 1920 a 96 dpi (fora da tolerância). Em px, a mesma
+        // fração mudava de distância com monitor, escala e número de grupos, e a decisão mudava junto;
+        // agora é a da fração, e 0 ou 1 encosta no limite da área útil em todo monitor.
+        var fracao = WidgetForm.PositionToFraction(new Point(9, 0), BordaTela.Topo, Principal, 262, AppBarMath.ToleranciaCanto(96));
+        Assert.False(AppBarMath.NoCanto(fracao));
+
+        foreach (var (area, dpi) in new[] { (Principal, 96), (Secundario, 96), (new Rectangle(0, 0, 3840, 2112), 144) })
+        foreach (var grupos in new[] { 1, 3, 6 })
+        {
+            var inicio = WidgetForm.CalculateNotchLayout(BordaTela.Topo, 1.0, 0.0, grupos, area, dpi).WidgetBounds;
+            var fim = WidgetForm.CalculateNotchLayout(BordaTela.Topo, 1.0, 1.0, grupos, area, dpi).WidgetBounds;
+            Assert.Equal(area.Left, inicio.Left);
+            Assert.Equal(area.Right, fim.Right);
+        }
     }
 
     [Theory]
-    [InlineData(BordaTela.Topo)]
-    [InlineData(BordaTela.Base)]
-    [InlineData(BordaTela.Esquerda)]
-    [InlineData(BordaTela.Direita)]
-    public void NoCanto_NaoOscilaAoTirarOuPorAReserva(BordaTela borda)
+    [InlineData(0.0042, 0.0)]     // 7 px de 1658 a 96 dpi: era canto, continua canto
+    [InlineData(0.9970, 1.0)]
+    [InlineData(0.02, 0.02)]      // ~33 px: era meio, continua meio
+    [InlineData(0.5, 0.5)]
+    public void Migracao_FracaoAntigaPertoDoCantoViraExata(double antiga, double esperada)
     {
-        // Área útil com a barra de tarefas na base; com a reserva, o Windows ainda desconta a faixa
-        // na borda dela. Em toda fração, a decisão é a mesma com e sem a reserva: tirá-la (fora do
-        // canto) não põe a faixa num canto, e pô-la (no canto) não a tira de lá.
-        var semReserva = Rectangle.FromLTRB(0, 0, 1920, 1032);
-        var espessura = AppBarMath.Thickness(Faixa(borda, 0.0, semReserva), borda);
-        var reservado = AppBarMath.Fit(AppBarMath.Request(Principal, borda, espessura), borda, espessura);
-        var comReserva = Descontar(semReserva, borda, reservado);
-        var tol = AppBarMath.ToleranciaCanto(96);
-
-        for (var i = 0; i <= 200; i++)
-        {
-            var fracao = i / 200.0;
-            var antes = AppBarMath.NoCanto(Faixa(borda, fracao, semReserva), borda, Principal, semReserva, tol);
-            var areaFaixa = AppBarMath.LayoutArea(comReserva, borda, reservado);
-            var depois = AppBarMath.NoCanto(Faixa(borda, fracao, areaFaixa), borda, Principal, comReserva, tol);
-            Assert.True(antes == depois, $"{borda} fração {fracao}: sem reserva {antes}, com reserva {depois}");
-        }
+        Assert.Equal(esperada, WidgetForm.FracaoMigrada(antiga, BordaTela.Topo, 1.0, 3, Principal, 96));
     }
 
     // ---------------------------------------------------------------- configuração
