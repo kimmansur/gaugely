@@ -17,8 +17,11 @@ public static class ConfigStore
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
 
-    public static string Directory =>
+    public static string Directory => DirectoryOverride ??
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Gaugely");
+
+    /// <summary>Fork: só para os testes exercitarem <see cref="Load"/> e <see cref="Save"/> fora do %APPDATA%.</summary>
+    internal static string? DirectoryOverride { get; set; }
 
     /// <summary>Pasta usada antes da renomeação do app — só lida, para migrar.</summary>
     internal static string LegacyDirectory =>
@@ -51,6 +54,7 @@ public static class ConfigStore
     public static AppConfig Load()
     {
         MigrateLegacy(LegacyDirectory, Directory);
+        LastWritten = null;
 
         try
         {
@@ -77,9 +81,16 @@ public static class ConfigStore
                                       or SecurityException or JsonException or NotSupportedException)
         {
             TryPreserveBrokenFile();
+            // Fork: o arquivo existe e não deu para usá-lo. Marca-o como "edição externa ainda não
+            // aplicada": a gravação automática (ícones descobertos, posição da faixa) é recusada em
+            // vez de gravar os padrões por cima do que o usuário escreveu, e a recarga aplica o
+            // arquivo quando ele voltar a ser válido. Nenhum conteúdo real é igual à marca.
+            LastWritten = File.Exists(Path_) ? FailedLoadMarker : null;
             return new AppConfig();
         }
     }
+
+    private const string FailedLoadMarker = "\0gaugely: settings.json failed to load";
 
     /// <summary>
     /// Deserialises and normalises: the pure half of <see cref="Load"/>, so the hardening

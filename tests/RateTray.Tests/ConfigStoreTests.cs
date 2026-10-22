@@ -153,4 +153,33 @@ public class ConfigStoreTests
         Assert.Null(config.Colors.Warn);
         Assert.Null(config.Colors.Critical);
     }
+
+    [Fact]
+    public void An_invalid_file_is_left_alone_until_it_is_valid_again()
+    {
+        // The first automatic save after start-up (discovered icons) used to write the defaults
+        // over a hand-edited file that merely had a typo in it.
+        var dir = Path.Combine(Path.GetTempPath(), "gaugely-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        ConfigStore.DirectoryOverride = dir;
+        try
+        {
+            const string broken = """{ "theme": "dark", """;
+            File.WriteAllText(ConfigStore.Path_, broken);
+
+            var config = ConfigStore.Load();
+
+            Assert.False(ConfigStore.Save(config));
+            Assert.Equal(broken, File.ReadAllText(ConfigStore.Path_));
+
+            File.WriteAllText(ConfigStore.Path_, """{ "theme": "dark" }""");
+            Assert.Equal("dark", ConfigStore.ReadExternalEdit(out _)?.Theme);
+            Assert.True(ConfigStore.Save(config));
+        }
+        finally
+        {
+            ConfigStore.DirectoryOverride = null;
+            Directory.Delete(dir, true);
+        }
+    }
 }
