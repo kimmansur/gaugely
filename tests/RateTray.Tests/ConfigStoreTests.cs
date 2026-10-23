@@ -153,4 +153,67 @@ public class ConfigStoreTests
         Assert.Null(config.Colors.Warn);
         Assert.Null(config.Colors.Critical);
     }
+
+    [Fact]
+    public void An_invalid_file_is_left_alone_until_it_is_valid_again()
+    {
+        // The first automatic save after start-up (discovered icons) used to write the defaults
+        // over a hand-edited file that merely had a typo in it.
+        var dir = Path.Combine(Path.GetTempPath(), "gaugely-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        ConfigStore.DirectoryOverride = dir;
+        try
+        {
+            const string broken = """{ "theme": "dark", """;
+            File.WriteAllText(ConfigStore.Path_, broken);
+
+            var config = ConfigStore.Load();
+
+            Assert.False(ConfigStore.Save(config));
+            Assert.Equal(broken, File.ReadAllText(ConfigStore.Path_));
+
+            File.WriteAllText(ConfigStore.Path_, """{ "theme": "dark" }""");
+            Assert.Equal("dark", ConfigStore.ReadExternalEdit(out _)?.Theme);
+            Assert.True(ConfigStore.Save(config));
+        }
+        finally
+        {
+            ConfigStore.DirectoryOverride = null;
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public void A_file_only_locked_at_start_up_is_read_once_it_is_released()
+    {
+        // An antivirus or a sync client holding the file at start-up is not a broken file: nothing
+        // touches it afterwards, so the watcher never fires — the tray retries while LoadFailed.
+        var dir = Path.Combine(Path.GetTempPath(), "gaugely-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        ConfigStore.DirectoryOverride = dir;
+        try
+        {
+            File.WriteAllText(ConfigStore.Path_, """{ "theme": "dark" }""");
+
+            AppConfig config;
+            using (new FileStream(ConfigStore.Path_, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                config = ConfigStore.Load();
+
+                Assert.True(ConfigStore.LoadFailed);
+                Assert.False(ConfigStore.Save(config));
+                Assert.Null(ConfigStore.ReadExternalEdit(out var busy));
+                Assert.True(busy);
+            }
+
+            Assert.Equal("dark", ConfigStore.ReadExternalEdit(out var released)?.Theme);
+            Assert.False(released);
+            Assert.False(ConfigStore.LoadFailed);
+        }
+        finally
+        {
+            ConfigStore.DirectoryOverride = null;
+            Directory.Delete(dir, true);
+        }
+    }
 }

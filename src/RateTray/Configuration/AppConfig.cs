@@ -424,12 +424,19 @@ public sealed class WidgetOptions
     /// <summary>Posição ao longo da borda, de 0 a 1. 0.5 = centralizada.</summary>
     public double FracaoBorda { get; set; } = 0.5;
 
+    /// <summary>
+    /// Fork: <see cref="FracaoBorda"/> já passou pela migração do canto exato (0 ou 1). Falso num
+    /// arquivo de 0.9.1 ou anterior: o primeiro relayout no modo Notch com grupos encaixa uma vez a fração que
+    /// estava a até a tolerância de um canto.
+    /// </summary>
+    public bool FracaoExata { get; set; }
+
     /// <summary>Mostrar a alça de arrasto na face externa da faixa.</summary>
     public bool MostrarAlca { get; set; } = true;
 
     /// <summary>
     /// Fork: no modo Notch, reserva a borda inteira como AppBar, para que janelas maximizadas parem
-    /// antes da faixa — só com a faixa num canto da tela (AppBarMath.NoCanto); no meio da borda não
+    /// antes da faixa — só com a faixa num canto da tela (fração 0 ou 1, AppBarMath.NoCanto); no meio da borda não
     /// reserva. Desligado por padrão: muda o tamanho de toda janela maximizada no monitor.
     /// </summary>
     public bool ReservarEspaco { get; set; }

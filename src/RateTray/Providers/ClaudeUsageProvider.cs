@@ -349,23 +349,37 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
     {
         if (creds.RefreshToken is not { Length: > 0 } refreshToken) return null;
 
+        // Fork: depois de um 200 o refresh token antigo já morreu no servidor — o par novo é o único
+        // login que resta, do app e do Claude Code. Daí em diante nem o prazo da rodada interrompe a
+        // leitura (que tem prazo próprio: o cliente não tem nenhum) e um arquivo preso é tentado de novo.
+        using var bodyDeadline = new CancellationTokenSource();
         try
         {
-            using var response = await Http.PostAsJsonAsync(options.TokenUrl, new
+            using var request = new HttpRequestMessage(HttpMethod.Post, options.TokenUrl)
             {
-                grant_type = "refresh_token",
-                refresh_token = refreshToken,
-                client_id = options.ClientId,
-            }, ct).ConfigureAwait(false);
+                Content = JsonContent.Create(new
+                {
+                    grant_type = "refresh_token",
+                    refresh_token = refreshToken,
+                    client_id = options.ClientId,
+                }),
+            };
+            using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode) return null;
 
+            bodyDeadline.CancelAfter(TimeSpan.FromSeconds(Math.Max(5, options.TimeoutSeconds)));
+            await response.Content.LoadIntoBufferAsync(SecureHttp.MaxResponseBytes, bodyDeadline.Token).ConfigureAwait(false);
             var renewed = FromTokenResponse(
-                await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false), creds, DateTimeOffset.UtcNow);
+                await response.Content.ReadAsStringAsync(bodyDeadline.Token).ConfigureAwait(false), creds, DateTimeOffset.UtcNow);
             if (renewed is null) return null;
 
-            WriteCredentials(CredentialsPath, renewed);
+            await WriteCredentialsAsync(CredentialsPath, renewed, WriteCredentials, TimeSpan.FromMilliseconds(200)).ConfigureAwait(false);
             return renewed;
+        }
+        catch (OperationCanceledException) when (bodyDeadline.IsCancellationRequested)
+        {
+            return null;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -404,6 +418,26 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
             ExpiresAtUnixMs = now.AddSeconds(expiresIn).ToUnixTimeMilliseconds(),
             RefreshExpiresAtUnixMs = refreshExpiresAt,
         };
+    }
+
+    /// <summary>
+    /// Fork: o Claude Code ou um antivírus podem estar com o arquivo aberto no instante da gravação.
+    /// Três tentativas antes de desistir; a última falha sobe para quem chamou.
+    /// </summary>
+    internal static async Task WriteCredentialsAsync(string path, Credentials creds, Action<string, Credentials> write, TimeSpan pause)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                write(path, creds);
+                return;
+            }
+            catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < 3)
+            {
+                await Task.Delay(pause).ConfigureAwait(false);
+            }
+        }
     }
 
     internal static void WriteCredentials(string path, Credentials creds)
