@@ -182,4 +182,38 @@ public class ConfigStoreTests
             Directory.Delete(dir, true);
         }
     }
+
+    [Fact]
+    public void A_file_only_locked_at_start_up_is_read_once_it_is_released()
+    {
+        // An antivirus or a sync client holding the file at start-up is not a broken file: nothing
+        // touches it afterwards, so the watcher never fires — the tray retries while LoadFailed.
+        var dir = Path.Combine(Path.GetTempPath(), "gaugely-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        ConfigStore.DirectoryOverride = dir;
+        try
+        {
+            File.WriteAllText(ConfigStore.Path_, """{ "theme": "dark" }""");
+
+            AppConfig config;
+            using (new FileStream(ConfigStore.Path_, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                config = ConfigStore.Load();
+
+                Assert.True(ConfigStore.LoadFailed);
+                Assert.False(ConfigStore.Save(config));
+                Assert.Null(ConfigStore.ReadExternalEdit(out var busy));
+                Assert.True(busy);
+            }
+
+            Assert.Equal("dark", ConfigStore.ReadExternalEdit(out var released)?.Theme);
+            Assert.False(released);
+            Assert.False(ConfigStore.LoadFailed);
+        }
+        finally
+        {
+            ConfigStore.DirectoryOverride = null;
+            Directory.Delete(dir, true);
+        }
+    }
 }

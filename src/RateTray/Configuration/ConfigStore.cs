@@ -93,6 +93,13 @@ public static class ConfigStore
     private const string FailedLoadMarker = "\0gaugely: settings.json failed to load";
 
     /// <summary>
+    /// Fork: o settings.json existe mas não foi aplicado desde que <see cref="Load"/> falhou. Um
+    /// arquivo só preso na partida (antivírus, sincronização) não gera aviso do observador ao ser
+    /// solto; a bandeja usa isto para tentar relê-lo sozinha até conseguir aplicá-lo.
+    /// </summary>
+    internal static bool LoadFailed => LastWritten == FailedLoadMarker;
+
+    /// <summary>
     /// Deserialises and normalises: the pure half of <see cref="Load"/>, so the hardening
     /// against a hand-edited file can be tested without touching %APPDATA%. Throws on malformed
     /// JSON — that is <see cref="Load"/>'s job to catch, together with the unreadable file.
