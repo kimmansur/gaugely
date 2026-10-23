@@ -787,6 +787,26 @@ public class ForkNotchReservaTests
         Assert.Equal(esperada, WidgetForm.FracaoMigrada(antiga, BordaTela.Topo, 1.0, 3, Principal, 96));
     }
 
+    [Theory]
+    [InlineData(0, false)]        // antes do primeiro poll: ainda sem grupos, a faixa teria outro comprimento
+    [InlineData(1, true)]
+    [InlineData(3, true)]
+    public void Migracao_EsperaOsGrupos(int grupos, bool migra)
+    {
+        Assert.Equal(migra, WidgetForm.MigrarAgora(isNotch: true, fracaoExata: false, grupos));
+        Assert.False(WidgetForm.MigrarAgora(isNotch: true, fracaoExata: true, grupos));
+        Assert.False(WidgetForm.MigrarAgora(isNotch: false, fracaoExata: false, grupos));
+    }
+
+    [Fact]
+    public void Migracao_MedidaComOsGruposDeVerdade()
+    {
+        // 0.0052 com 3 grupos (262 px) fica a 8 px do canto: era canto em 0.9.1. Medida com o
+        // comprimento de um grupo (114 px, o que a faixa tem sem grupos) fica a 9 px e não seria.
+        Assert.Equal(0.0, WidgetForm.FracaoMigrada(0.0052, BordaTela.Topo, 1.0, 3, Principal, 96));
+        Assert.Equal(0.0052, WidgetForm.FracaoMigrada(0.0052, BordaTela.Topo, 1.0, 1, Principal, 96));
+    }
+
     // ---------------------------------------------------------------- configuração
 
     [Fact]

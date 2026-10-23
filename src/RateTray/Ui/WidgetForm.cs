@@ -172,8 +172,8 @@ public sealed class WidgetForm : Form
 
         // Fork: fração gravada antes de o canto ser a fração exata (0.9.1 e anteriores) — uma vez só,
         // no monitor de agora, a que estava a até a tolerância de um canto vira 0 ou 1. Repetir a
-        // cada início traria de volta a decisão que depende do monitor.
-        if (IsNotch && !_config.Widget.FracaoExata)
+        // cada início traria de volta a decisão que depende do monitor. Espera os grupos (MigrarAgora).
+        if (MigrarAgora(IsNotch, _config.Widget.FracaoExata, _groups.Count))
         {
             _config.Widget.FracaoBorda = FracaoMigrada(_config.Widget.FracaoBorda, _config.Widget.Borda, _config.Widget.Scale, _groups.Count, area, dpi);
             _config.Widget.FracaoExata = true;
@@ -401,6 +401,14 @@ public sealed class WidgetForm : Form
         if (range - pos <= tolerancia) return 1.0;
         return Math.Clamp(pos / range, 0.0, 1.0);
     }
+
+    /// <summary>
+    /// Fork: a migração do canto exato roda neste relayout? Só no modo Notch, uma vez, e só com
+    /// grupos: o primeiro relayout acontece antes do primeiro poll, e sem grupos a faixa é medida
+    /// com o comprimento de um — a mesma fração fica a outra distância do canto (até 1 px a mais a
+    /// 96 dpi com 3 grupos) e a decisão sairia diferente da que valia em 0.9.1.
+    /// </summary>
+    internal static bool MigrarAgora(bool isNotch, bool fracaoExata, int grupos) => isNotch && !fracaoExata && grupos > 0;
 
     /// <summary>
     /// Fork: a fração antiga, de quando o canto era medido em px, depois da migração — 0 ou 1 se a

@@ -426,7 +426,7 @@ public sealed class WidgetOptions
 
     /// <summary>
     /// Fork: <see cref="FracaoBorda"/> já passou pela migração do canto exato (0 ou 1). Falso num
-    /// arquivo de 0.9.1 ou anterior: o primeiro relayout no modo Notch encaixa uma vez a fração que
+    /// arquivo de 0.9.1 ou anterior: o primeiro relayout no modo Notch com grupos encaixa uma vez a fração que
     /// estava a até a tolerância de um canto.
     /// </summary>
     public bool FracaoExata { get; set; }
