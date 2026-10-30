@@ -60,6 +60,7 @@ public class ForkAuthSempreConectadoTests
     {
         const string ok = """
             {"id":1,"result":{}}
+            aviso que nao e JSON
 
             {"id":3,"result":{}}
             """;
