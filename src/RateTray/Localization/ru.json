@@ -268,6 +268,8 @@
   "error.fetchFailed": "Ошибка запроса: {0}",
   "error.insecureUrl": "Учетные данные не отправлены на адрес без HTTPS: {0}",
   "error.claude.noCredentials": "Вход в Claude не найден (нет файла .credentials.json)",
+  "error.claude.signedOut": "Вы вышли из Claude. Войдите снова через Claude Code: сервер отклонил последнее обновление.",
+  "error.codex.renewFailed": "Codex не смог обновить вход. Пока он работает; выполните codex login до истечения срока.",
   "error.claude.insecureUrl": "Адрес не использует HTTPS, поэтому токен не отправлен: {0}",
   "error.claude.unreadable": "Не удалось прочитать учетные данные: {0}",
   "error.claude.expired": "Срок входа истек — откройте Claude Code (или включите обновление токена)",

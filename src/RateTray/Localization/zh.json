@@ -268,6 +268,8 @@
   "error.fetchFailed": "请求失败：{0}",
   "error.insecureUrl": "拒绝向非 HTTPS 地址发送凭据：{0}",
   "error.claude.noCredentials": "未找到 Claude 登录信息（缺少 .credentials.json）",
+  "error.claude.signedOut": "已退出 Claude。请通过 Claude Code 重新登录：服务器拒绝了上次续期。",
+  "error.codex.renewFailed": "Codex 无法续期登录。目前仍可使用；请在到期前运行 codex login。",
   "error.claude.insecureUrl": "该地址不是 HTTPS，因此未发送令牌：{0}",
   "error.claude.unreadable": "无法读取凭据：{0}",
   "error.claude.expired": "登录已过期，请打开 Claude Code（或开启令牌续期）",

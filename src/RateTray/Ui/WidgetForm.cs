@@ -170,6 +170,16 @@ public sealed class WidgetForm : Form
 
         var dpi = Native.DpiForPoint(new Point(area.Left + area.Width / 2, area.Top + area.Height / 2));
 
+        // Fork: fração gravada antes de o canto ser a fração exata (0.9.1 e anteriores) — uma vez só,
+        // no monitor de agora, a que estava a até a tolerância de um canto vira 0 ou 1. Repetir a
+        // cada início traria de volta a decisão que depende do monitor. Espera os grupos (MigrarAgora).
+        if (MigrarAgora(IsNotch, _config.Widget.FracaoExata, _groups.Count))
+        {
+            _config.Widget.FracaoBorda = FracaoMigrada(_config.Widget.FracaoBorda, _config.Widget.Borda, _config.Widget.Scale, _groups.Count, area, dpi);
+            _config.Widget.FracaoExata = true;
+            LayoutChanged?.Invoke(this, EventArgs.Empty);   // o app grava; a prévia do --render-widget não
+        }
+
         // Fork: Item 7 - pula relayout se a assinatura (orientação, escala, canto, monitor, dpi e número de grupos) não mudou
         // Área útil e tema também entram: resolução, barra de tarefas ou tema claro/escuro mudam
         // posição e cor sem mexer em nenhuma configuração da faixa.
@@ -210,7 +220,7 @@ public sealed class WidgetForm : Form
             // área útil, que já o desconta. Fora do canto a reserva tem espessura zero e não entra no
             // layout: a faixa vai para a área útil relida do Windows (o cache ainda pode descontar a
             // reserva antiga), cujo limite já exclui a barra de tarefas na mesma borda.
-            var noCanto = AppBarMath.NoCanto(layout.WidgetBounds, _config.Widget.Borda, screen.Bounds, area, AppBarMath.ToleranciaCanto(_dpi));
+            var noCanto = AppBarMath.NoCanto(_config.Widget.FracaoBorda);
             var espessura = AppBarMath.EspessuraReserva(noCanto, AppBarMath.Thickness(layout.WidgetBounds, _config.Widget.Borda));
             if (opcaoReserva && _appBar.Reserve(Handle, _config.Widget.Borda, screen.Bounds, espessura) is { } reservado)
             {
@@ -366,9 +376,10 @@ public sealed class WidgetForm : Form
 
     /// <summary>
     /// Converte uma posição absoluta ao longo de uma borda em fração 0–1.
-    /// Método puro para testes.
+    /// Método puro para testes. Fork: a até <paramref name="tolerancia"/> px do início ou do fim da
+    /// área útil, devolve exatamente 0 ou 1 — o canto (<see cref="AppBarMath.NoCanto"/>).
     /// </summary>
-    public static double PositionToFraction(Point point, BordaTela borda, Rectangle workArea, int widgetLength)
+    public static double PositionToFraction(Point point, BordaTela borda, Rectangle workArea, int widgetLength, int tolerancia = 0)
     {
         double range;
         double pos;
@@ -386,7 +397,29 @@ public sealed class WidgetForm : Form
         }
 
         if (range <= 0) return 0.5;
+        if (pos <= tolerancia) return 0.0;
+        if (range - pos <= tolerancia) return 1.0;
         return Math.Clamp(pos / range, 0.0, 1.0);
+    }
+
+    /// <summary>
+    /// Fork: a migração do canto exato roda neste relayout? Só no modo Notch, uma vez, e só com
+    /// grupos: o primeiro relayout acontece antes do primeiro poll, e sem grupos a faixa é medida
+    /// com o comprimento de um — a mesma fração fica a outra distância do canto (até 1 px a mais a
+    /// 96 dpi com 3 grupos) e a decisão sairia diferente da que valia em 0.9.1.
+    /// </summary>
+    internal static bool MigrarAgora(bool isNotch, bool fracaoExata, int grupos) => isNotch && !fracaoExata && grupos > 0;
+
+    /// <summary>
+    /// Fork: a fração antiga, de quando o canto era medido em px, depois da migração — 0 ou 1 se a
+    /// faixa estava a até a tolerância do início ou do fim da área útil, senão a mesma.
+    /// </summary>
+    internal static double FracaoMigrada(double fracao, BordaTela borda, double scale, int groupsCount, Rectangle area, int dpi)
+    {
+        var faixa = CalculateNotchLayout(borda, scale, fracao, groupsCount, area, dpi).WidgetBounds;
+        var comprimento = borda is BordaTela.Topo or BordaTela.Base ? faixa.Width : faixa.Height;
+        var exata = PositionToFraction(faixa.Location, borda, area, comprimento, AppBarMath.ToleranciaCanto(dpi));
+        return exata is 0.0 or 1.0 ? exata : fracao;
     }
 
     /// <summary>
@@ -742,7 +775,8 @@ public sealed class WidgetForm : Form
         // Calcula a fração ao longo da borda
         var isHorizontal = borda is BordaTela.Topo or BordaTela.Base;
         var widgetLength = isHorizontal ? Width : Height;
-        var fracao = PositionToFraction(new Point(Bounds.Left, Bounds.Top), borda, area, widgetLength);
+        var dpi = Native.DpiForPoint(new Point(area.Left + area.Width / 2, area.Top + area.Height / 2));
+        var fracao = PositionToFraction(new Point(Bounds.Left, Bounds.Top), borda, area, widgetLength, AppBarMath.ToleranciaCanto(dpi));
 
         _config.Widget.Borda = borda;
         _config.Widget.Monitor = screen.DeviceName;

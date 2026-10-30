@@ -7,6 +7,27 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- A settings.json that existed but could not be loaded (invalid JSON, unreadable) was overwritten
+  with the defaults by the first automatic save — the icons discovered on the first poll, a dragged
+  strip. Automatic saves are now refused ("save blocked" notice) until the file is valid again; the
+  file watcher then applies it. Saving from the settings window still asks and overwrites. A file
+  that was only locked at startup (antivirus, sync client) is re-read automatically until it can be
+  applied.
+- Claude token refresh (`claude.autoRefreshToken`) could lose the new token pair: once the token
+  endpoint has answered 200 the old refresh token is spent, but the poll deadline could still
+  cancel reading the reply, and a credentials file briefly locked by Claude Code or an antivirus
+  made the write fail — logging out Claude Code as well. The reply is now read under its own
+  deadline, and the write is retried (3 attempts, 200 ms apart).
+- "Reserve the edge": whether the notch strip sits in a corner no longer depends on resolution,
+  scale or the number of groups. A strip dropped within 8 px (at 96 dpi, scaled with DPI) of the
+  start or end of the work area is stored at exactly 0 or 1 along the edge, and only those
+  positions count as a corner. Before, the same saved position was measured in pixels on every
+  layout and could be a corner on one monitor and not on another, so the reservation switched on
+  or off by itself. A position saved by 0.9.1 or earlier that was a corner is converted once, on
+  the first layout in notch mode that already has the groups to measure the strip with (new setting
+  `widget.fracaoExata` records that it happened).
+
 ## [0.9.1] - 2026-10-20
 
 ### Changed

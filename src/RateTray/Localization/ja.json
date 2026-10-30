@@ -268,6 +268,8 @@
   "error.fetchFailed": "リクエストに失敗しました：{0}",
   "error.insecureUrl": "HTTPS 以外のアドレスには資格情報を送信しません：{0}",
   "error.claude.noCredentials": "Claude のサインイン情報が見つかりません（.credentials.json がありません）",
+  "error.claude.signedOut": "Claude からサインアウトされました。Claude Code で再度サインインしてください。サーバーが前回の更新を拒否しました。",
+  "error.codex.renewFailed": "Codex のサインインを更新できませんでした。今は動作します。期限前に codex login を実行してください。",
   "error.claude.insecureUrl": "アドレスが HTTPS ではないため、トークンを送信しませんでした：{0}",
   "error.claude.unreadable": "資格情報を読み取れませんでした：{0}",
   "error.claude.expired": "サインインの期限が切れました。Claude Code を開いてください（またはトークンの更新をオンに）",

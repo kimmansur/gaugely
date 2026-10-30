@@ -29,6 +29,7 @@ public sealed class TrayApp : ApplicationContext
     private readonly System.Windows.Forms.Timer _tooltipTimer = new();
     private readonly System.Windows.Forms.Timer _layoutSaveTimer = new() { Interval = 500 };
     private readonly System.Windows.Forms.Timer _reloadTimer = new() { Interval = 700 };   // Fork: recarga do settings.json
+    private readonly System.Windows.Forms.Timer _loadRetryTimer = new() { Interval = 5000 };   // Fork: settings.json preso desde a partida
     private FileSystemWatcher? _configWatcher;
     private bool _reloadPending;
     private int _reloadRetries;
@@ -1108,6 +1109,7 @@ public sealed class TrayApp : ApplicationContext
         if (ConfigStore.LastSaveFailed)
             ui?.Post(_ => ShowNotice(Loc.T("notice.saveFailed", ConfigStore.Path_), ref _saveFailedShown), null);
         _reloadTimer.Tick += (_, _) => { _reloadTimer.Stop(); ReloadConfigFromDisk(); };
+        _loadRetryTimer.Tick += (_, _) => { _loadRetryTimer.Stop(); ReloadConfigFromDisk(); };
 
         try
         {
@@ -1128,6 +1130,10 @@ public sealed class TrayApp : ApplicationContext
             _configWatcher?.Dispose();
             _configWatcher = null;              // sem recarga automática; a janela de ajustes continua valendo
         }
+
+        // O arquivo não carregou na partida. Se só estava preso, ninguém o mexe de novo e o
+        // observador não avisaria: relê agora pelo mesmo caminho da edição externa.
+        if (ConfigStore.LoadFailed) _reloadTimer.Start();
     }
 
     private DateTime _saveBlockedShown = DateTime.MinValue;
@@ -1179,6 +1185,10 @@ public sealed class TrayApp : ApplicationContext
         var edited = ConfigStore.ReadExternalEdit(out var busy);
         if (busy && ++_reloadRetries <= 5) { _reloadTimer.Start(); return; }
         _reloadRetries = 0;
+
+        // Ainda preso e nunca aplicado: o observador não vai avisar quando for solto, então tenta
+        // de novo a cada 5 s até aplicar. JSON inválido não é "preso" — esse espera a próxima edição.
+        if (busy && ConfigStore.LoadFailed) _loadRetryTimer.Start();
         if (edited is null) return;
 
         ConfigStore.CopyInto(edited, _config);
@@ -1400,6 +1410,7 @@ public sealed class TrayApp : ApplicationContext
             _tooltipTimer.Dispose();
             _layoutSaveTimer.Dispose();
             _reloadTimer.Dispose();
+            _loadRetryTimer.Dispose();
             _configWatcher?.Dispose();
             _menu.Dispose();
             _shutdown.Dispose();
