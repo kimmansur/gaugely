@@ -78,6 +78,15 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
             return ProviderResult.Failed(Group, Loc.T("error.claude.unreadable", ex.Message));
         }
 
+        // Fork: FATO PROVADO — após um invalid_grant o próprio Claude Code grava no arquivo
+        // refreshToken:"", accessToken:"" e expiresAt:0, então IsExpired dá falso e não há
+        // access token a enviar. Sem token e sem como renovar, falha-se sem ir à rede.
+        if (!creds.HasAccessToken && !(options.AutoRefreshToken && creds.CanRenew))
+            return ProviderResult.Failed(Group, Loc.T("error.claude.expired")) with
+            {
+                Auth = new AuthStatus { Group = Group, IsValid = false, Detail = Loc.T("auth.notLoggedIn") },
+            };
+
         var auth = AuthFrom(creds);
 
         // Checked before the token is anywhere near a socket: over plain http it would be on
@@ -95,7 +104,8 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
 
         try
         {
-            if (creds.IsExpired)
+            // Fork: sem access token a renovação é obrigatória, como quando o token vencido.
+            if (creds.IsExpired || !creds.HasAccessToken)
             {
                 if (!options.AutoRefreshToken)
                     return ProviderResult.Failed(Group, Loc.T("error.claude.expired")) with { Auth = auth };
@@ -112,6 +122,17 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
 
                 creds = refreshed;
                 auth = AuthFrom(creds);
+            }
+            // Fork: renovação preventiva — o token ainda vale, mas vence em até 10 minutos
+            // (o intervalo de consulta é 5 min); falha aqui não é erro, segue com o token atual.
+            else if (creds.NeedsRenew && options.AutoRefreshToken && creds.CanRenew && Endpoint.IsSecure(options.TokenUrl))
+            {
+                var refreshed = await RenewAsync(deadline.Token).ConfigureAwait(false);
+                if (refreshed is not null)
+                {
+                    creds = refreshed;
+                    auth = AuthFrom(creds);
+                }
             }
 
             using var request = new HttpRequestMessage(HttpMethod.Get, options.UsageUrl);
@@ -183,7 +204,8 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
     private AuthStatus AuthFrom(Credentials creds) => new()
     {
         Group = Group,
-        IsValid = !creds.IsExpired || (options.AutoRefreshToken && creds.CanRenew),
+        // Fork: arquivo de tokens vazios (invalid_grant) não pode contar como logado.
+        IsValid = !creds.IsExpired && creds.HasAccessToken || (options.AutoRefreshToken && creds.CanRenew),
         ExpiresAt = creds.ExpiresAtUnixMs > 0 ? DateTimeOffset.FromUnixTimeMilliseconds(creds.ExpiresAtUnixMs) : null,
         RenewableUntil = creds.RefreshExpiresAtUnixMs > 0
             ? DateTimeOffset.FromUnixTimeMilliseconds(creds.RefreshExpiresAtUnixMs)
@@ -329,7 +351,7 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
         if (held is null) return null;
 
         var current = ReadCredentials();
-        if (!current.IsExpired) return current;
+        if (!current.NeedsRenew) return current;
         if (!current.CanRenew) return null;
 
         // Se a trava for tomada no meio do pedido (renovação acima de 10 s com o temporizador
@@ -442,6 +464,12 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
 
     internal static void WriteCredentials(string path, Credentials creds)
     {
+        // Fork: FATO PROVADO — com um invalid_grant o Claude Code grava accessToken:"" e
+        // expiresAt:0; gravar isso de volta deixaria o arquivo sem login. Rejeita-se
+        // antes de tocar no arquivo.
+        if (creds.AccessToken is not { Length: > 0 } || creds.ExpiresAtUnixMs <= 0)
+            throw new InvalidOperationException("token vazio");
+
         var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
         var oauth = root["claudeAiOauth"]!.AsObject();
 
@@ -465,6 +493,19 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
         public bool IsExpired =>
             ExpiresAtUnixMs > 0 &&
             DateTimeOffset.FromUnixTimeMilliseconds(ExpiresAtUnixMs) <= DateTimeOffset.UtcNow.AddMinutes(1);
+
+        /// <summary>Fork: true enquanto há um access token a enviar.</summary>
+        public bool HasAccessToken =>
+            AccessToken is { Length: > 0 };
+
+        /// <summary>
+        /// Fork: FATO PROVADO — com um invalid_grant o Claude Code grava accessToken:"" e
+        /// expiresAt:0, e IsExpired dá falso. Renova-se quando falta access token ou quando
+        /// ele vence em até 10 minutos (o intervalo de consulta é 5 min).
+        /// </summary>
+        public bool NeedsRenew =>
+            !HasAccessToken || (ExpiresAtUnixMs > 0 &&
+                DateTimeOffset.FromUnixTimeMilliseconds(ExpiresAtUnixMs) <= DateTimeOffset.UtcNow.AddMinutes(10));
 
         /// <summary>True while the refresh token itself is still good for a renewal.</summary>
         public bool CanRenew =>
