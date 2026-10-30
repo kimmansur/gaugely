@@ -82,9 +82,9 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
         // refreshToken:"", accessToken:"" e expiresAt:0, então IsExpired dá falso e não há
         // access token a enviar. Sem token e sem como renovar, falha-se sem ir à rede.
         if (!creds.HasAccessToken && !(options.AutoRefreshToken && creds.CanRenew))
-            return ProviderResult.Failed(Group, Loc.T("error.claude.expired")) with
+            return ProviderResult.Failed(Group, Loc.T("error.claude.signedOut")) with
             {
-                Auth = new AuthStatus { Group = Group, IsValid = false, Detail = Loc.T("auth.notLoggedIn") },
+                Auth = new AuthStatus { Group = Group, IsValid = false },
             };
 
         var auth = AuthFrom(creds);
@@ -127,11 +127,17 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
             // (o intervalo de consulta é 5 min); falha aqui não é erro, segue com o token atual.
             else if (creds.NeedsRenew && options.AutoRefreshToken && creds.CanRenew && Endpoint.IsSecure(options.TokenUrl))
             {
-                var refreshed = await RenewAsync(deadline.Token).ConfigureAwait(false);
-                if (refreshed is not null)
+                try
                 {
-                    creds = refreshed;
-                    auth = AuthFrom(creds);
+                    if (await RenewAsync(deadline.Token).ConfigureAwait(false) is { } refreshed)
+                    {
+                        creds = refreshed;
+                        auth = AuthFrom(creds);
+                    }
+                }
+                catch (Exception) when (!ct.IsCancellationRequested)
+                {
+                    // O token atual ainda vale: a próxima rodada tenta de novo.
                 }
             }
 
@@ -374,6 +380,9 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
         // Fork: depois de um 200 o refresh token antigo já morreu no servidor — o par novo é o único
         // login que resta, do app e do Claude Code. Daí em diante nem o prazo da rodada interrompe a
         // leitura (que tem prazo próprio: o cliente não tem nenhum) e um arquivo preso é tentado de novo.
+        // O pedido tem prazo próprio, fora do prazo da rodada: cancelado depois de o servidor aceitar,
+        // o par novo se perde e o próximo pedido leva invalid_grant, e aí o Claude Code limpa o arquivo.
+        using var postDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         using var bodyDeadline = new CancellationTokenSource();
         try
         {
@@ -386,7 +395,7 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
                     client_id = options.ClientId,
                 }),
             };
-            using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, postDeadline.Token).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode) return null;
 
@@ -399,7 +408,7 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
             await WriteCredentialsAsync(CredentialsPath, renewed, WriteCredentials, TimeSpan.FromMilliseconds(200)).ConfigureAwait(false);
             return renewed;
         }
-        catch (OperationCanceledException) when (bodyDeadline.IsCancellationRequested)
+        catch (OperationCanceledException) when (bodyDeadline.IsCancellationRequested || postDeadline.IsCancellationRequested)
         {
             return null;
         }
@@ -464,12 +473,6 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
 
     internal static void WriteCredentials(string path, Credentials creds)
     {
-        // Fork: FATO PROVADO — com um invalid_grant o Claude Code grava accessToken:"" e
-        // expiresAt:0; gravar isso de volta deixaria o arquivo sem login. Rejeita-se
-        // antes de tocar no arquivo.
-        if (creds.AccessToken is not { Length: > 0 } || creds.ExpiresAtUnixMs <= 0)
-            throw new InvalidOperationException("token vazio");
-
         var root = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
         var oauth = root["claudeAiOauth"]!.AsObject();
 

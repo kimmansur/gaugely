@@ -268,6 +268,8 @@
   "error.fetchFailed": "فشل الطلب: {0}",
   "error.insecureUrl": "رُفض إرسال بيانات الاعتماد إلى عنوان لا يستخدم HTTPS: {0}",
   "error.claude.noCredentials": "لم يُعثر على تسجيل دخول Claude (الملف .credentials.json مفقود)",
+  "error.claude.signedOut": "Signed out of Claude. Sign in with Claude Code again: the server refused the last renewal.",
+  "error.codex.renewFailed": "Codex could not renew its sign-in. It still works for now; run codex login before it expires.",
   "error.claude.insecureUrl": "العنوان لا يستخدم HTTPS، لذلك لم يُرسل أي رمز: {0}",
   "error.claude.unreadable": "تعذرت قراءة بيانات الاعتماد: {0}",
   "error.claude.expired": "انتهت صلاحية تسجيل الدخول — افتح Claude Code (أو فعّل تجديد الرمز)",

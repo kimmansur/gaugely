@@ -268,6 +268,8 @@
   "error.fetchFailed": "Request failed: {0}",
   "error.insecureUrl": "Refusing to send credentials to a non-HTTPS address: {0}",
   "error.claude.noCredentials": "No Claude sign-in found (.credentials.json is missing)",
+  "error.claude.signedOut": "Signed out of Claude. Sign in with Claude Code again: the server refused the last renewal.",
+  "error.codex.renewFailed": "Codex could not renew its sign-in. It still works for now; run codex login before it expires.",
   "error.claude.insecureUrl": "The address is not HTTPS, so no token was sent: {0}",
   "error.claude.unreadable": "Could not read the credentials: {0}",
   "error.claude.expired": "Sign-in expired — open Claude Code (or turn on token renewal)",

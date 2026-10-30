@@ -268,6 +268,8 @@
   "error.fetchFailed": "Richiesta non riuscita: {0}",
   "error.insecureUrl": "Le credenziali non vengono inviate a un indirizzo non HTTPS: {0}",
   "error.claude.noCredentials": "Nessun accesso a Claude trovato (manca .credentials.json)",
+  "error.claude.signedOut": "Sessione Claude chiusa. Accedi di nuovo con Claude Code: il server ha rifiutato l'ultimo rinnovo.",
+  "error.codex.renewFailed": "Codex non ha potuto rinnovare l'accesso. Funziona ancora; esegui codex login prima della scadenza.",
   "error.claude.insecureUrl": "L'indirizzo non è HTTPS, quindi non è stato inviato alcun token: {0}",
   "error.claude.unreadable": "Impossibile leggere le credenziali: {0}",
   "error.claude.expired": "Accesso scaduto — apri Claude Code (o attiva il rinnovo del token)",

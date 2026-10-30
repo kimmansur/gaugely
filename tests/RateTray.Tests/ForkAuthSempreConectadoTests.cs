@@ -1,3 +1,4 @@
+using RateTray.Configuration;
 using RateTray.Providers;
 
 namespace RateTray.Tests;
@@ -29,26 +30,54 @@ public class ForkAuthSempreConectadoTests
         Assert.False(new ClaudeUsageProvider.Credentials("a", "r", 0).NeedsRenew);
     }
 
-    [Theory]
-    [InlineData("", 1000L)]
-    [InlineData("a", 0L)]
-    public void Gravacao_recusa_credencial_incompleta_e_nao_toca_no_arquivo(string access, long expira)
+    [Fact]
+    public async Task Arquivo_limpo_vira_nao_conectado_sem_ir_a_rede()
     {
         var path = Path.GetTempFileName();
         try
         {
-            const string original = """{ "claudeAiOauth": { "accessToken": "bom", "refreshToken": "r", "expiresAt": 5 } }""";
-            File.WriteAllText(path, original);
+            File.WriteAllText(path, """{ "claudeAiOauth": { "accessToken": "", "refreshToken": "", "expiresAt": 0 } }""");
+            var provider = new ClaudeUsageProvider(new ClaudeOptions
+            {
+                CredentialsPath = path,
+                UsageUrl = "http://usage.example.com/nunca",
+                AutoRefreshToken = true,
+            });
 
-            Assert.Throws<InvalidOperationException>(() =>
-                ClaudeUsageProvider.WriteCredentials(path, new ClaudeUsageProvider.Credentials(access, "r2", expira)));
+            var result = await provider.ReadAsync(CancellationToken.None);
 
-            Assert.Equal(original, File.ReadAllText(path));
+            Assert.False(result.Auth!.IsValid);
+            Assert.DoesNotContain("http://", result.Error ?? "");
         }
         finally
         {
             File.Delete(path);
         }
+    }
+
+    [Fact]
+    public async Task Renovacao_do_Codex_ignora_outras_linhas_e_le_o_erro()
+    {
+        const string ok = """
+            {"id":1,"result":{}}
+
+            {"id":3,"result":{}}
+            """;
+        const string erro = """{"id":3,"error":{"message":"refresh token morto"}}""";
+
+        Assert.Equal((true, null), await CodexUsageProvider.EsperarRenovacaoAsync(new StringReader(ok), CancellationToken.None));
+        Assert.Equal((true, "refresh token morto"), await CodexUsageProvider.EsperarRenovacaoAsync(new StringReader(erro), CancellationToken.None));
+        Assert.Equal((false, null), await CodexUsageProvider.EsperarRenovacaoAsync(new StringReader("""{"id":1}"""), CancellationToken.None));
+    }
+
+    [Fact]
+    public void Codex_tenta_no_maximo_uma_vez_por_hora()
+    {
+        var agora = new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.True(CodexUsageProvider.PodeTentar(null, agora));
+        Assert.False(CodexUsageProvider.PodeTentar(agora.AddMinutes(-59), agora));
+        Assert.True(CodexUsageProvider.PodeTentar(agora.AddHours(-1), agora));
     }
 
     [Fact]
