@@ -364,16 +364,14 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
         // atrasado), o resultado é gravado mesmo assim: o servidor já trocou o refresh token, e
         // descartar a resposta perderia o único token válido. O Claude Code, ao reler o arquivo
         // sob a trava dele, passa a usar o nosso.
-        return await TryRefreshAsync(current, ct).ConfigureAwait(false);
+        return await TryRefreshAsync(current).ConfigureAwait(false);
     }
 
     /// <summary>
     /// Exchanges the refresh token and writes the result back, preserving every other field
-    /// in the file so Claude Code keeps working. Returns null on any failure; a cancelled
-    /// <paramref name="ct"/> — shutdown or the poll deadline — is thrown on for the caller
-    /// to tell apart.
+    /// in the file so Claude Code keeps working. Returns null on any failure.
     /// </summary>
-    private async Task<Credentials?> TryRefreshAsync(Credentials creds, CancellationToken ct)
+    private async Task<Credentials?> TryRefreshAsync(Credentials creds)
     {
         if (creds.RefreshToken is not { Length: > 0 } refreshToken) return null;
 
@@ -411,10 +409,6 @@ public sealed class ClaudeUsageProvider(ClaudeOptions options) : IUsageProvider
         catch (OperationCanceledException) when (bodyDeadline.IsCancellationRequested || postDeadline.IsCancellationRequested)
         {
             return null;
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException
                                       or IOException or UnauthorizedAccessException
