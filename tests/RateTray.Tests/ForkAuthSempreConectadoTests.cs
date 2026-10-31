@@ -56,7 +56,7 @@ public class ForkAuthSempreConectadoTests
     }
 
     [Fact]
-    public async Task Renovacao_do_Codex_ignora_outras_linhas_e_le_o_erro()
+    public async Task Renovacao_do_Codex_espera_a_resposta_e_ignora_o_resto()
     {
         const string ok = """
             {"id":1,"result":{}}
@@ -64,11 +64,19 @@ public class ForkAuthSempreConectadoTests
 
             {"id":3,"result":{}}
             """;
-        const string erro = """{"id":3,"error":{"message":"refresh token morto"}}""";
 
-        Assert.Equal((true, null), await CodexUsageProvider.EsperarRenovacaoAsync(new StringReader(ok), CancellationToken.None));
-        Assert.Equal((true, "refresh token morto"), await CodexUsageProvider.EsperarRenovacaoAsync(new StringReader(erro), CancellationToken.None));
-        Assert.Equal((false, null), await CodexUsageProvider.EsperarRenovacaoAsync(new StringReader("""{"id":1}"""), CancellationToken.None));
+        Assert.True(await CodexUsageProvider.EsperarRenovacaoAsync(new StringReader(ok), CancellationToken.None));
+        Assert.False(await CodexUsageProvider.EsperarRenovacaoAsync(new StringReader("""{"id":1}"""), CancellationToken.None));
+    }
+
+    [Fact]
+    public void Aviso_do_Codex_fica_ate_a_validade_voltar()
+    {
+        var agora = new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.True(CodexUsageProvider.RenovacaoFalhou(true, agora.AddHours(40), agora));
+        Assert.False(CodexUsageProvider.RenovacaoFalhou(true, agora.AddDays(10), agora));
+        Assert.False(CodexUsageProvider.RenovacaoFalhou(false, agora.AddHours(40), agora));
     }
 
     [Fact]
