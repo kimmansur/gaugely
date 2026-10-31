@@ -7,6 +7,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-31
+
 ### Fixed
 - A settings.json that existed but could not be loaded (invalid JSON, unreadable) was overwritten
   with the defaults by the first automatic save — the icons discovered on the first poll, a dragged
