@@ -313,7 +313,12 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
     {
         while (await saida.ReadLineAsync(ct).ConfigureAwait(false) is { } linha)
         {
-            if (linha.Length == 0 || JsonNode.Parse(linha) is not JsonObject m || ReadId(m) != AccountReadId) continue;
+            // Linha que não é JSON (aviso, log) não pode abortar a espera no meio da troca.
+            JsonObject? m;
+            try { m = linha.Length == 0 ? null : JsonNode.Parse(linha) as JsonObject; }
+            catch (JsonException) { continue; }
+
+            if (m is null || ReadId(m) != AccountReadId) continue;
             return (true, m["error"] is JsonObject e ? e["message"]?.GetValue<string>() ?? Loc.T("error.codex.rpcUnknown") : null);
         }
 
