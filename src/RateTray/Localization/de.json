@@ -268,6 +268,8 @@
   "error.fetchFailed": "Abfrage fehlgeschlagen: {0}",
   "error.insecureUrl": "Anmeldedaten werden nicht an eine Adresse ohne HTTPS gesendet: {0}",
   "error.claude.noCredentials": "Keine Claude-Anmeldung gefunden (.credentials.json fehlt)",
+  "error.claude.signedOut": "Von Claude abgemeldet. Melde dich mit Claude Code neu an: Der Server hat die letzte Erneuerung abgelehnt.",
+  "error.codex.renewFailed": "Codex konnte die Anmeldung nicht erneuern. Es funktioniert noch; führe vor dem Ablauf codex login aus.",
   "error.claude.insecureUrl": "Die Adresse verwendet kein HTTPS, daher wurde kein Token gesendet: {0}",
   "error.claude.unreadable": "Die Anmeldedaten konnten nicht gelesen werden: {0}",
   "error.claude.expired": "Anmeldung abgelaufen — Claude Code öffnen (oder Token-Erneuerung einschalten)",

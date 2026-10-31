@@ -268,6 +268,8 @@
   "error.fetchFailed": "Échec de la requête : {0}",
   "error.insecureUrl": "Envoi des identifiants refusé vers une adresse non HTTPS : {0}",
   "error.claude.noCredentials": "Aucune connexion Claude trouvée (.credentials.json est absent)",
+  "error.claude.signedOut": "Session Claude fermée. Reconnectez-vous avec Claude Code : le serveur a refusé le dernier renouvellement.",
+  "error.codex.renewFailed": "Codex n'a pas pu renouveler la connexion. Cela fonctionne encore ; lancez codex login avant l'expiration.",
   "error.claude.insecureUrl": "L'adresse n'est pas en HTTPS, aucun jeton n'a donc été envoyé : {0}",
   "error.claude.unreadable": "Impossible de lire les identifiants : {0}",
   "error.claude.expired": "Connexion expirée — ouvrez Claude Code (ou activez le renouvellement du jeton)",
