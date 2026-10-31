@@ -69,6 +69,21 @@ public class ForkAuthSempreConectadoTests
         Assert.False(await CodexUsageProvider.EsperarRenovacaoAsync(new StringReader("""{"id":1}"""), CancellationToken.None));
     }
 
+    private sealed class LeitorParado : TextReader
+    {
+        public override ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken) =>
+            new(new TaskCompletionSource<string?>().Task);
+    }
+
+    [Fact]
+    public async Task Espera_do_Codex_para_no_prazo_mesmo_com_leitura_que_nao_responde()
+    {
+        using var prazo = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => CodexUsageProvider.EsperarRenovacaoAsync(new LeitorParado(), prazo.Token));
+    }
+
     [Fact]
     public void Aviso_do_Codex_fica_ate_a_validade_voltar()
     {
