@@ -22,6 +22,7 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
 {
     private const int InitializeId = 1;
     private const int RateLimitsId = 2;
+    private const int AccountReadId = 3;
 
     public string Group => "Codex";
 
@@ -34,17 +35,26 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
     {
         var auth = ReadAuthStatus();
 
+        // Fork: com refresh_token no auth.json em modo chatgpt e o access token já vencido ou
+        // vencendo em até 48 h, o token é renovado pelo próprio pedido em vez de falhar cedo.
+        var renovar = auth is not null && ChatgptRenova() && PrecisaRenovar(auth.ExpiresAt, DateTimeOffset.UtcNow);
+
         var exe = ResolveExecutable();
         if (exe is null)
             return ProviderResult.Failed(Group, Loc.T("error.codex.notFound")) with { Auth = auth };
 
-        if (auth is { IsValid: false })
+        if (auth is { IsValid: false } && !renovar)
             return ProviderResult.Failed(Group, Loc.T("error.codex.expired")) with { Auth = auth };
 
         try
         {
-            var json = await CallAsync(exe, ct).ConfigureAwait(false);
+            var json = await CallAsync(exe, renovar, ct).ConfigureAwait(false);
             var readings = Parse(json, out var planType);
+
+            // Fork: a renovação pode ter trocado o access token; o status é relido para a
+            // UI mostrar a validade nova.
+            if (renovar)
+                auth = ReadAuthStatus() ?? auth;
 
             if (planType is { Length: > 0 } && auth is not null)
                 auth = auth with { Detail = $"{auth.Detail} · {planType}" };
@@ -80,7 +90,7 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
     /// Runs one initialize → account/rateLimits/read round trip. stdin stays open until the
     /// answer arrives; closing it early makes the server exit before it has replied.
     /// </summary>
-    private async Task<JsonObject> CallAsync(string exe, CancellationToken ct)
+    private async Task<JsonObject> CallAsync(string exe, bool renovar, CancellationToken ct)
     {
         var startInfo = new ProcessStartInfo(exe, "app-server")
         {
@@ -108,6 +118,21 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
                 """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Gaugely","version":"0.1.0"}}}""").ConfigureAwait(false);
             await process.StandardInput.WriteLineAsync(
                 """{"jsonrpc":"2.0","method":"initialized","params":{}}""").ConfigureAwait(false);
+
+            // Fork: espera a resposta antes de seguir: matar o processo no meio da troca perderia
+            // o token novo. Erro aqui não decide nada; quem o revela é o pedido de limites abaixo.
+            if (renovar)
+            {
+                await process.StandardInput.WriteLineAsync(
+                    """{"jsonrpc":"2.0","id":3,"method":"account/read","params":{"refreshToken":true}}""").ConfigureAwait(false);
+                await process.StandardInput.FlushAsync().ConfigureAwait(false);
+
+                while (await process.StandardOutput.ReadLineAsync(timeout.Token).ConfigureAwait(false) is { } resposta)
+                {
+                    if (resposta.Length > 0 && JsonNode.Parse(resposta) is JsonObject m && ReadId(m) == AccountReadId) break;
+                }
+            }
+
             await process.StandardInput.WriteLineAsync(
                 """{"jsonrpc":"2.0","id":2,"method":"account/rateLimits/read","params":{}}""").ConfigureAwait(false);
             await process.StandardInput.FlushAsync().ConfigureAwait(false);
@@ -257,6 +282,29 @@ public sealed class CodexUsageProvider(CodexOptions options) : IUsageProvider
                                       or JsonException or InvalidOperationException)
         {
             return null;
+        }
+    }
+
+    /// <summary>Fork: vence em até 48 h ou já venceu. Sem data conhecida, não pede renovação.</summary>
+    internal static bool PrecisaRenovar(DateTimeOffset? expiry, DateTimeOffset now) =>
+        expiry is { } quando && quando <= now.AddHours(48);
+
+    /// <summary>
+    /// Fork: só o modo chatgpt com refresh token pode renovar pelo <c>account/read</c>, e quem grava
+    /// o auth.json é o próprio Codex: o Gaugely só lê.
+    /// </summary>
+    private static bool ChatgptRenova()
+    {
+        try
+        {
+            var root = JsonNode.Parse(File.ReadAllText(AuthPath))?.AsObject();
+            return root?["auth_mode"]?.GetValue<string>() is "chatgpt"
+                   && root["tokens"]?["refresh_token"]?.GetValue<string>() is { Length: > 0 };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                                      or JsonException or InvalidOperationException)
+        {
+            return false;
         }
     }
 
