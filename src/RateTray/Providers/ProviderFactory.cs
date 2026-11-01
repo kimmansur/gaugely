@@ -21,6 +21,7 @@ public static class ProviderFactory
         new OpenAIApiUsageProvider(config.OpenAIApi),
         new KimiApiUsageProvider(config.KimiApi),
         new DeepSeekUsageProvider(config.DeepSeek),
+        new ExperientialUsageProvider(config.Experiential),
     ];
 
     public static IUsageProvider? For(string group, AppConfig config) =>

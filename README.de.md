@@ -3,7 +3,7 @@
 Nutzungslimits und API-Ausgaben deiner KI-Werkzeuge, live im Windows-Infobereich.
 
 Gaugely zeigt, wie viel von jedem Abo übrig ist — Claude Code, Codex, Kimi Code, dem GLM Coding
-Plan von Z.ai und Google Antigravity — und was du für die APIs von Anthropic, OpenAI, Kimi, OpenRouter und DeepSeek
+Plan von Z.ai und Google Antigravity — und was du für die APIs von Anthropic, OpenAI, Kimi, OpenRouter, DeepSeek und Experiential Labs
 ausgibst, als Symbole im Infobereich und auf Wunsch als schwebende Leiste mit Anzeigen. So siehst
 du ein Limit kommen, bevor es dich mitten in der Arbeit stoppt.
 
@@ -29,6 +29,7 @@ ausmacht, stammen von dort. Dank und Anerkennung gehen an das ursprüngliche Pro
   | Z.ai | GLM Coding Plan (5-Stunden- und Wochenfenster) | — |
   | OpenRouter | — | Guthaben, Ausgaben heute, diese Woche und diesen Monat |
   | DeepSeek | — | Guthaben |
+  | Experiential Labs | — | Guthaben des Kontos; Ausgaben des Schlüssels heute, diese Woche und diesen Monat |
 
 - **Ein Einstellungsfenster für alles.** Seitenleiste mit Dienste, Infobereich, Schwebendes
   Widget, Darstellung, Warnungen, Updates und Erweitert; hell und dunkel. Alles, was man

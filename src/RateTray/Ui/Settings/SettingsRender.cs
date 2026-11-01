@@ -128,6 +128,11 @@ internal static class SettingsRender
                 Money("openrouter.spend_month", "OpenRouter", Loc.T("label.openrouter.spendMonth"), 7.85m),
             ]),
             ProviderResult.Success("DeepSeek", [Money("deepseek.balance", "DeepSeek", Loc.T("label.api.balance"), 3.20m, Loc.T("note.deepseek.split", "0.00", "3.20"))]),
+            ProviderResult.Success("Experiential",
+            [
+                Money("experiential.balance", "Experiential", Loc.T("label.api.balance"), 21.60m),
+                Money("experiential.spend_month", "Experiential", Loc.T("label.api.spendMonth"), 4.15m),
+            ]),
         ];
     }
 }

@@ -40,11 +40,12 @@ public static class ServiceCatalog
         new("Z.ai", "zai.", "zai", true, c => c.Zai, Color.FromArgb(47, 181, 166), Vendors.Zai, ServiceTrack.Subscription),
         new("OpenRouter", "openrouter.", "openrouter", true, c => c.OpenRouter, Color.FromArgb(160, 118, 250), Vendors.OpenRouter, ServiceTrack.Api),
         new("DeepSeek", "deepseek.", "deepseek", false, c => c.DeepSeek, Color.FromArgb(77, 107, 254), Vendors.DeepSeek, ServiceTrack.Api),
+        new("Experiential", "experiential.", "experiential", false, c => c.Experiential, Color.FromArgb(217, 70, 168), Vendors.Experiential, ServiceTrack.Api),
     ];
 
     /// <summary>Fornecedores, na ordem dos cartões nos ajustes.</summary>
     public static IReadOnlyList<string> VendorOrder { get; } =
-        [Vendors.Anthropic, Vendors.OpenAI, Vendors.Google, Vendors.Kimi, Vendors.Zai, Vendors.OpenRouter, Vendors.DeepSeek];
+        [Vendors.Anthropic, Vendors.OpenAI, Vendors.Google, Vendors.Kimi, Vendors.Zai, Vendors.OpenRouter, Vendors.DeepSeek, Vendors.Experiential];
 
     /// <summary>Os serviços de um fornecedor, assinatura primeiro.</summary>
     public static IEnumerable<ServiceRecord> OfVendor(string vendor) =>
@@ -74,4 +75,5 @@ public static class Vendors
     public const string OpenRouter = "OpenRouter";
     public const string DeepSeek = "DeepSeek";
     public const string Zai = "Z.ai";
+    public const string Experiential = "Experiential";
 }
