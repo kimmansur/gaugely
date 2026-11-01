@@ -1,4 +1,3 @@
-using System.Net;
 using RateTray.Configuration;
 using RateTray.Localization;
 using RateTray.Model;
@@ -68,16 +67,9 @@ public class ForkExperientialTests
     }
 
     [Fact]
-    public void Sem_saldo_por_falha_passageira_nao_mostra_gasto_no_lugar_dele()
+    public void Sem_saldo_nao_mostra_gasto_no_lugar_dele()
     {
         Assert.Empty(ExperientialUsageProvider.ParseForTest("{ nao e json", Key));
-        Assert.Empty(ExperientialUsageProvider.ParseForTest(null, Key));
-    }
-
-    [Fact]
-    public void Chave_sem_acesso_a_carteira_ainda_mostra_o_gasto()
-    {
-        Assert.Equal(3, ExperientialUsageProvider.ParseForTest(null, Key, HttpStatusCode.Forbidden).Count);
     }
 
     [Fact]

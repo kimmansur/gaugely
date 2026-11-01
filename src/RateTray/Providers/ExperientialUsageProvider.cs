@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json.Nodes;
 using RateTray.Configuration;
@@ -34,25 +33,26 @@ public sealed class ExperientialUsageProvider(ApiProviderOptions options) : ApiK
         var credits = get("/credits");
         var key = get("/key");
         await Task.WhenAll(credits, key).ConfigureAwait(false);
-        return [credits.Result with { Kind = CreditsKind }, key.Result with { Kind = KeyKind }];
+
+        // Sem saldo, o ícone mostraria o gasto do dia como se fosse saldo. Só a falha volta, para a
+        // bandeja manter a última leitura boa e tratar a causa real (429, chave recusada, prazo).
+        return credits.Result.Json is null
+            ? [credits.Result]
+            : [credits.Result with { Kind = CreditsKind }, key.Result with { Kind = KeyKind }];
     }
 
     protected override List<LimitReading> Parse(IReadOnlyList<Fetch> fetches, DateTimeOffset now)
     {
         var readings = new List<LimitReading>();
 
-        if (DataOf(fetches, CreditsKind) is { } credits &&
-            Number(credits["total_credits"]) is { } total &&
-            Number(credits["total_usage"]) is { } used)
+        if (DataOf(fetches, CreditsKind) is not { } credits ||
+            Number(credits["total_credits"]) is not { } total ||
+            Number(credits["total_usage"]) is not { } used)
         {
-            readings.Add(Money("experiential.balance", Loc.T("label.api.balance"), Math.Max(0m, total - used)));
-        }
-        else if (fetches.FirstOrDefault(f => f.Kind == CreditsKind)?.Status != HttpStatusCode.Forbidden)
-        {
-            // Sem saldo por falha passageira, o ícone mostraria o gasto do dia como se fosse saldo.
-            // Vazio mantém a última leitura boa. O 403 é fixo: chave presa a um plano não lê a carteira.
             return readings;
         }
+
+        readings.Add(Money("experiential.balance", Loc.T("label.api.balance"), Math.Max(0m, total - used)));
 
         if (DataOf(fetches, KeyKind) is { } key)
         {
@@ -75,13 +75,10 @@ public sealed class ExperientialUsageProvider(ApiProviderOptions options) : ApiK
             ? body["data"] as JsonObject
             : null;
 
-    /// <summary>Teste: o parser sobre as respostas cruas, sem rede; null simula a chamada que falhou.</summary>
-    internal static List<LimitReading> ParseForTest(string? creditsJson, string? keyJson, HttpStatusCode creditsFailure = HttpStatusCode.ServiceUnavailable)
+    /// <summary>Teste: o parser sobre as respostas cruas, sem rede; null em /key simula a chamada que falhou.</summary>
+    internal static List<LimitReading> ParseForTest(string creditsJson, string? keyJson)
     {
-        var fetches = new List<Fetch>
-        {
-            creditsJson is not null ? Fetch.Ok(creditsJson, CreditsKind) : new Fetch(null, creditsFailure, "falha") { Kind = CreditsKind },
-        };
+        var fetches = new List<Fetch> { Fetch.Ok(creditsJson, CreditsKind) };
         if (keyJson is not null) fetches.Add(Fetch.Ok(keyJson, KeyKind));
         return new ExperientialUsageProvider(new ApiProviderOptions()).Parse(fetches, DateTimeOffset.UtcNow);
     }
