@@ -250,6 +250,7 @@ public sealed partial class SettingsWindow
             ["Z.ai"] = (c, v) => c.Zai = v,
             ["OpenRouter"] = (c, v) => c.OpenRouter = v,
             ["DeepSeek"] = (c, v) => c.DeepSeek = v,
+            ["Experiential"] = (c, v) => c.Experiential = v,
         };
 
     private Control AppearancePage()
@@ -516,6 +517,7 @@ public sealed partial class SettingsWindow
         TimingRow(timing, "Z.ai", _draft.Zai.TimeoutSeconds, v => _draft.Zai.TimeoutSeconds = v, _draft.Zai.MinIntervalSeconds, v => _draft.Zai.MinIntervalSeconds = v, 0);
         TimingRow(timing, "OpenRouter", _draft.OpenRouter.TimeoutSeconds, v => _draft.OpenRouter.TimeoutSeconds = v, _draft.OpenRouter.MinIntervalSeconds, v => _draft.OpenRouter.MinIntervalSeconds = v, 0);
         TimingRow(timing, "DeepSeek", _draft.DeepSeek.TimeoutSeconds, v => _draft.DeepSeek.TimeoutSeconds = v, _draft.DeepSeek.MinIntervalSeconds, v => _draft.DeepSeek.MinIntervalSeconds = v, 60);
+        TimingRow(timing, "Experiential", _draft.Experiential.TimeoutSeconds, v => _draft.Experiential.TimeoutSeconds = v, _draft.Experiential.MinIntervalSeconds, v => _draft.Experiential.MinIntervalSeconds = v, 60);
 
         var json = Section(stack, Loc.T("settings.advanced.json"), Loc.T("settings.advanced.jsonHint"));
         var file = new Label { Text = ConfigStore.Path_, AutoSize = true, ForeColor = _theme.SubText, Font = new Font("Consolas", 9f), Margin = new Padding(0, 4, 0, 4) };

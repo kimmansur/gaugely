@@ -51,6 +51,9 @@ public sealed partial class SettingsWindow
         new("DeepSeek", null, "settings.auth.vault", CredentialVault.DeepSeek,
             "https://platform.deepseek.com/api_keys", null,
             c => c.DeepSeek.Enabled, (c, v) => c.DeepSeek.Enabled = v),
+        new("Experiential", null, "settings.auth.vault", CredentialVault.Experiential,
+            "https://platform.experientiallabs.ai/api-keys", null,
+            c => c.Experiential.Enabled, (c, v) => c.Experiential.Enabled = v),
     ];
 
     /// <summary>

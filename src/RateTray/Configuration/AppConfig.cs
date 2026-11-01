@@ -112,6 +112,9 @@ public sealed class AppConfig
     /// <summary>Fork: saldo da API da DeepSeek.</summary>
     public ApiProviderOptions DeepSeek { get; set; } = new() { MinIntervalSeconds = 300 };
 
+    /// <summary>Fork: saldo e gasto da Experiential Labs.</summary>
+    public ApiProviderOptions Experiential { get; set; } = new() { MinIntervalSeconds = 300 };
+
     /// <summary>Fork: faixa flutuante sempre visível, complementar aos ícones da bandeja.</summary>
     public WidgetOptions Widget { get; set; } = new();
 
@@ -165,6 +168,7 @@ public sealed class AppConfig
         AnthropicApi = (AnthropicApi ?? new()).Normalize();
         KimiApi = (KimiApi ?? new() { MinIntervalSeconds = 300 }).Normalize();
         DeepSeek = (DeepSeek ?? new() { MinIntervalSeconds = 300 }).Normalize();
+        Experiential = (Experiential ?? new() { MinIntervalSeconds = 300 }).Normalize();
         Widget = (Widget ?? new()).Normalize();
 
         return this;
@@ -212,6 +216,7 @@ public sealed class ColorOptions
     internal const string KimiApiDefault = "#8FA3FF";
     internal const string DeepSeekDefault = "#4D6BFE";
     internal const string ZaiDefault = "#2FB5A6";
+    internal const string ExperientialDefault = "#D946A8";
     internal const double ShadeSpreadDefault = 0.15;
 
     /// <summary>Claude's terracotta accent.</summary>
@@ -235,6 +240,8 @@ public sealed class ColorOptions
     public string DeepSeek { get; set; } = DeepSeekDefault;
 
     public string Zai { get; set; } = ZaiDefault;
+
+    public string Experiential { get; set; } = ExperientialDefault;
 
     /// <summary>
     /// Hue of the warning colour in degrees (48 = amber). The colour itself is built from this
@@ -277,6 +284,7 @@ public sealed class ColorOptions
         KimiApi = Sane.Text(KimiApi, KimiApiDefault);
         DeepSeek = Sane.Text(DeepSeek, DeepSeekDefault);
         Zai = Sane.Text(Zai, ZaiDefault);
+        Experiential = Sane.Text(Experiential, ExperientialDefault);
         WarnHue = Math.Clamp(WarnHue, 0, 359);
         CriticalHue = Math.Clamp(CriticalHue, 0, 359);
 

@@ -3,8 +3,8 @@
 Live usage limits and API spending for your AI tools, in the Windows tray.
 
 Gaugely shows how much is left of each subscription — Claude Code, Codex, Kimi Code, the Z.ai GLM
-Coding Plan and Google Antigravity — and what you are spending on the APIs of Anthropic, OpenAI, Kimi, OpenRouter and
-DeepSeek, as tray icons and as an optional floating strip of gauges, so you see a limit coming
+Coding Plan and Google Antigravity — and what you are spending on the APIs of Anthropic, OpenAI, Kimi, OpenRouter,
+DeepSeek and Experiential Labs, as tray icons and as an optional floating strip of gauges, so you see a limit coming
 before it stops you mid-task.
 
 It is a fork of **[RateTray](https://github.com/nowrap/rate-tray)** by nowrap, released under the
@@ -29,6 +29,7 @@ work come from there. Credit and thanks go to the original project.
   | Z.ai | GLM Coding Plan (5-hour and weekly windows) | — |
   | OpenRouter | — | Credit balance, spend today, this week and this month |
   | DeepSeek | — | Balance |
+  | Experiential Labs | — | Account credit balance; spend of the key today, this week and this month |
 
 - **A settings window for everything.** Sidebar with Services, Tray, Floating widget,
   Appearance, Alerts, Updates and Advanced; light and dark. Everything you would normally change is

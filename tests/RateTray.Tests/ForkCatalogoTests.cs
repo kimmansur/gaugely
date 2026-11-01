@@ -43,12 +43,12 @@ public class ForkCatalogoTests
     [Fact]
     public void Grupos_de_assinatura_e_de_api_estao_catalogados_sem_repeticao()
     {
-        // Fork: seis serviços de assinatura/crédito (Z.ai desde a 0.8.0) e quatro do trilho de API.
+        // Fork: seis serviços de assinatura/crédito (Z.ai desde a 0.8.0) e cinco do trilho de API.
         var grupos = ServiceCatalog.Services.Select(s => s.Group).ToList();
-        Assert.Equal(10, grupos.Count);
+        Assert.Equal(11, grupos.Count);
         Assert.Equal(grupos.Count, grupos.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         foreach (var g in new[] { "Claude", "Codex", "Kimi", "OpenRouter", "Antigravity",
-                                  "Anthropic API", "OpenAI API", "Kimi API", "DeepSeek", "Z.ai" })
+                                  "Anthropic API", "OpenAI API", "Kimi API", "DeepSeek", "Z.ai", "Experiential" })
             Assert.Contains(g, grupos);
     }
 }
