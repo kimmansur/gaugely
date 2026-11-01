@@ -75,6 +75,9 @@ public sealed class ExperientialUsageProvider(ApiProviderOptions options) : ApiK
             ? body["data"] as JsonObject
             : null;
 
+    /// <summary>Teste: as chamadas do ciclo com respostas falsas.</summary>
+    internal Task<IReadOnlyList<Fetch>> FetchAllForTest(Func<string, Task<Fetch>> get) => FetchAllAsync(get);
+
     /// <summary>Teste: o parser sobre as respostas cruas, sem rede; null em /key simula a chamada que falhou.</summary>
     internal static List<LimitReading> ParseForTest(string creditsJson, string? keyJson)
     {

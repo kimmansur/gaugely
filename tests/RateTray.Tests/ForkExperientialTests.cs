@@ -1,3 +1,4 @@
+using System.Net;
 using RateTray.Configuration;
 using RateTray.Localization;
 using RateTray.Model;
@@ -70,6 +71,19 @@ public class ForkExperientialTests
     public void Sem_saldo_nao_mostra_gasto_no_lugar_dele()
     {
         Assert.Empty(ExperientialUsageProvider.ParseForTest("{ nao e json", Key));
+    }
+
+    [Fact]
+    public async Task Falha_em_credits_devolve_so_a_causa_mesmo_com_o_gasto_disponivel()
+    {
+        var limite = new ApiKeyProvider.Fetch(null, HttpStatusCode.TooManyRequests, "limite") { RateLimited = true, RetryAfter = TimeSpan.FromMinutes(5) };
+
+        var respostas = await new ExperientialUsageProvider(new ApiProviderOptions()).FetchAllForTest(
+            caminho => Task.FromResult(caminho == "/credits" ? limite : ApiKeyProvider.Fetch.Ok(Key)));
+
+        var unica = Assert.Single(respostas);
+        Assert.True(unica.RateLimited);
+        Assert.Equal(TimeSpan.FromMinutes(5), unica.RetryAfter);
     }
 
     [Fact]
