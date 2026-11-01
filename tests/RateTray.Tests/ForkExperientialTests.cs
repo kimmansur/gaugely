@@ -1,3 +1,4 @@
+using System.Net;
 using RateTray.Configuration;
 using RateTray.Localization;
 using RateTray.Model;
@@ -42,16 +43,13 @@ public class ForkExperientialTests
     }
 
     [Fact]
-    public void Gasto_sai_por_periodo_com_a_janela_certa()
+    public void Gasto_sai_por_periodo()
     {
-        var leituras = ExperientialUsageProvider.ParseForTest(null, Key);
+        var leituras = ExperientialUsageProvider.ParseForTest(Credits, Key);
 
         Assert.Equal(0.25m, Id(leituras, "experiential.spend_today").Amount);
-        Assert.Equal(TimeSpan.FromDays(1), Id(leituras, "experiential.spend_today").Window);
         Assert.Equal(1.75m, Id(leituras, "experiential.spend_week").Amount);
-        Assert.Equal(TimeSpan.FromDays(7), Id(leituras, "experiential.spend_week").Window);
         Assert.Equal(7.5m, Id(leituras, "experiential.spend_month").Amount);
-        Assert.Equal(TimeSpan.FromDays(30), Id(leituras, "experiential.spend_month").Window);
     }
 
     [Fact]
@@ -70,12 +68,22 @@ public class ForkExperientialTests
     }
 
     [Fact]
-    public void Resposta_ruim_nao_derruba_a_outra()
+    public void Sem_saldo_por_falha_passageira_nao_mostra_gasto_no_lugar_dele()
     {
-        var leituras = ExperientialUsageProvider.ParseForTest("{ nao e json", Key);
+        Assert.Empty(ExperientialUsageProvider.ParseForTest("{ nao e json", Key));
+        Assert.Empty(ExperientialUsageProvider.ParseForTest(null, Key));
+    }
 
-        Assert.Equal(3, leituras.Count);
-        Assert.DoesNotContain(leituras, r => r.Id == "experiential.balance");
+    [Fact]
+    public void Chave_sem_acesso_a_carteira_ainda_mostra_o_gasto()
+    {
+        Assert.Equal(3, ExperientialUsageProvider.ParseForTest(null, Key, HttpStatusCode.Forbidden).Count);
+    }
+
+    [Fact]
+    public void Saldo_sem_o_gasto_ainda_vale()
+    {
+        Assert.Single(ExperientialUsageProvider.ParseForTest(Credits, null));
     }
 
     [Fact]

@@ -32,8 +32,8 @@ credential ever reaches it.
 **Windows Credential Manager**
 
 API keys are stored there and never in `settings.json`: `Gaugely/kimi` (Kimi Code),
-`Gaugely/kimi-platform`, `Gaugely/openrouter`, `Gaugely/openai-admin`, `Gaugely/anthropic-admin`
-and `Gaugely/deepseek`. They are typed or pasted into the settings window, which writes them to
+`Gaugely/kimi-platform`, `Gaugely/openrouter`, `Gaugely/openai-admin`, `Gaugely/anthropic-admin`,
+`Gaugely/deepseek` and `Gaugely/experiential`. They are typed or pasted into the settings window, which writes them to
 the Credential Manager at once and clears the box; Cancel does not undo a saved or removed key. Keys saved by earlier builds under
 `RateTray-Nox/…` are read once and copied to the new names; the old entry is left in place so
 the earlier build keeps working. Removing a key in Settings removes both, and a failed removal is
@@ -58,6 +58,7 @@ official one:
 | `https://api.openai.com/v1/organization/costs`, `/usage/completions` | An OpenAI Admin key is saved | The OpenAI Admin key |
 | `https://api.moonshot.ai/v1/users/me/balance` | A Kimi platform key is saved | The Kimi platform key |
 | `https://api.deepseek.com/user/balance` | A DeepSeek key is saved | The DeepSeek key |
+| `https://api.experientiallabs.ai/api/v1/credits`, `/key` | An Experiential key is saved | The Experiential key |
 | `https://api.github.com/repos/kimmansur/gaugely/…` | Update check (off by default) or the About buttons | Nothing — no token, no identifier |
 
 Codex and Antigravity involve no network access from this app: it starts the local
