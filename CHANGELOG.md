@@ -7,6 +7,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-01
+
 ### Added
 - Experiential Labs: credit balance of the account, and what the key spent today, this week and
   this month. Add an `xpl_` key in Settings → Services.
