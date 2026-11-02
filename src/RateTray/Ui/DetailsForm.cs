@@ -29,6 +29,7 @@ public sealed class DetailsForm : Form
     private DateTimeOffset? _nextPoll;
     private int _dpi = 96;
     private IReadOnlyList<IReadOnlyList<int>> _columns = [];
+    private int _scroll;
 
     /// <summary>
     /// Redraws only the countdown strip. 250 ms keeps a 60-second sweep from advancing in
@@ -131,6 +132,7 @@ public sealed class DetailsForm : Form
             old?.Dispose();
         }
 
+        _scroll = 0;
         Show();
         Activate();
         Invalidate();
@@ -178,6 +180,19 @@ public sealed class DetailsForm : Form
             .Select(column => column.Sum(index => MeasureBlock(_cachedResults[index].Result)))
             .DefaultIfEmpty(0)
             .Max();
+
+    // Colunas não bastam em tela pequena: o que sobra na altura se alcança com a roda do mouse.
+    private int MaxScroll => FlyoutPlacement.MaxScroll(MeasureHeight(), Height);
+
+    protected override void OnMouseWheel(MouseEventArgs e)
+    {
+        base.OnMouseWheel(e);
+        var next = Math.Clamp(_scroll - Math.Sign(e.Delta) * Px(ReadingRow) * 2, 0, MaxScroll);
+        if (next == _scroll) return;
+
+        _scroll = next;
+        Invalidate();
+    }
 
     /// <summary>"OAuth · max" → "Max"; "chatgpt · plus" → "Plus"; "Allegretto" → "Allegretto".</summary>
     internal static string? PlanOf(AuthStatus? auth)
@@ -275,14 +290,16 @@ public sealed class DetailsForm : Form
             return;
         }
 
+        g.SetClip(new Rectangle(0, 0, Width, Height - Px(FooterHeight)));
+
         for (var columnIndex = 0; columnIndex < _columns.Count; columnIndex++)
         {
             y = Px(TopPad);
             g.ResetTransform();
-            g.TranslateTransform(columnIndex * columnWidth, 0);
+            g.TranslateTransform(columnIndex * columnWidth, -_scroll);
             if (columnIndex > 0)
                 using (var line = new Pen(BorderColor))
-                    g.DrawLine(line, 0, Px(TopPad), 0, Height - Px(FooterHeight));
+                    g.DrawLine(line, 0, _scroll + Px(TopPad), 0, _scroll + Height - Px(FooterHeight));
 
             var column = _columns[columnIndex];
             for (var position = 0; position < column.Count; position++)
@@ -395,6 +412,18 @@ public sealed class DetailsForm : Form
         }
 
         g.ResetTransform();
+        g.ResetClip();
+
+        if (MaxScroll is > 0 and var maxScroll)
+        {
+            // Indica que há mais abaixo: nada mais no cartão mostraria que ele rola.
+            var track = Height - Px(FooterHeight) - 2 * Px(TopPad);
+            var thumb = Math.Max(Px(24), track * Height / (Height + maxScroll));
+            var top = Px(TopPad) + (track - thumb) * _scroll / maxScroll;
+            using var brush = new SolidBrush(Muted);
+            g.FillRectangle(brush, Width - Px(5), top, Px(3), thumb);
+        }
+
         var footer = _lastUpdate is { } stamp
             ? Loc.T("details.footer", stamp.ToLocalTime().ToString("HH:mm:ss", Loc.Culture), _config.RefreshSeconds)
             : Loc.T("details.noData");

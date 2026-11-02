@@ -47,6 +47,24 @@ public class FlyoutColumnsTests
     }
 
     [Fact]
+    public void Tela_pequena_rola_o_que_as_colunas_nao_acomodam()
+    {
+        int[] alturas = Enumerable.Repeat(128, 11).ToArray();
+        var colunas = FlyoutPlacement.Columns(alturas, 660, 2);
+        var conteudo = 14 + 30 + Tallest(colunas, alturas);
+
+        Assert.Equal(11, colunas.Sum(c => c.Count));
+        Assert.Equal(conteudo - 704, FlyoutPlacement.MaxScroll(conteudo, 704));
+        Assert.True(FlyoutPlacement.MaxScroll(conteudo, 704) > 0);
+    }
+
+    [Fact]
+    public void Sem_sobra_nao_ha_rolagem()
+    {
+        Assert.Equal(0, FlyoutPlacement.MaxScroll(500, 704));
+    }
+
+    [Fact]
     public void Sem_servicos_nao_ha_colunas()
     {
         Assert.Empty(FlyoutPlacement.Columns([], 400, 3));

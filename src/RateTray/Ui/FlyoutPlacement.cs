@@ -36,6 +36,9 @@ public static class FlyoutPlacement
         return Fill(heights, cap);
     }
 
+    /// <summary>How far the content can scroll; zero when the window shows all of it.</summary>
+    public static int MaxScroll(int contentHeight, int windowHeight) => Math.Max(0, contentHeight - windowHeight);
+
     private static List<IReadOnlyList<int>> Fill(IReadOnlyList<int> heights, int cap)
     {
         var columns = new List<IReadOnlyList<int>>();
