@@ -277,7 +277,8 @@ public sealed class DetailsForm : Form
 
         var pad = Px(16);
         var y = Px(TopPad);
-        var columnWidth = Px(BaseWidth);
+        // A janela pode ter sido estreitada para caber no monitor: a coluna segue a largura real.
+        var columnWidth = Width / Math.Max(1, _columns.Count);
         var textLeft = pad + Px(34);                            // alinhado ao nome, depois do ícone
         var barLeft = Px(170);
         var barWidth = Px(200);
@@ -294,7 +295,7 @@ public sealed class DetailsForm : Form
             return;
         }
 
-        g.SetClip(new Rectangle(0, 0, Width, Height - Px(FooterHeight)));
+        g.SetClip(new Rectangle(0, Px(TopPad), Width, Height - Px(TopPad) - Px(FooterHeight)));
 
         for (var columnIndex = 0; columnIndex < _columns.Count; columnIndex++)
         {
