@@ -28,6 +28,7 @@ public sealed class DetailsForm : Form
     private DateTimeOffset? _lastUpdate;
     private DateTimeOffset? _nextPoll;
     private int _dpi = 96;
+    private IReadOnlyList<IReadOnlyList<int>> _columns = [];
 
     /// <summary>
     /// Redraws only the countdown strip. 250 ms keeps a 60-second sweep from advancing in
@@ -114,7 +115,12 @@ public sealed class DetailsForm : Form
         BuildFonts();
 
         var margin = Px(EdgeMargin);
-        var size = FlyoutPlacement.Fit(new Size(Px(BaseWidth), MeasureHeight()), screen.WorkingArea, margin);
+        var columnWidth = Px(BaseWidth);
+        _columns = FlyoutPlacement.Columns(
+            _cachedResults.Select(c => MeasureBlock(c.Result)).ToList(),
+            screen.WorkingArea.Height - 2 * margin - Px(TopPad) - Px(FooterHeight),
+            Math.Max(1, (screen.WorkingArea.Width - 2 * margin) / columnWidth));
+        var size = FlyoutPlacement.Fit(new Size(columnWidth * Math.Max(1, _columns.Count), MeasureHeight()), screen.WorkingArea, margin);
         Bounds = new Rectangle(FlyoutPlacement.Locate(size, screen.WorkingArea, edge, margin), size);
 
         // Fork: recorta a janela no contorno arredondado do cartão, para não sobrar quina clara.
@@ -153,25 +159,25 @@ public sealed class DetailsForm : Form
     private const int ServiceHeader = 36;
     private const int ReadingRow = 26;
     private const int ServiceGap = 14;
+    private const int TopPad = 14;
+    private const int FooterHeight = 30;
 
     private static bool AuthNeedsAttention(ProviderResult result) => result.Auth is { IsValid: false };
 
-    private int MeasureHeight()
+    private int MeasureBlock(ProviderResult result)
     {
-        var height = Px(14);
-        foreach (var cached in _cachedResults)
-        {
-            var result = cached.Result;
-            height += Px(ServiceHeader);
-            if (AuthNeedsAttention(result)) height += Px(18);
-            if (result.Notice is not null) height += Px(18);
-            if (result.Error is not null) height += Px(20);
-            height += result.Readings.Count * Px(ReadingRow);
-            height += Px(ServiceGap);
-        }
-
-        return height + Px(30);                                 // footer
+        var height = Px(ServiceHeader) + Px(ServiceGap) + result.Readings.Count * Px(ReadingRow);
+        if (AuthNeedsAttention(result)) height += Px(18);
+        if (result.Notice is not null) height += Px(18);
+        if (result.Error is not null) height += Px(20);
+        return height;
     }
+
+    private int MeasureHeight() =>
+        Px(TopPad) + Px(FooterHeight) + _columns
+            .Select(column => column.Sum(index => MeasureBlock(_cachedResults[index].Result)))
+            .DefaultIfEmpty(0)
+            .Max();
 
     /// <summary>"OAuth · max" → "Max"; "chatgpt · plus" → "Plus"; "Allegretto" → "Allegretto".</summary>
     internal static string? PlanOf(AuthStatus? auth)
@@ -251,7 +257,8 @@ public sealed class DetailsForm : Form
         using var muted = new SolidBrush(Muted);
 
         var pad = Px(16);
-        var y = Px(14);
+        var y = Px(TopPad);
+        var columnWidth = Px(BaseWidth);
         var textLeft = pad + Px(34);                            // alinhado ao nome, depois do ícone
         var barLeft = Px(170);
         var barWidth = Px(200);
@@ -259,7 +266,7 @@ public sealed class DetailsForm : Form
         var resetLeft = valueLeft + Px(52);
         // Text that comes from a provider is drawn into these widths, never past them: an error
         // may be a server's whole answer, and a row here is one line high.
-        var fullWidth = Width - pad - textLeft;
+        var fullWidth = columnWidth - pad - textLeft;
         var labelWidth = barLeft - textLeft - Px(10);
 
         if (_cachedResults.Count == 0)
@@ -268,113 +275,126 @@ public sealed class DetailsForm : Form
             return;
         }
 
-        for (var index = 0; index < _cachedResults.Count; index++)
+        for (var columnIndex = 0; columnIndex < _columns.Count; columnIndex++)
         {
-            var result = _cachedResults[index].Result;
-            var readings = _cachedResults[index].Readings;
-            var accent = Harmony.Legible(_palette.Service(result.Group), Dark);
-            ServiceBadge.Draw(g, new RectangleF(pad, y + Px(2), Px(24), Px(24)), result.Group, accent, Dark);
-            g.DrawString(result.Group, _titleFont, foreground, textLeft, y + Px(4));
+            y = Px(TopPad);
+            g.ResetTransform();
+            g.TranslateTransform(columnIndex * columnWidth, 0);
+            if (columnIndex > 0)
+                using (var line = new Pen(BorderColor))
+                    g.DrawLine(line, 0, Px(TopPad), 0, Height - Px(FooterHeight));
 
-            // O número grande do cabeçalho é o mesmo da faixa e do ícone: o que trava primeiro.
-            // Serviço só de saldo mostra o saldo.
-            var head = ServiceGroup.Binding(readings) is { } binding
-                ? ($"{Math.Round(binding.Percent)} %", _palette.ForReading(result.Group, binding.Percent, 0, 1, Dark))
-                : readings.FirstOrDefault(r => r.IsInformational) is { } balance
-                    ? ($"{balance.AmountUnit} {balance.Amount:N2}", accent)
-                    : ((string, Color)?)null;
+            var column = _columns[columnIndex];
+            for (var position = 0; position < column.Count; position++)
+            {
+                var index = column[position];
+                var result = _cachedResults[index].Result;
+                var readings = _cachedResults[index].Readings;
+                var accent = Harmony.Legible(_palette.Service(result.Group), Dark);
+                ServiceBadge.Draw(g, new RectangleF(pad, y + Px(2), Px(24), Px(24)), result.Group, accent, Dark);
+                g.DrawString(result.Group, _titleFont, foreground, textLeft, y + Px(4));
+
+                // O número grande do cabeçalho é o mesmo da faixa e do ícone: o que trava primeiro.
+                // Serviço só de saldo mostra o saldo.
+                var head = ServiceGroup.Binding(readings) is { } binding
+                    ? ($"{Math.Round(binding.Percent)} %", _palette.ForReading(result.Group, binding.Percent, 0, 1, Dark))
+                    : readings.FirstOrDefault(r => r.IsInformational) is { } balance
+                        ? ($"{balance.AmountUnit} {balance.Amount:N2}", accent)
+                        : ((string, Color)?)null;
             
-            float headWidth = 0;
-            if (head is { } h) headWidth = g.MeasureString(h.Item1, _headFont).Width;
+                float headWidth = 0;
+                if (head is { } h) headWidth = g.MeasureString(h.Item1, _headFont).Width;
 
-            if (PlanOf(result.Auth) is { } plan)
-            {
-                var nameWidth = g.MeasureString(result.Group, _titleFont).Width;
-                var spaceRight = Width - pad - headWidth - Px(16); // Margem antes do head
-                var maxChipWidth = spaceRight - (textLeft + nameWidth + Px(8));
-                
-                var chipWidth = Math.Min(g.MeasureString(plan, _smallFont).Width + Px(12), Math.Max(Px(30), maxChipWidth));
-                var chip = new Rectangle((int)(textLeft + nameWidth + Px(8)), y + Px(6), (int)chipWidth, Px(18));
-                
-                using (var chipBack = new SolidBrush(Color.FromArgb(Dark ? 40 : 22, Foreground)))
-                using (var chipPath = RoundedRect(chip, Px(9)))
-                    g.FillPath(chipBack, chipPath);
-                    
-                // Fork: Item 12 - corta o nome do plano com elipse usando TextLine
-                TextLine.Draw(g, plan, _smallFont, muted, chip.X + Px(6), chip.Y + Px(2), chip.Width - Px(12));
-            }
-
-            if (head is { } hh)
-            {
-                using var headBrush = new SolidBrush(hh.Item2);
-                g.DrawString(hh.Item1, _headFont, headBrush, Width - pad - headWidth, y + Px(2));
-            }
-
-            y += Px(ServiceHeader);
-
-            if (AuthNeedsAttention(result) && result.Auth is { } auth)
-            {
-                var text = Loc.T("details.auth", auth.Summary()) +
-                           (auth.Detail is { Length: > 0 } d ? $"  ·  {d}" : "");
-                using var brush = new SolidBrush(Harmony.Legible(_palette.Critical, Dark));
-                TextLine.Draw(g, text, _smallFont, brush, textLeft, y, fullWidth);
-                y += Px(18);
-            }
-
-            if (result.Notice is { } notice)
-            {
-                // Not an error, so not in the critical colour — but not muted away either:
-                // an endpoint someone else configured should catch the eye once.
-                using var brush = new SolidBrush(Harmony.Legible(_palette.Warn, Dark));
-                TextLine.Draw(g, notice, _smallFont, brush, textLeft, y, fullWidth);
-                y += Px(18);
-            }
-
-            if (result.Error is { } error)
-            {
-                // "paused" without a duration reads like "broken", so say when it retries.
-                if (result.RetryAt is { } retry && retry > DateTimeOffset.Now)
-                    error += "  ·  " + Loc.T("details.retryIn", LimitReading.FormatSpan(retry - DateTimeOffset.Now));
-
-                using var brush = new SolidBrush(Harmony.Legible(_palette.Critical, Dark));
-                TextLine.Draw(g, error, _smallFont, brush, textLeft, y, fullWidth);
-                y += Px(20);
-            }
-
-            foreach (var reading in readings)
-            {
-                TextLine.Draw(g, reading.Label, _labelFont, muted, textLeft, y + Px(2), labelWidth);
-
-                if (reading.IsInformational)
+                if (PlanOf(result.Auth) is { } plan)
                 {
-                    // Valor em dinheiro não tem barra: não existe "cheio". Alinha com os percentuais.
-                    using var amountBrush = new SolidBrush(Foreground);
-                    g.DrawString($"{reading.AmountUnit} {reading.Amount:N2}", _valueFont, amountBrush, barLeft, y + Px(2));
-                    y += Px(ReadingRow);
-                    continue;
+                    var nameWidth = g.MeasureString(result.Group, _titleFont).Width;
+                    var spaceRight = columnWidth - pad - headWidth - Px(16); // Margem antes do head
+                    var maxChipWidth = spaceRight - (textLeft + nameWidth + Px(8));
+                
+                    var chipWidth = Math.Min(g.MeasureString(plan, _smallFont).Width + Px(12), Math.Max(Px(30), maxChipWidth));
+                    var chip = new Rectangle((int)(textLeft + nameWidth + Px(8)), y + Px(6), (int)chipWidth, Px(18));
+                
+                    using (var chipBack = new SolidBrush(Color.FromArgb(Dark ? 40 : 22, Foreground)))
+                    using (var chipPath = RoundedRect(chip, Px(9)))
+                        g.FillPath(chipBack, chipPath);
+                    
+                    // Fork: Item 12 - corta o nome do plano com elipse usando TextLine
+                    TextLine.Draw(g, plan, _smallFont, muted, chip.X + Px(6), chip.Y + Px(2), chip.Width - Px(12));
                 }
 
-                var color = _palette.ForReading(reading.Group, reading.Percent, reading.Variant, reading.VariantCount, Dark);
-                DrawBar(g, new Rectangle(barLeft, y + Px(8), barWidth, Px(7)), reading.Percent, color);
+                if (head is { } hh)
+                {
+                    using var headBrush = new SolidBrush(hh.Item2);
+                    g.DrawString(hh.Item1, _headFont, headBrush, columnWidth - pad - headWidth, y + Px(2));
+                }
 
-                using (var valueBrush = new SolidBrush(color))
-                    g.DrawString($"{Math.Round(reading.Percent)} %", _valueFont, valueBrush, valueLeft, y + Px(2));
+                y += Px(ServiceHeader);
 
-                // Quanto falta para zerar, curto: o horário completo fica no cartão do mouse.
-                if (reading.ResetsAt is { } reset && reset > DateTimeOffset.Now)
-                    TextLine.Draw(g, "↻ " + LimitReading.FormatSpan(reset - DateTimeOffset.Now), _smallFont, muted,
-                        resetLeft, y + Px(4), Width - pad - resetLeft);
+                if (AuthNeedsAttention(result) && result.Auth is { } auth)
+                {
+                    var text = Loc.T("details.auth", auth.Summary()) +
+                               (auth.Detail is { Length: > 0 } d ? $"  ·  {d}" : "");
+                    using var brush = new SolidBrush(Harmony.Legible(_palette.Critical, Dark));
+                    TextLine.Draw(g, text, _smallFont, brush, textLeft, y, fullWidth);
+                    y += Px(18);
+                }
 
-                y += Px(ReadingRow);
+                if (result.Notice is { } notice)
+                {
+                    // Not an error, so not in the critical colour — but not muted away either:
+                    // an endpoint someone else configured should catch the eye once.
+                    using var brush = new SolidBrush(Harmony.Legible(_palette.Warn, Dark));
+                    TextLine.Draw(g, notice, _smallFont, brush, textLeft, y, fullWidth);
+                    y += Px(18);
+                }
+
+                if (result.Error is { } error)
+                {
+                    // "paused" without a duration reads like "broken", so say when it retries.
+                    if (result.RetryAt is { } retry && retry > DateTimeOffset.Now)
+                        error += "  ·  " + Loc.T("details.retryIn", LimitReading.FormatSpan(retry - DateTimeOffset.Now));
+
+                    using var brush = new SolidBrush(Harmony.Legible(_palette.Critical, Dark));
+                    TextLine.Draw(g, error, _smallFont, brush, textLeft, y, fullWidth);
+                    y += Px(20);
+                }
+
+                foreach (var reading in readings)
+                {
+                    TextLine.Draw(g, reading.Label, _labelFont, muted, textLeft, y + Px(2), labelWidth);
+
+                    if (reading.IsInformational)
+                    {
+                        // Valor em dinheiro não tem barra: não existe "cheio". Alinha com os percentuais.
+                        using var amountBrush = new SolidBrush(Foreground);
+                        g.DrawString($"{reading.AmountUnit} {reading.Amount:N2}", _valueFont, amountBrush, barLeft, y + Px(2));
+                        y += Px(ReadingRow);
+                        continue;
+                    }
+
+                    var color = _palette.ForReading(reading.Group, reading.Percent, reading.Variant, reading.VariantCount, Dark);
+                    DrawBar(g, new Rectangle(barLeft, y + Px(8), barWidth, Px(7)), reading.Percent, color);
+
+                    using (var valueBrush = new SolidBrush(color))
+                        g.DrawString($"{Math.Round(reading.Percent)} %", _valueFont, valueBrush, valueLeft, y + Px(2));
+
+                    // Quanto falta para zerar, curto: o horário completo fica no cartão do mouse.
+                    if (reading.ResetsAt is { } reset && reset > DateTimeOffset.Now)
+                        TextLine.Draw(g, "↻ " + LimitReading.FormatSpan(reset - DateTimeOffset.Now), _smallFont, muted,
+                            resetLeft, y + Px(4), columnWidth - pad - resetLeft);
+
+                    y += Px(ReadingRow);
+                }
+
+                y += Px(ServiceGap);
+
+                if (position < column.Count - 1)
+                    using (var line = new Pen(BorderColor))
+                        g.DrawLine(line, pad, y - Px(ServiceGap) / 2, columnWidth - pad, y - Px(ServiceGap) / 2);
             }
-
-            y += Px(ServiceGap);
-
-            if (index < _cachedResults.Count - 1)
-                using (var line = new Pen(BorderColor))
-                    g.DrawLine(line, pad, y - Px(ServiceGap) / 2, Width - pad, y - Px(ServiceGap) / 2);
         }
 
+        g.ResetTransform();
         var footer = _lastUpdate is { } stamp
             ? Loc.T("details.footer", stamp.ToLocalTime().ToString("HH:mm:ss", Loc.Culture), _config.RefreshSeconds)
             : Loc.T("details.noData");

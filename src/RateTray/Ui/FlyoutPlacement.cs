@@ -21,6 +21,44 @@ public static class FlyoutPlacement
     }
 
     /// <summary>
+    /// Splits service blocks, in order, into the fewest columns whose height fits
+    /// <paramref name="maxHeight"/>, balanced so the window is no taller than it has to be. When
+    /// even <paramref name="maxColumns"/> are not enough it uses them all, balanced the same way.
+    /// </summary>
+    public static IReadOnlyList<IReadOnlyList<int>> Columns(IReadOnlyList<int> heights, int maxHeight, int maxColumns)
+    {
+        if (heights.Count == 0) return [];
+
+        var columns = Math.Min(Math.Max(1, maxColumns), Fill(heights, maxHeight).Count);
+
+        var cap = Math.Max(heights.Max(), heights.Sum() / columns);
+        while (Fill(heights, cap).Count > columns) cap++;
+        return Fill(heights, cap);
+    }
+
+    private static List<IReadOnlyList<int>> Fill(IReadOnlyList<int> heights, int cap)
+    {
+        var columns = new List<IReadOnlyList<int>>();
+        var current = new List<int>();
+        var used = 0;
+        for (var index = 0; index < heights.Count; index++)
+        {
+            if (current.Count > 0 && used + heights[index] > cap)
+            {
+                columns.Add(current);
+                current = [];
+                used = 0;
+            }
+
+            current.Add(index);
+            used += heights[index];
+        }
+
+        columns.Add(current);
+        return columns;
+    }
+
+    /// <summary>
     /// Top-left corner for a window of <paramref name="size"/>. The result is always inside
     /// <paramref name="workArea"/>: a window larger than the screen is aligned to the top-left
     /// corner rather than pushed off-screen.
