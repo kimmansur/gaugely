@@ -67,7 +67,11 @@ public sealed class DetailsForm : Form
         VisibleChanged += (_, _) =>
         {
             if (Visible) _countdown.Start();
-            else _countdown.Stop();
+            else
+            {
+                _countdown.Stop();
+                _scroll = 0;
+            }
         };
     }
 
@@ -132,7 +136,7 @@ public sealed class DetailsForm : Form
             old?.Dispose();
         }
 
-        _scroll = 0;
+        _scroll = Math.Clamp(_scroll, 0, MaxScroll);       // a atualização com o cartão aberto não volta ao topo
         Show();
         Activate();
         Invalidate();
