@@ -7,6 +7,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-11-02
+
 ### Fixed
 - The details fly-out no longer cuts off services when they do not fit the screen height: it opens
   more columns, as many as the screen width allows, and scrolls with the mouse wheel if that is
