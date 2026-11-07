@@ -49,7 +49,7 @@ internal static class AppBarMath
     /// maximizadas. Aqui o lado da borda volta para a face externa da reserva; os outros três
     /// continuam os da área útil. Dá o mesmo resultado antes e depois de o Windows atualizar a área
     /// útil, então não importa quando ela é lida. A reserva degenerada (espessura zero, faixa fora do
-    /// canto — ver <see cref="EspessuraReserva"/>) ou vazia não entra: devolve a área útil como está.
+    /// canto no modo SoNoCanto — ver <see cref="EspessuraReserva"/>) ou vazia não entra: devolve a área útil como está.
     /// A linha que o shell devolve para ela pode ficar na borda externa do monitor, além da barra de
     /// tarefas na mesma borda, e não serve de limite (ver <see cref="AreaDaFaixa"/>).
     /// </summary>
@@ -304,8 +304,8 @@ internal sealed class EstadoTelaCheia
 /// Fork: registra a faixa do modo Notch como AppBar (SHAppBarMessage), para que janelas maximizadas
 /// parem antes dela em vez de ficarem por baixo. Uma instância por janela.
 ///
-/// Com a opção ligada, a faixa fica registrada o tempo todo, no canto ou no meio da borda: fora do
-/// canto o pedido tem espessura zero (<see cref="AppBarMath.EspessuraReserva"/>) e não reserva nada,
+/// Com a opção ligada, a faixa fica registrada o tempo todo, no canto ou no meio da borda: no modo
+/// SoNoCanto, fora do canto o pedido tem espessura zero (<see cref="AppBarMath.EspessuraReserva"/>) e não reserva nada,
 /// mas o shell continua mandando ABN_FULLSCREENAPP — sem registro não haveria aviso de tela cheia.
 ///
 /// O registro some quando o Explorer reinicia (o shell novo não conhece a janela): a faixa recebe
@@ -391,7 +391,7 @@ internal sealed class AppBar : IDisposable
         if (_pedido == pedido && _atual is { } igual) return igual.Reservado;
 
         // Borda, monitor ou espessura novos são mudança real: o limite de SETPOS recomeça. A troca
-        // canto ↔ meio da borda muda a espessura (normal ↔ zero), então também.
+        // canto ↔ meio da borda muda a espessura (normal ↔ zero) no modo SoNoCanto, então também.
         if (_base != pedido) _guarda.Liberar();
         _base = pedido;
 

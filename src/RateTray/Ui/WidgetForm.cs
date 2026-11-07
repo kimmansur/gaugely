@@ -191,8 +191,9 @@ public sealed class WidgetForm : Form
         // antes do layout, e a área útil é relida do Windows na hora (o cache de Screen ainda tem a
         // reserva). Nada sintetizado: outra AppBar na mesma borda continua descontada. A assinatura
         // fica com a área do cache: quando ele atualizar, um relayout a mais dá o mesmo resultado.
-        // Com a opção ligada a faixa fica registrada no canto e no meio da borda; a posição só muda a
-        // espessura pedida (AppBarMath.EspessuraReserva: com ReservaModo.Sempre a da faixa em qualquer posição; com SoNoCanto, zero no meio), e o shell
+        // Com a opção ligada a faixa fica registrada no canto e no meio da borda; só no modo SoNoCanto a
+        // posição muda a espessura pedida (AppBarMath.EspessuraReserva: a da faixa no canto, zero no
+        // meio; no modo Sempre é a da faixa em qualquer posição), e o shell
         // continua avisando a tela cheia. A posição ao longo da borda não depende da própria reserva,
         // então a decisão canto/meio não muda por pô-la ou tirá-la.
         var opcaoReserva = IsNotch && _config.Widget.ReservarEspaco;
