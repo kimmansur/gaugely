@@ -7,6 +7,8 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-11-07
+
 ### Changed
 - Notch mode, "Reserve the edge": the reservation applies again anywhere along the edge, not only
   with the widget in a corner, so maximized windows stop before a widget that sits in the middle of
