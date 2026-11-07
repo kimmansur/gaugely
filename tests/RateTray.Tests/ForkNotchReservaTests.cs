@@ -380,12 +380,29 @@ public class ForkNotchReservaTests
     // ---------------------------------------------------------------- canto × meio: registro sempre, espessura zero fora do canto
 
     [Theory]
-    [InlineData(true, 66, 66)]
-    [InlineData(false, 66, 0)]
-    [InlineData(true, -3, 0)]
-    public void EspessuraReserva_NormalNoCantoZeroForaDele(bool noCanto, int espessuraFaixa, int esperado)
+    [InlineData(ReservaModo.SoNoCanto, true, 66, 66)]
+    [InlineData(ReservaModo.SoNoCanto, false, 66, 0)]
+    [InlineData(ReservaModo.SoNoCanto, true, -3, 0)]
+    [InlineData(ReservaModo.Sempre, true, 66, 66)]    // canto: cheia nos dois modos
+    [InlineData(ReservaModo.Sempre, false, 66, 66)]   // meio da borda: cheia só no modo Sempre
+    [InlineData(ReservaModo.Sempre, false, -3, 0)]
+    public void EspessuraReserva_DependeDoModoEDoCanto(ReservaModo modo, bool noCanto, int espessuraFaixa, int esperado)
     {
-        Assert.Equal(esperado, AppBarMath.EspessuraReserva(noCanto, espessuraFaixa));
+        Assert.Equal(esperado, AppBarMath.EspessuraReserva(modo, noCanto, espessuraFaixa));
+    }
+
+    [Theory]
+    [InlineData(BordaTela.Direita, 0.5)]
+    [InlineData(BordaTela.Esquerda, 0.3)]
+    [InlineData(BordaTela.Topo, 0.5)]
+    [InlineData(BordaTela.Base, 0.9999)]
+    public void Sempre_NoMeioDaBordaReservaAEspessuraDaFaixa(BordaTela borda, double fracao)
+    {
+        var faixa = Faixa(borda, fracao, Principal);
+        var espessura = AppBarMath.Thickness(faixa, borda);
+        Assert.True(espessura > 0);
+        Assert.Equal(espessura, AppBarMath.EspessuraReserva(ReservaModo.Sempre, AppBarMath.NoCanto(fracao), espessura));
+        Assert.Equal(0, AppBarMath.EspessuraReserva(ReservaModo.SoNoCanto, AppBarMath.NoCanto(fracao), espessura));
     }
 
     [Theory]
@@ -398,7 +415,7 @@ public class ForkNotchReservaTests
         // Retângulo pedido fora do canto: espessura zero, borda inteira de comprimento, colado na face
         // externa do monitor (topo: top = bottom = monitor.Top). O Windows subtrai o retângulo da
         // área útil — subtrair um retângulo degenerado não muda nada.
-        var pedido = AppBarMath.Request(Secundario, borda, AppBarMath.EspessuraReserva(false, 66));
+        var pedido = AppBarMath.Request(Secundario, borda, AppBarMath.EspessuraReserva(ReservaModo.SoNoCanto, false, 66));
         var horizontal = borda is BordaTela.Topo or BordaTela.Base;
         Assert.Equal(0, horizontal ? pedido.Height : pedido.Width);
         Assert.Equal(horizontal ? Secundario.Width : Secundario.Height, horizontal ? pedido.Width : pedido.Height);
@@ -546,7 +563,7 @@ public class ForkNotchReservaTests
             var noCanto = AppBarMath.NoCanto(fracao);
             if (anterior is { } a && a != noCanto) trocas++;
             anterior = noCanto;
-            var esp = AppBarMath.EspessuraReserva(noCanto, AppBarMath.Thickness(faixa, borda));
+            var esp = AppBarMath.EspessuraReserva(ReservaModo.SoNoCanto, noCanto, AppBarMath.Thickness(faixa, borda));
             var proposto = AppBarMath.Request(Principal, borda, esp);
             if (borda == BordaTela.Base) proposto.Offset(0, semReserva.Bottom - proposto.Bottom);   // QUERYPOS: acima da barra de tarefas
             var ajustado = AppBarMath.Fit(proposto, borda, esp);
@@ -814,6 +831,23 @@ public class ForkNotchReservaTests
     {
         Assert.False(new WidgetOptions().ReservarEspaco);
         Assert.False(ConfigStore.FromJson("""{ "widget": { "enabled": true } }""").Widget.ReservarEspaco);
+    }
+
+    [Fact]
+    public void ReservaModo_SemAChaveCarregaComoSempre()
+    {
+        Assert.Equal(ReservaModo.Sempre, new WidgetOptions().ReservaModo);
+        Assert.Equal(ReservaModo.Sempre, ConfigStore.FromJson("{}").Widget.ReservaModo);
+        Assert.Equal(ReservaModo.Sempre, ConfigStore.FromJson("""{ "widget": { "reservarEspaco": true } }""").Widget.ReservaModo);
+    }
+
+    [Fact]
+    public void ReservaModo_SobreviveAIdaEVoltaDoJson()
+    {
+        var config = new AppConfig();
+        config.Widget.ReservaModo = ReservaModo.SoNoCanto;
+        Assert.Equal(ReservaModo.SoNoCanto, ConfigStore.FromJson(ConfigStore.ToJson(config)).Widget.ReservaModo);
+        Assert.Equal(ReservaModo.SoNoCanto, ConfigStore.Clone(config).Widget.ReservaModo);
     }
 
     [Fact]

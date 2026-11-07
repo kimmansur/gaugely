@@ -88,8 +88,9 @@ internal static class AppBarMath
     public static int ToleranciaCanto(int dpi) => (int)Math.Round(8 * Math.Max(dpi, 96) / 96.0);
 
     /// <summary>
-    /// A faixa está num canto da tela? Só então a reserva vale: no meio da borda, reservar a borda
-    /// inteira encolheria toda janela maximizada por causa de um pedaço pequeno. Fork: canto é a
+    /// A faixa está num canto da tela? Só com <see cref="ReservaModo.SoNoCanto"/> isso decide a
+    /// reserva: no meio da borda, reservar a borda inteira encolhe toda janela maximizada por causa
+    /// de um pedaço pequeno. Fork: canto é a
     /// fração exata 0 ou 1 — a faixa encostada no início ou no fim da área útil, que cobre a barra de
     /// tarefas numa borda vizinha. Medir em px fazia a mesma fração ser canto num monitor e não em
     /// outro (resolução, escala, número de grupos); o arraste já grava 0 ou 1 quando solta perto.
@@ -98,12 +99,15 @@ internal static class AppBarMath
     public static bool NoCanto(double fracaoBorda) => fracaoBorda is 0.0 or 1.0;
 
     /// <summary>
-    /// Espessura pedida ao shell com a opção ligada: a da faixa no canto, zero fora dele. A faixa
+    /// Espessura pedida ao shell com a opção ligada: a da faixa em qualquer posição
+    /// (<see cref="ReservaModo.Sempre"/>) ou só no canto (<see cref="ReservaModo.SoNoCanto"/>), zero
+    /// fora dele. A faixa
     /// continua registrada como AppBar nos dois casos, para receber ABN_FULLSCREENAPP; o retângulo de
     /// espessura zero, colado na borda e degenerado (borda superior: top = bottom = topo do monitor),
     /// não tira nada da área útil — o shell a calcula subtraindo os retângulos das AppBars.
     /// </summary>
-    public static int EspessuraReserva(bool noCanto, int espessuraFaixa) => noCanto ? Math.Max(0, espessuraFaixa) : 0;
+    public static int EspessuraReserva(ReservaModo modo, bool noCanto, int espessuraFaixa) =>
+        modo == ReservaModo.Sempre || noCanto ? Math.Max(0, espessuraFaixa) : 0;
 
     /// <summary>
     /// O registro atual sobrevive a este relayout? Só se a opção continua ligada e ele está na mesma

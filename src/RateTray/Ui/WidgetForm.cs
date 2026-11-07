@@ -183,7 +183,7 @@ public sealed class WidgetForm : Form
         // Fork: Item 7 - pula relayout se a assinatura (orientação, escala, canto, monitor, dpi e número de grupos) não mudou
         // Área útil e tema também entram: resolução, barra de tarefas ou tema claro/escuro mudam
         // posição e cor sem mexer em nenhuma configuração da faixa.
-        var sig = $"{_config.Widget.OrientacaoEfetiva}|{_config.Widget.Scale}|{_config.Widget.Corner}|{_config.Widget.Monitor}|{dpi}|{_groups.Count}|{area}|{Dark}|{_config.Widget.Modo}|{_config.Widget.Borda}|{_config.Widget.FracaoBorda:F4}|{_config.Widget.MostrarAlca}|{_config.Widget.Dial}|{_config.Widget.ReservarEspaco}";
+        var sig = $"{_config.Widget.OrientacaoEfetiva}|{_config.Widget.Scale}|{_config.Widget.Corner}|{_config.Widget.Monitor}|{dpi}|{_groups.Count}|{area}|{Dark}|{_config.Widget.Modo}|{_config.Widget.Borda}|{_config.Widget.FracaoBorda:F4}|{_config.Widget.MostrarAlca}|{_config.Widget.Dial}|{_config.Widget.ReservarEspaco}|{_config.Widget.ReservaModo}";
         if (sig == _layoutSignature) return;
         _layoutSignature = sig;
 
@@ -221,7 +221,7 @@ public sealed class WidgetForm : Form
             // layout: a faixa vai para a área útil relida do Windows (o cache ainda pode descontar a
             // reserva antiga), cujo limite já exclui a barra de tarefas na mesma borda.
             var noCanto = AppBarMath.NoCanto(_config.Widget.FracaoBorda);
-            var espessura = AppBarMath.EspessuraReserva(noCanto, AppBarMath.Thickness(layout.WidgetBounds, _config.Widget.Borda));
+            var espessura = AppBarMath.EspessuraReserva(_config.Widget.ReservaModo, noCanto, AppBarMath.Thickness(layout.WidgetBounds, _config.Widget.Borda));
             if (opcaoReserva && _appBar.Reserve(Handle, _config.Widget.Borda, screen.Bounds, espessura) is { } reservado)
             {
                 var fresca = AppBarMath.Degenerada(reservado) ? AppBar.AreaUtilAgora(screen.Bounds) : null;

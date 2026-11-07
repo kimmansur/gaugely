@@ -383,6 +383,16 @@ public enum ModoApresentacao
     Notch,
 }
 
+/// <summary>Onde, ao longo da borda, a reserva do modo Notch vale.</summary>
+public enum ReservaModo
+{
+    /// <summary>Em qualquer posição da borda: a reserva tem a espessura da faixa.</summary>
+    Sempre,
+
+    /// <summary>Só com a faixa num canto (fração 0 ou 1); no meio da borda não reserva.</summary>
+    SoNoCanto,
+}
+
 /// <summary>Borda da tela à qual a faixa se cola no modo Notch.</summary>
 public enum BordaTela
 {
@@ -444,10 +454,14 @@ public sealed class WidgetOptions
 
     /// <summary>
     /// Fork: no modo Notch, reserva a borda inteira como AppBar, para que janelas maximizadas parem
-    /// antes da faixa — só com a faixa num canto da tela (fração 0 ou 1, AppBarMath.NoCanto); no meio da borda não
-    /// reserva. Desligado por padrão: muda o tamanho de toda janela maximizada no monitor.
+    /// antes da faixa — em qualquer posição da borda (<see cref="ReservaModo.Sempre"/>) ou só com a
+    /// faixa num canto (<see cref="ReservaModo.SoNoCanto"/>). Desligado por padrão: muda o tamanho de toda
+    /// janela maximizada no monitor.
     /// </summary>
     public bool ReservarEspaco { get; set; }
+
+    /// <summary>Fork: onde a reserva vale. Arquivo sem a chave carrega como <see cref="ReservaModo.Sempre"/>.</summary>
+    public ReservaModo ReservaModo { get; set; } = ReservaModo.Sempre;
 
     /// <summary>Fork: forma do mostrador — gauge (arco em G), semicircle ou segmented.</summary>
     public string Dial { get; set; } = "gauge";
