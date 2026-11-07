@@ -192,7 +192,7 @@ public sealed class WidgetForm : Form
         // reserva). Nada sintetizado: outra AppBar na mesma borda continua descontada. A assinatura
         // fica com a área do cache: quando ele atualizar, um relayout a mais dá o mesmo resultado.
         // Com a opção ligada a faixa fica registrada no canto e no meio da borda; a posição só muda a
-        // espessura pedida (AppBarMath.EspessuraReserva: a da faixa no canto, zero no meio), e o shell
+        // espessura pedida (AppBarMath.EspessuraReserva: com ReservaModo.Sempre a da faixa em qualquer posição; com SoNoCanto, zero no meio), e o shell
         // continua avisando a tela cheia. A posição ao longo da borda não depende da própria reserva,
         // então a decisão canto/meio não muda por pô-la ou tirá-la.
         var opcaoReserva = IsNotch && _config.Widget.ReservarEspaco;
@@ -217,7 +217,7 @@ public sealed class WidgetForm : Form
             var layout = CalculateNotchLayout(_config.Widget.Borda, _config.Widget.Scale, _config.Widget.FracaoBorda, _groups.Count, area, _dpi);
 
             // Fork: com a opção, a borda vira AppBar e a faixa fica dentro do espaço reservado — não na
-            // área útil, que já o desconta. Fora do canto a reserva tem espessura zero e não entra no
+            // área útil, que já o desconta. Fora do canto, no modo SoNoCanto, a reserva tem espessura zero e não entra no
             // layout: a faixa vai para a área útil relida do Windows (o cache ainda pode descontar a
             // reserva antiga), cujo limite já exclui a barra de tarefas na mesma borda.
             var noCanto = AppBarMath.NoCanto(_config.Widget.FracaoBorda);

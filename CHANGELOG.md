@@ -7,6 +7,19 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- Notch mode, "Reserve the edge": the reservation applies again anywhere along the edge, not only
+  with the widget in a corner, so maximized windows stop before a widget that sits in the middle of
+  an edge. The corner-only behaviour of 0.9.1 is now the option "Only with the widget in a corner"
+  (`widget.reservaModo`: `Sempre` by default, `SoNoCanto`). Settings files without the key load as
+  "anywhere".
+
+### Added
+- Settings → Widget: "Reserve mode" choice next to "Reserve the edge" (enabled only when that
+  toggle is on).
+- The "Start with Windows" switch in Settings → Tray now reverts when the registry write fails, and
+  the tray menu checkbox is refreshed each time the menu opens, so both always show the registry.
+
 ## [0.9.4] - 2026-11-02
 
 ### Fixed
