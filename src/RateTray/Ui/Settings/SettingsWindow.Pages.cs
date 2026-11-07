@@ -22,8 +22,9 @@ public sealed partial class SettingsWindow
         _afterSave.Add(() =>
         {
             if (autostart.Checked == AutoStart.IsEnabled) return;
-            if (!AutoStart.TrySet(autostart.Checked, out var error))
-                MessageBox.Show(this, Loc.T("dialog.autostartFailed", error), "Gaugely", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            if (AutoStart.TrySet(autostart.Checked, out var error)) return;
+            autostart.Checked = AutoStart.IsEnabled;
+            MessageBox.Show(this, Loc.T("dialog.autostartFailed", error), "Gaugely", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         });
         Row(general, Loc.T("settings.tray.autostart"), autostart);
 
@@ -130,6 +131,11 @@ public sealed partial class SettingsWindow
         var reserve = Toggle(null, w.ReservarEspaco, v => w.ReservarEspaco = v);
         Row(basics, Loc.T("settings.widget.reserve"), reserve, Loc.T("settings.widget.reserveHint"));
 
+        var reserveMode = Choice(
+            [(nameof(ReservaModo.Sempre), Loc.T("settings.widget.reserveMode.always")), (nameof(ReservaModo.SoNoCanto), Loc.T("settings.widget.reserveMode.corner"))],
+            w.ReservaModo.ToString(), v => w.ReservaModo = Enum.Parse<ReservaModo>(v), width: 240);
+        Row(basics, Loc.T("settings.widget.reserveMode"), reserveMode);
+
         var corner = Choice(
             [
                 ("topLeft", Loc.T("settings.widget.corner.topLeft")),
@@ -153,11 +159,13 @@ public sealed partial class SettingsWindow
             var notch = mode.SelectedIndex == 1;
             edge.Enabled = notch;
             reserve.Enabled = notch;
+            reserveMode.Enabled = notch && reserve.Checked;
             corner.Enabled = !notch;
             orientation.Enabled = !notch;
         }
 
         mode.SelectedIndexChanged += (_, _) => SyncMode();
+        reserve.CheckedChanged += (_, _) => SyncMode();
         SyncMode();
 
         var scale = Number((decimal)WidgetOptions.ScaleMin, (decimal)WidgetOptions.ScaleMax, (decimal)Math.Round(w.Scale, 1),
