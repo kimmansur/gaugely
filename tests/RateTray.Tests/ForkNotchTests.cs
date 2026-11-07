@@ -281,6 +281,13 @@ public class ForkNotchTests
     }
 
     [Fact]
+    public void Normalize_ReservaModoInvalido()
+    {
+        var opt = new WidgetOptions { ReservaModo = (ReservaModo)99 }.Normalize();
+        Assert.Equal(ReservaModo.Sempre, opt.ReservaModo);
+    }
+
+    [Fact]
     public void Normalize_FracaoBordaClamp()
     {
         var opt = new WidgetOptions { FracaoBorda = -0.5 }.Normalize();

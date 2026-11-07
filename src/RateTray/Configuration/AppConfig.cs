@@ -513,6 +513,9 @@ public sealed class WidgetOptions
         // Normaliza enum Borda
         if (!Enum.IsDefined(Borda)) Borda = BordaDefault;
 
+        // Normaliza enum ReservaModo (settings.json editado à mão com inteiro fora da faixa)
+        if (!Enum.IsDefined(ReservaModo)) ReservaModo = ReservaModo.Sempre;
+
         // Migração: Horizontal antigo → Borda
         if (_migradoHorizontal)
         {
