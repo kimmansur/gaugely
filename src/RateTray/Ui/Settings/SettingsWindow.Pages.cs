@@ -18,10 +18,12 @@ public sealed partial class SettingsWindow
         Row(general, Loc.T("settings.tray.rich"), Toggle(null, _draft.RichTooltips, v => _draft.RichTooltips = v),
             Loc.T("settings.tray.richHint"));
 
-        var autostart = Toggle(null, AutoStart.IsEnabled, _ => { });
+        var inicial = AutoStart.IsEnabled;
+        var autostart = Toggle(null, inicial, _ => { });
         _afterSave.Add(() =>
         {
-            if (autostart.Checked == AutoStart.IsEnabled) return;
+            // Só grava se o usuário mexeu: o menu da bandeja pode ter mudado o registro com a janela aberta.
+            if (autostart.Checked == inicial || autostart.Checked == AutoStart.IsEnabled) return;
             if (AutoStart.TrySet(autostart.Checked, out var error)) return;
             autostart.Checked = AutoStart.IsEnabled;
             MessageBox.Show(this, Loc.T("dialog.autostartFailed", error), "Gaugely", MessageBoxButtons.OK, MessageBoxIcon.Warning);

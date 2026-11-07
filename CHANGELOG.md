@@ -17,8 +17,9 @@ uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - Settings → Widget: "Reserve mode" choice next to "Reserve the edge" (enabled only when that
   toggle is on).
-- The "Start with Windows" switch in Settings → Tray now reverts when the registry write fails, and
-  the tray menu checkbox is refreshed each time the menu opens, so both always show the registry.
+- Settings → Tray: saving no longer overwrites a "Start with Windows" change made from the tray menu
+  while Settings was open (it is written only if the switch itself was changed). The tray menu
+  checkbox is refreshed each time the menu opens, so both show the registry.
 
 ## [0.9.4] - 2026-11-02
 
