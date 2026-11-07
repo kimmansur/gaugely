@@ -377,7 +377,7 @@ public class ForkNotchReservaTests
         Assert.Null(estado.AoRegistrar());   // religar depois não manda ao fundo sem aviso novo
     }
 
-    // ---------------------------------------------------------------- canto × meio: registro sempre, espessura zero fora do canto
+    // ---------------------------------------------------------------- canto × meio: registro sempre; espessura zero fora do canto só no modo SoNoCanto
 
     [Theory]
     [InlineData(ReservaModo.SoNoCanto, true, 66, 66)]
@@ -389,20 +389,6 @@ public class ForkNotchReservaTests
     public void EspessuraReserva_DependeDoModoEDoCanto(ReservaModo modo, bool noCanto, int espessuraFaixa, int esperado)
     {
         Assert.Equal(esperado, AppBarMath.EspessuraReserva(modo, noCanto, espessuraFaixa));
-    }
-
-    [Theory]
-    [InlineData(BordaTela.Direita, 0.5)]
-    [InlineData(BordaTela.Esquerda, 0.3)]
-    [InlineData(BordaTela.Topo, 0.5)]
-    [InlineData(BordaTela.Base, 0.9999)]
-    public void Sempre_NoMeioDaBordaReservaAEspessuraDaFaixa(BordaTela borda, double fracao)
-    {
-        var faixa = Faixa(borda, fracao, Principal);
-        var espessura = AppBarMath.Thickness(faixa, borda);
-        Assert.True(espessura > 0);
-        Assert.Equal(espessura, AppBarMath.EspessuraReserva(ReservaModo.Sempre, AppBarMath.NoCanto(fracao), espessura));
-        Assert.Equal(0, AppBarMath.EspessuraReserva(ReservaModo.SoNoCanto, AppBarMath.NoCanto(fracao), espessura));
     }
 
     [Theory]
@@ -539,15 +525,21 @@ public class ForkNotchReservaTests
     }
 
     [Theory]
-    [InlineData(BordaTela.Topo)]
-    [InlineData(BordaTela.Base)]
-    [InlineData(BordaTela.Esquerda)]
-    [InlineData(BordaTela.Direita)]
-    public void CantoMeio_TransicoesNaoOscilam(BordaTela borda)
+    [InlineData(BordaTela.Topo, ReservaModo.SoNoCanto)]
+    [InlineData(BordaTela.Base, ReservaModo.SoNoCanto)]
+    [InlineData(BordaTela.Esquerda, ReservaModo.SoNoCanto)]
+    [InlineData(BordaTela.Direita, ReservaModo.SoNoCanto)]
+    [InlineData(BordaTela.Topo, ReservaModo.Sempre)]
+    [InlineData(BordaTela.Base, ReservaModo.Sempre)]
+    [InlineData(BordaTela.Esquerda, ReservaModo.Sempre)]
+    [InlineData(BordaTela.Direita, ReservaModo.Sempre)]
+    public void CantoMeio_TransicoesNaoOscilam(BordaTela borda, ReservaModo modo)
     {
         // Shell simulado: a área útil desconta o que foi concedido. A faixa anda pela borda inteira e
-        // volta; em cada posição o relayout é repetido até parar. Cada troca canto ↔ meio custa um
-        // único SETPOS (espessura normal ↔ zero) e o relayout seguinte já não pede nada novo.
+        // volta; em cada posição o relayout é repetido até parar. No modo SoNoCanto, cada troca
+        // canto ↔ meio custa um único SETPOS (espessura normal ↔ zero) e o relayout seguinte já não
+        // pede nada novo. No modo Sempre a espessura não depende da posição: o passeio inteiro custa
+        // um só SETPOS, o primeiro.
         var semReserva = Rectangle.FromLTRB(0, 0, 1920, 1032);
         var guarda = new SetPosGuarda();
         Rectangle? concedido = null;
@@ -563,7 +555,7 @@ public class ForkNotchReservaTests
             var noCanto = AppBarMath.NoCanto(fracao);
             if (anterior is { } a && a != noCanto) trocas++;
             anterior = noCanto;
-            var esp = AppBarMath.EspessuraReserva(ReservaModo.SoNoCanto, noCanto, AppBarMath.Thickness(faixa, borda));
+            var esp = AppBarMath.EspessuraReserva(modo, noCanto, AppBarMath.Thickness(faixa, borda));
             var proposto = AppBarMath.Request(Principal, borda, esp);
             if (borda == BordaTela.Base) proposto.Offset(0, semReserva.Bottom - proposto.Bottom);   // QUERYPOS: acima da barra de tarefas
             var ajustado = AppBarMath.Fit(proposto, borda, esp);
@@ -584,7 +576,7 @@ public class ForkNotchReservaTests
             Assert.True(trocas - antes <= 1, $"{borda} fração {fracao}: {trocas - antes} trocas num só ponto");
         }
         Assert.True(trocas >= 2, $"{borda}: o passeio tem de passar por canto e meio");
-        Assert.Equal(trocas + 1, envios);   // o primeiro pedido + um por troca
+        Assert.Equal(modo == ReservaModo.Sempre ? 1 : trocas + 1, envios);   // Sempre: só o primeiro; SoNoCanto: o primeiro + um por troca
     }
 
     [Theory]
