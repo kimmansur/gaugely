@@ -101,6 +101,7 @@ public sealed class TrayApp : ApplicationContext
         ApplyPollSpacing();
 
         BuildMenu();
+        _menu.Opening += (_, _) => { if (_autostartItem is { } item) item.Checked = AutoStart.IsEnabled; };
         _menu.Opened += (_, _) => HideTooltip();
         ShowCachedReadings();
         if (_config.Widget.Enabled) SetWidget(true);   // Fork: a faixa volta como o usuário deixou
@@ -706,6 +707,9 @@ public sealed class TrayApp : ApplicationContext
 
     // ------------------------------------------------------------------- menu
 
+    // O registro é a fonte da verdade do início com o Windows; a Configuração também o muda.
+    private ToolStripMenuItem? _autostartItem;
+
     private void BuildMenu()
     {
         _menu.Items.Clear();
@@ -875,7 +879,7 @@ public sealed class TrayApp : ApplicationContext
 
         _menu.Items.Add(new ToolStripSeparator());
 
-        var autostart = new ToolStripMenuItem(Loc.T("menu.autostart")) { Checked = AutoStart.IsEnabled, CheckOnClick = true };
+        var autostart = _autostartItem = new ToolStripMenuItem(Loc.T("menu.autostart")) { Checked = AutoStart.IsEnabled, CheckOnClick = true };
         autostart.Click += (_, _) =>
         {
             if (AutoStart.TrySet(autostart.Checked, out var error)) return;
